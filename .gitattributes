@@ -1,0 +1,10 @@
+* text=auto
+*.pdf binary
+*.jpeg binary
+*.jpg binary
+*.png binary
+*.webp binary
+*.bin binary
+mvnw text eol=lf
+*.sh text eol=lf
+*.cmd text eol=crlf

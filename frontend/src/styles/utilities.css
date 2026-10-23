@@ -1,0 +1,85 @@
+/*
+ * Utilitários próprios (Tailwind v4 `@utility`). Use-os como classes normais:
+ *   glass, glass-strong, text-gradient, bg-brand-gradient, ring-gradient,
+ *   grid-bg, noise, skeleton, container-app, hairline.
+ */
+
+/* Superfície de vidro (blur + borda sutil). Padrão para cards flutuantes. */
+@utility glass {
+  background: linear-gradient(180deg, rgb(16 41 28 / 0.55), rgb(7 23 15 / 0.55));
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-card);
+}
+
+@utility glass-strong {
+  background: linear-gradient(180deg, rgb(16 41 28 / 0.82), rgb(5 18 11 / 0.88));
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--color-line-strong);
+  box-shadow: var(--shadow-pop);
+}
+
+/* Texto com o gradiente da marca */
+@utility text-gradient {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-brand-gradient {
+  background-image: var(--gradient-brand);
+}
+
+/* Borda em gradiente (use em elemento com rounded-*) */
+@utility ring-gradient {
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgb(52 211 153 / 0.6), rgb(190 242 100 / 0.15) 40%, rgb(52 211 153 / 0.05) 70%, rgb(190 242 100 / 0.5));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+/* Grade técnica sutil para fundos */
+@utility grid-bg {
+  background-image:
+    linear-gradient(rgb(190 242 100 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(190 242 100 / 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+}
+
+@utility skeleton {
+  background: linear-gradient(90deg, rgb(143 168 154 / 0.08) 0%, rgb(143 168 154 / 0.16) 50%, rgb(143 168 154 / 0.08) 100%);
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+  border-radius: var(--radius-md);
+}
+
+@utility container-app {
+  width: 100%;
+  max-width: 1240px;
+  margin-inline: auto;
+  padding-inline: 16px;
+  @media (width >= 40rem) { padding-inline: 24px; }
+  @media (width >= 64rem) { padding-inline: 32px; }
+}
+
+@utility hairline {
+  background: linear-gradient(90deg, transparent, rgb(190 242 100 / 0.18), transparent);
+  height: 1px;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}

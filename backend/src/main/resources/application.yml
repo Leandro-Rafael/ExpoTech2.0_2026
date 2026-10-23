@@ -1,0 +1,102 @@
+# Configuração da API Lixo Zero 2050. Valores sensíveis vêm de variáveis de ambiente
+# (ou do arquivo local backend/.env, nunca versionado). Veja .env.example.
+spring:
+  application:
+    name: lixozero-api
+  config:
+    # Carrega o .env local como arquivo de propriedades (variáveis de ambiente reais têm prioridade)
+    import: "optional:file:./.env[.properties],optional:file:./backend/.env[.properties]"
+  datasource:
+    # Quando DB_URL está vazio, EmbeddedPostgresConfig cria um PostgreSQL embarcado.
+    url: ${DB_URL:}
+    username: ${DB_USER:}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 10000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none # o esquema é controlado pelo Flyway
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 100
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        default_batch_fetch_size: 64
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  threads:
+    virtual:
+      enabled: true
+  main:
+    banner-mode: off
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: ${APP_FORWARD_HEADERS:none}
+  error:
+    include-stacktrace: never
+    include-message: never
+    whitelabel:
+      enabled: false
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json,text/csv,text/html,text/css,application/javascript
+  tomcat:
+    max-swallow-size: 6MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+  level:
+    org.hibernate.orm.deprecation: error
+    io.zonky.test.db.postgres: warn
+
+app:
+  data-dir: ${APP_DATA_DIR:./data}
+  zone: America/Sao_Paulo
+  jwt:
+    secret: ${APP_JWT_SECRET:}
+    access-ttl: 15m
+    refresh-ttl: 7d
+    refresh-grace: ${APP_REFRESH_GRACE_SECONDS:0}s
+  cookies:
+    secure: ${APP_COOKIE_SECURE:auto}
+  cors-origins: ${APP_CORS_ORIGINS:}
+  embedded-db:
+    port: ${APP_EMBEDDED_DB_PORT:54329}
+    clean: false
+  demo-seed: ${APP_DEMO_SEED:true}
+  auto-approve: ${APP_AUTO_APPROVE:false}
+  fraud-threshold: ${APP_FRAUD_THRESHOLD:50}
+  iot:
+    simulator: ${APP_IOT_SIMULATOR:true}
+    simulator-interval: ${APP_IOT_SIMULATOR_INTERVAL:90s}
+    offline-hours: ${APP_IOT_OFFLINE_HOURS:6}
+  ai:
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${ANTHROPIC_MODEL:claude-haiku-5-5}
+    base-url: https://api.anthropic.com
+    api-version: 2023-06-01
+    timeout: 10s

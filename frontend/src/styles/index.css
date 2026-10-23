@@ -1,0 +1,167 @@
+/*
+ * Design system — Lixo Zero 2050 / EcoTech Zero
+ * Tema escuro premium derivado da paleta do logo (esmeralda → lima).
+ * Tokens definidos via Tailwind v4 `@theme`: viram utilitários (bg-surface,
+ * text-muted, rounded-xl, font-display, shadow-glow...) e variáveis CSS.
+ */
+@import 'tailwindcss';
+@import './utilities.css';
+
+@theme {
+  /* Tipografia */
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Space Grotesk Variable', 'Space Grotesk', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+
+  /* Fundo e superfícies */
+  --color-bg: #030a07;
+  --color-bg-deep: #04140d;
+  --color-surface: #07170f;
+  --color-surface-2: #0b1f15;
+  --color-surface-3: #10291c;
+  --color-elevated: #0d2318;
+  --color-line: rgb(190 242 100 / 0.08);
+  --color-line-strong: rgb(190 242 100 / 0.16);
+
+  /* Texto */
+  --color-fg: #f4f7f5;
+  --color-fg-soft: #cfdcd4;
+  --color-muted: #8fa89a;
+  --color-subtle: #5f7a6b;
+
+  /* Marca */
+  --color-brand-700: #047857;
+  --color-brand-600: #059669;
+  --color-brand-500: #10b981;
+  --color-brand-400: #22c55e;
+  --color-brand-300: #34d399;
+  --color-lime-300: #bef264;
+  --color-lime-200: #d9f99d;
+
+  /* Semânticas */
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #38bdf8;
+
+  /* Raios */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+  --radius-3xl: 32px;
+
+  /* Sombras / brilhos */
+  --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 10px 30px -12px rgb(0 0 0 / 0.6);
+  --shadow-pop: 0 1px 0 0 rgb(255 255 255 / 0.06) inset, 0 24px 60px -16px rgb(0 0 0 / 0.75);
+  --shadow-glow: 0 0 0 1px rgb(52 211 153 / 0.25), 0 8px 32px -6px rgb(16 185 129 / 0.45);
+  --shadow-glow-lg: 0 0 0 1px rgb(190 242 100 / 0.25), 0 20px 80px -10px rgb(34 197 94 / 0.5);
+
+  /* Easing */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Animações utilitárias */
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-pulse-ring: pulse-ring 2.2s var(--ease-out-expo) infinite;
+  --animate-spin-slow: spin 18s linear infinite;
+  --animate-fade-up: fade-up 0.6s var(--ease-out-expo) both;
+
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgb(52 211 153 / 0.45); }
+    100% { box-shadow: 0 0 0 14px rgb(52 211 153 / 0); }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --header-h: 64px;
+    --sidebar-w: 264px;
+    --sidebar-w-collapsed: 76px;
+    --gradient-brand: linear-gradient(135deg, #059669 0%, #22c55e 55%, #bef264 100%);
+    --gradient-text: linear-gradient(90deg, #34d399 0%, #bef264 100%);
+  }
+
+  html {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    min-height: 100dvh;
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgb(16 185 129 / 0.08), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgb(190 242 100 / 0.05), transparent 60%),
+      var(--color-bg);
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  p { text-wrap: pretty; }
+
+  ::selection { background: rgb(190 242 100 / 0.28); color: #fff; }
+
+  /* Anel de foco global e consistente (somente navegação por teclado) */
+  :focus-visible {
+    outline: 2px solid var(--color-lime-300);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  :focus:not(:focus-visible) { outline: none; }
+
+  /* Scrollbar discreta */
+  * { scrollbar-width: thin; scrollbar-color: rgb(143 168 154 / 0.25) transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb { background: rgb(143 168 154 / 0.22); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+
+  /* Remove setas de input number (usamos NumberInput próprio) */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+
+  /* Lenis */
+  html.lenis, html.lenis body { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto !important; }
+  .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+  .lenis.lenis-stopped { overflow: hidden; }
+
+  /* Leaflet: tema escuro */
+  .leaflet-container { background: var(--color-bg-deep); font-family: var(--font-sans); }
+
+  /* Movimento reduzido: desliga animações pesadas */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

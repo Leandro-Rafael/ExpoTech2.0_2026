@@ -1,0 +1,19 @@
+# Dependências e builds
+node_modules/
+dist/
+target/
+.vite/
+
+# Dados locais do banco embutido e segredos
+backend/data/
+.env
+.env.*
+!.env.example
+
+# IDE / SO
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*.log

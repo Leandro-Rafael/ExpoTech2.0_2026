@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 96" fill="none" role="img" aria-label="EcoTech Zero — Tecnologia para um mundo sem desperdício">
+  <defs>
+    <linearGradient id="ezf-ring" x1="8" y1="56" x2="56" y2="8" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#059669"/>
+      <stop offset=".55" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#bef264"/>
+    </linearGradient>
+    <linearGradient id="ezf-leaf" x1="20" y1="46" x2="46" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#d9f99d"/>
+    </linearGradient>
+    <linearGradient id="ezf-text" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#bef264"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(8 16)">
+    <path d="M48.7 12.1A26 26 0 1 1 27.5 6.4" stroke="url(#ezf-ring)" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M33.9 5.3 26.6 1.9l1 8.6z" fill="#bef264"/>
+    <g transform="matrix(1.12 0 0 1.12 -3.84 -3.84)"><path d="M19 45C19 29.5 29 19 46 18.5 46 35 35.5 45 19 45Z" fill="url(#ezf-leaf)"/>
+    <g stroke="#04140d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21.5 42.5 39 25"/><path d="M28 36h7.5"/><path d="M33 31v-6"/>
+    </g>
+    <circle cx="37.2" cy="36" r="2" fill="#04140d"/>
+    <circle cx="33" cy="23.2" r="2" fill="#04140d"/>
+    <circle cx="40.6" cy="23.4" r="2" fill="#04140d"/></g>
+  </g>
+  <g font-family="'Space Grotesk','Segoe UI',system-ui,sans-serif">
+    <text x="88" y="52" font-size="38" font-weight="700" letter-spacing="-1">
+      <tspan fill="url(#ezf-text)">Eco</tspan><tspan fill="#f4f7f5">Tech</tspan>
+    </text>
+    <rect x="90" y="62" width="22" height="2" rx="1" fill="#22c55e"/>
+    <text x="120" y="68" font-size="13" font-weight="600" letter-spacing="9" fill="#f4f7f5">ZERO</text>
+    <text x="90" y="86" font-size="8.2" font-weight="500" letter-spacing="2" fill="#8fa89a">TECNOLOGIA PARA UM MUNDO SEM DESPERDÍCIO</text>
+  </g>
+</svg>

@@ -1,0 +1,95 @@
+Lixo Zero 2050
+
+Sistema inteligente de gerenciamento de resíduos.
+
+Usuário registra descarte.
+
+Sistema identifica categoria do resíduo.
+Rotas de coleta inteligentes.
+
+Pontuação/recompensas para reciclagem.
+
+♻️ LIXO ZERO 2050 — FUNCIONALIDADES DO SISTEMA
+
+O objetivo é desenvolver uma plataforma inteligente de gerenciamento de resíduos, incentivando a reciclagem, facilitando o descarte correto e ajudando a otimizar as coletas.
+
+1. Cadastro e login
+
+- Cadastro de usuários e autenticação.
+- Perfis de usuário comum e administrador.
+- Permissões diferentes para cada perfil.
+
+2. Registro inteligente de resíduos
+
+- Categorias: plástico, papel, vidro, metal, orgânicos, eletrônicos e rejeitos.
+- Registro da quantidade, foto, data e localização.
+- Identificação da categoria do resíduo.
+- Orientações sobre o descarte correto.
+- Histórico de descartes com status: pendente, aprovado ou recusado.
+
+3. Pontuação e recompensas
+
+- Ganhar pontos por descartes aprovados.
+- Sistema de níveis, medalhas e desafios.
+- Ranking de usuários.
+- Histórico de pontos conquistados e utilizados.
+- Catálogo de recompensas.
+
+4. Mapa inteligente de coleta
+
+- Mapa com ecopontos e locais de coleta seletiva.
+- Filtros por distância e tipo de material aceito.
+- Solicitação de coleta.
+- Sugestão de rotas otimizadas para os coletores.
+- Acompanhamento do status das coletas.
+
+5. Dashboard de impacto ambiental
+
+- Quantidade total de resíduos registrados.
+- Gráficos por categoria e período.
+- Indicadores de materiais encaminhados para reciclagem.
+- Metas de reciclagem e evolução dos resultados.
+- Relatórios ambientais.
+- Simulador de cenários para mostrar como o aumento da reciclagem pode melhorar os resultados.
+
+6. Painel administrativo
+
+- Gerenciamento de usuários.
+- Cadastro e gerenciamento de pontos de coleta.
+- Aprovação ou recusa dos descartes.
+- Gerenciamento de coletas e rotas.
+- Visualização de gráficos e relatórios.
+- Controle de categorias e recompensas.
+
+7. Diferenciais do projeto
+
+- Identificação de resíduos por foto usando IA, com possibilidade de corrigir a categoria sugerida.
+- Validação antifraude para evitar registros duplicados e acúmulo indevido de pontos.
+- Ranking por usuário, turma, empresa ou bairro.
+- Sistema de desafios para incentivar a reciclagem.
+- Indicadores de impacto ambiental.
+- Interface responsiva para celular e computador.
+
+8. Banco de dados
+Estruturar tabelas para usuários, resíduos, descartes, pontos de coleta, coletas, rotas, transações de pontos e recompensas, com seus respectivos relacionamentos.
+
+9. Regras de negócio
+
+- Apenas descartes aprovados geram pontos.
+- Cada descarte pode gerar pontos somente uma vez.
+- Todos os dados devem ser validados.
+- As informações devem permanecer salvas no banco de dados.
+- As senhas devem ser armazenadas com hash seguro.
+- Os indicadores devem ser calculados a partir dos dados registrados.
+
+10. Prioridades de desenvolvimento
+
+Primeiro, desenvolver login, cadastro, registro de resíduos, aprovação dos descartes, pontuação, banco de dados e dashboard.
+
+Depois, implementar mapa, pontos de coleta, rotas, ranking e recompensas.
+
+Por último, adicionar identificação por IA e recursos avançados, conforme o tempo disponível.
+
+Objetivo final: criar um sistema funcional, moderno e inteligente, que não apenas registre resíduos, mas também incentive a reciclagem, ajude a organizar as coletas e apresente resultados mensuráveis.
+
+A ideia é ter uma interface bonita e profissional, mas com funcionalidades reais funcionando no back-end e integradas ao banco de dados.

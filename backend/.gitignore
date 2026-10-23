@@ -1,0 +1,17 @@
+# Build
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Dados locais (PostgreSQL embarcado, chave JWT gerada)
+data/
+
+# Segredos locais
+.env
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/

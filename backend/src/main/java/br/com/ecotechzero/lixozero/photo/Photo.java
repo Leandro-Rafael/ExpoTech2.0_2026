@@ -1,0 +1,95 @@
+package br.com.ecotechzero.lixozero.photo;
+
+import br.com.ecotechzero.lixozero.ai.AiSource;
+import br.com.ecotechzero.lixozero.category.CategoryCode;
+import br.com.ecotechzero.lixozero.common.BaseEntity;
+import br.com.ecotechzero.lixozero.user.User;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+/**
+ * Foto de um descarte. Os bytes (JPEG já sanitizado) ficam no próprio banco (bytea),
+ * o que funciona em qualquer PostgreSQL gerenciado (Supabase) sem storage externo.
+ */
+@Entity
+@Table(name = "photos")
+public class Photo extends BaseEntity {
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "owner_id", nullable = false)
+    private User owner;
+
+    @Column(name = "content_type", nullable = false, length = 30)
+    private String contentType;
+
+    @Column(name = "data", nullable = false)
+    private byte[] data;
+
+    @Column(nullable = false)
+    private int width;
+
+    @Column(nullable = false)
+    private int height;
+
+    @Column(name = "size_bytes", nullable = false)
+    private int sizeBytes;
+
+    @Column(nullable = false)
+    private long dhash;
+
+    @Column(nullable = false, length = 64)
+    private String sha256;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ai_code", length = 20)
+    private CategoryCode aiCode;
+
+    @Column(name = "ai_confidence")
+    private Double aiConfidence;
+
+    @Column(name = "ai_reasoning", length = 500)
+    private String aiReasoning;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ai_source", length = 10)
+    private AiSource aiSource;
+
+    protected Photo() {
+    }
+
+    public Photo(User owner, byte[] jpeg, int width, int height, long dhash, String sha256) {
+        this.owner = owner;
+        this.contentType = "image/jpeg";
+        this.data = jpeg;
+        this.width = width;
+        this.height = height;
+        this.sizeBytes = jpeg.length;
+        this.dhash = dhash;
+        this.sha256 = sha256;
+    }
+
+    public void setAi(CategoryCode code, Double confidence, String reasoning, AiSource source) {
+        this.aiCode = code;
+        this.aiConfidence = confidence;
+        this.aiReasoning = reasoning;
+        this.aiSource = source;
+    }
+
+    public User getOwner() { return owner; }
+    public String getContentType() { return contentType; }
+    public byte[] getData() { return data; }
+    public int getWidth() { return width; }
+    public int getHeight() { return height; }
+    public long getDhash() { return dhash; }
+    public String getSha256() { return sha256; }
+    public CategoryCode getAiCode() { return aiCode; }
+    public Double getAiConfidence() { return aiConfidence; }
+    public String getAiReasoning() { return aiReasoning; }
+    public AiSource getAiSource() { return aiSource; }
+}

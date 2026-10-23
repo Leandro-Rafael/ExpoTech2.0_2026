@@ -1,0 +1,143 @@
+package br.com.ecotechzero.lixozero.security;
+
+import br.com.ecotechzero.lixozero.common.ErrorCode;
+import br.com.ecotechzero.lixozero.config.AppProperties;
+import br.com.ecotechzero.lixozero.user.UserRepository;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
+
+/**
+ * Configuração central de segurança (Spring Security 7).
+ * <ul>
+ *   <li><b>Sem sessão no servidor</b> (stateless): a identidade vem do JWT no cookie HttpOnly {@code ez_access}.</li>
+ *   <li><b>CSRF</b> (padrão "double submit cookie"): o cookie legível {@code XSRF-TOKEN} precisa ser ecoado
+ *       no header {@code X-XSRF-TOKEN} em toda requisição que altera dados. Um site malicioso não consegue
+ *       ler o cookie, então não consegue forjar o header. O endpoint IoT é isento (autentica por chave do dispositivo).</li>
+ *   <li><b>Autorização por perfil</b>: /api/admin/** só ADMIN; /api/collector/** COLLECTOR ou ADMIN.
+ *       A verificação de dono do recurso (anti-IDOR) é feita nos serviços.</li>
+ *   <li><b>Cabeçalhos</b>: CSP restritiva, HSTS (em HTTPS), anti-clickjacking, nosniff, Referrer e Permissions-Policy.</li>
+ *   <li><b>Senhas</b>: Argon2id (vencedor da Password Hashing Competition), parâmetros recomendados pela OWASP.</li>
+ * </ul>
+ */
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    static final String CONTENT_SECURITY_POLICY = String.join("; ",
+            "default-src 'self'",
+            "script-src 'self' 'wasm-unsafe-eval'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org",
+            "connect-src 'self'",
+            "font-src 'self'",
+            "worker-src 'self' blob:",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'");
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, UserRepository users,
+                                                   ProblemResponseWriter problems, AppProperties props) throws Exception {
+        CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/"));
+
+        http
+                .csrf(csrf -> csrf.spa()
+                        .csrfTokenRepository(csrfRepository)
+                        .ignoringRequestMatchers("/api/iot/readings"))
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .logout(AbstractHttpConfigurer::disable)
+                .requestCache(AbstractHttpConfigurer::disable)
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((req, res, ex) ->
+                                problems.write(res, ErrorCode.UNAUTHORIZED, 401, "Faça login para continuar.", null))
+                        .accessDeniedHandler((req, res, ex) -> problems.write(res, ErrorCode.FORBIDDEN, 403,
+                                ex instanceof CsrfException
+                                        ? "Token CSRF ausente ou inválido. Recarregue a página e tente novamente."
+                                        : "Você não tem permissão para acessar este recurso.", null)))
+                .headers(h -> h
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+                        .frameOptions(f -> f.deny())
+                        .referrerPolicy(r -> r.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(Duration.ofDays(365).toSeconds()))
+                        .permissionsPolicyHeader(p -> p.policy("camera=(self), geolocation=(self), microphone=(), payment=(), usb=()"))
+                        .addHeaderWriter(new StaticHeadersWriter("Cross-Origin-Opener-Policy", "same-origin")))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                        .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/iot/readings").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/categories", "/api/collection-points").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/collector/**").hasAnyRole("COLLECTOR", "ADMIN")
+                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/**").denyAll()
+                        .anyRequest().permitAll())
+                .addFilterBefore(new JwtAuthenticationFilter(jwtService, users), UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
+
+        List<String> origins = props.corsOriginList();
+        if (origins.isEmpty()) {
+            // Mesma origem (proxy do Vite ou SPA servido pelo próprio back-end): CORS desligado.
+            http.cors(AbstractHttpConfigurer::disable);
+        } else {
+            CorsConfiguration cors = new CorsConfiguration();
+            cors.setAllowedOrigins(origins);
+            cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
+            cors.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN", "Idempotency-Key"));
+            cors.setAllowCredentials(true);
+            cors.setMaxAge(Duration.ofHours(1));
+            UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+            source.registerCorsConfiguration("/api/**", cors);
+            http.cors(c -> c.configurationSource(source));
+        }
+        return http.build();
+    }
+
+    /** Argon2id: salt 16 bytes, hash 32 bytes, paralelismo 1, memória 19 MiB, 2 iterações (OWASP). */
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new Argon2PasswordEncoder(16, 32, 1, 19_456, 2);
+    }
+
+    /** Garante que o cookie XSRF-TOKEN seja emitido (o token do Spring é carregado de forma preguiçosa). */
+    static final class CsrfCookieFilter extends OncePerRequestFilter {
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+                throws ServletException, IOException {
+            CsrfToken token = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+            if (token != null) {
+                token.getToken();
+            }
+            chain.doFilter(request, response);
+        }
+    }
+}

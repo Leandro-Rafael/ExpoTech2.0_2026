@@ -108,7 +108,7 @@ export default function LoginPage() {
           <h2 id="demo-title" className="text-sm font-semibold text-lime-200">Contas de demonstração</h2>
           <span className="ml-auto text-[11px] text-muted">Clique para preencher</span>
         </div>
-        <ul className="grid gap-2">
+        <ul className="grid grid-cols-1 gap-2">
           {DEMO.map((d) => (
             <li key={d.email}>
               <button

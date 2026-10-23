@@ -86,12 +86,12 @@ void main() {
   float d = length(c);
   if (d > 0.5) discard;
   float a = smoothstep(0.5, 0.0, d);
-  a *= a;
+  a = pow(a, 1.6);
   // gradiente esmeralda → verde → lima ao longo do anel (como no logo)
   float g = vGrad;
   vec3 col = g < 0.55 ? mix(uC1, uC2, g / 0.55) : mix(uC2, uC3, (g - 0.55) / 0.45);
   col = mix(col, vec3(0.93, 1.0, 0.8), vHead * 0.55);
-  gl_FragColor = vec4(col, a * vAlpha * uOpacity * (0.75 + vHead));
+  gl_FragColor = vec4(col, min(1.0, a * vAlpha * uOpacity * (0.95 + vHead * 1.2)));
 }
 `;
 
@@ -120,7 +120,7 @@ void main() {
   vec3 nrm = normalize(normalMatrix * position);
   vFacing = clamp(dot(nrm, vec3(0.0, 0.0, 1.0)) * 0.5 + 0.5, 0.0, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = (1.6 + vLand * 2.2) * uPixelRatio * (9.0 / -mv.z);
+  gl_PointSize = (2.2 + vLand * 3.2) * uPixelRatio * (9.0 / -mv.z);
 }
 `;
 
@@ -132,10 +132,10 @@ void main() {
   float d = length(gl_PointCoord - 0.5);
   if (d > 0.5) discard;
   float a = smoothstep(0.5, 0.1, d);
-  vec3 sea = vec3(0.02, 0.45, 0.32);
-  vec3 land = vec3(0.55, 0.92, 0.45);
+  vec3 sea = vec3(0.05, 0.62, 0.45);
+  vec3 land = vec3(0.72, 0.98, 0.45);
   vec3 col = mix(sea, land, vLand);
-  gl_FragColor = vec4(col, a * uOpacity * mix(0.16, 0.85, vLand) * (0.25 + vFacing * 0.95));
+  gl_FragColor = vec4(col, a * uOpacity * mix(0.28, 1.0, vLand) * (0.3 + vFacing * 1.0));
 }
 `;
 
@@ -182,7 +182,8 @@ export default function HeroScene({ onReady, onFail }: Props) {
     let renderer: WebGLRenderer;
     try {
       renderer = new WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance', stencil: false, depth: false });
-    } catch {
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('[HeroScene] WebGL indisponível, usando fundo estático.', err);
       cb.current.onFail?.();
       return;
     }
@@ -195,7 +196,7 @@ export default function HeroScene({ onReady, onFail }: Props) {
     canvas.style.display = 'block';
     host.appendChild(canvas);
 
-    const onLost = (e: Event) => { e.preventDefault(); cb.current.onFail?.(); };
+    const onLost = (e: Event) => { e.preventDefault(); if (import.meta.env.DEV) console.warn('[HeroScene] contexto WebGL perdido'); cb.current.onFail?.(); };
     canvas.addEventListener('webglcontextlost', onLost);
 
     const scene = new Scene();
@@ -243,7 +244,7 @@ export default function HeroScene({ onReady, onFail }: Props) {
       blending: AdditiveBlending,
       uniforms: {
         uTime: { value: 0 }, uProgress: { value: 0 }, uScroll: { value: 0 }, uPixelRatio: { value: dpr },
-        uSize: { value: isSmall ? 2.6 : 2.3 }, uOpacity: { value: 1 },
+        uSize: { value: isSmall ? 2.8 : 3.1 }, uOpacity: { value: 1 },
         uC1: { value: new Color('#059669') }, uC2: { value: new Color('#22c55e') }, uC3: { value: new Color('#bef264') },
       },
     });
@@ -311,7 +312,7 @@ export default function HeroScene({ onReady, onFail }: Props) {
       const aspect = w / h;
       if (aspect > 1.25) layout = { x: Math.min(3.1, 1.2 + (aspect - 1.25) * 2.4), y: -0.1, scale: 1 };
       else if (aspect > 0.85) layout = { x: 0.9, y: 0.2, scale: 0.9 };
-      else layout = { x: 0, y: 1.55, scale: 0.68 };
+      else layout = { x: 0, y: 1.75, scale: 0.52 };
     };
     resize();
     const ro = new ResizeObserver(resize);

@@ -27,6 +27,7 @@ public class TokenBucketRateLimiter {
         DISPOSAL_USER(30, Duration.ofMinutes(10)),
         REDEEM_USER(10, Duration.ofMinutes(10)),
         COLLECTION_REQUEST_USER(10, Duration.ofHours(1)),
+        HOUSEHOLD_JOIN_USER(10, Duration.ofMinutes(10)),
         IOT_DEVICE(12, Duration.ofMinutes(1)),
         SIMULATION_IP(60, Duration.ofMinutes(1));
 

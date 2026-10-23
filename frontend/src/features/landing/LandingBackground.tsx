@@ -14,10 +14,16 @@ function hasWebGL(): boolean {
 }
 
 /** Fundo estático (primeira pintura, movimento reduzido e fallback sem WebGL). */
+/** Brilho ambiente (sempre visível, também sob a cena 3D). */
+function AmbientGlow() {
+  return (
+    <div aria-hidden className="absolute inset-0 bg-[radial-gradient(45%_55%_at_74%_48%,rgb(16_185_129/0.16),transparent_70%),radial-gradient(50%_40%_at_10%_90%,rgb(190_242_100/0.07),transparent_60%),radial-gradient(60%_45%_at_50%_-10%,rgb(5_150_105/0.16),transparent_60%)] max-sm:bg-[radial-gradient(80%_40%_at_50%_22%,rgb(16_185_129/0.2),transparent_70%)]" />
+  );
+}
+
 export function StaticBackdrop({ className }: { className?: string }) {
   return (
     <div aria-hidden className={cn('absolute inset-0 overflow-hidden', className)}>
-      <div className="absolute inset-0 bg-[radial-gradient(70%_60%_at_72%_42%,rgb(16_185_129/0.20),transparent_62%),radial-gradient(50%_40%_at_15%_85%,rgb(190_242_100/0.08),transparent_60%),radial-gradient(60%_50%_at_50%_-10%,rgb(5_150_105/0.18),transparent_60%)]" />
       <svg className="absolute top-[8%] left-1/2 h-[64vmin] w-[64vmin] -translate-x-1/2 opacity-70 sm:top-1/2 sm:left-[70%] sm:h-[78vmin] sm:w-[78vmin] sm:-translate-y-1/2" viewBox="0 0 200 200" fill="none">
         <defs>
           <linearGradient id="sb-ring" x1="20" y1="180" x2="180" y2="20" gradientUnits="userSpaceOnUse">
@@ -58,7 +64,8 @@ export function LandingBackground() {
 
   const showScene = mount && !failed && !reduced;
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-bg">
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-0 bg-bg">
+      <AmbientGlow />
       <StaticBackdrop className={cn('transition-opacity duration-[1500ms]', ready && showScene ? 'opacity-0' : 'opacity-100')} />
       {showScene && (
         <div className={cn('absolute inset-0 transition-opacity duration-[1500ms]', ready ? 'opacity-100' : 'opacity-0')}>

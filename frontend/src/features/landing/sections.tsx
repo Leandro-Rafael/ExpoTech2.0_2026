@@ -58,7 +58,7 @@ export function LandingNav({ scrolled, scrollTo }: { scrolled: boolean; scrollTo
             <ButtonLink to="/app" size="md" rightIcon={ArrowRight}>Abrir painel</ButtonLink>
           ) : (
             <>
-              <Link to="/entrar" className={buttonClasses({ variant: 'ghost', size: 'md', className: 'hidden sm:inline-flex' })}>Entrar</Link>
+              <Link to="/entrar" className={buttonClasses({ variant: 'ghost', size: 'md', className: 'max-sm:hidden' })}>Entrar</Link>
               <ButtonLink to="/cadastro" size="md">Criar conta</ButtonLink>
             </>
           )}
@@ -175,7 +175,7 @@ export function HowItWorks({ active }: { active: number }) {
                   <s.icon className="size-5" aria-hidden />
                 </span>
                 <div className="pt-1">
-                  <p className="text-xs font-semibold tracking-[0.16em] text-subtle tabular">{s.kicker}</p>
+                  <p className="text-xs font-semibold tracking-[0.08em] text-subtle tabular">{s.kicker}</p>
                   <h3 className="font-display text-2xl font-semibold">{s.title}</h3>
                   <p className={cn('mt-1 max-w-md text-[15px] leading-relaxed text-muted transition-all duration-500', i === active ? 'max-h-32 opacity-100' : 'max-h-0 overflow-hidden opacity-0')}>{s.text}</p>
                 </div>
@@ -201,7 +201,7 @@ export function HowItWorks({ active }: { active: number }) {
               <div className="flex items-start gap-4">
                 <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-2xl border border-brand-300/40 bg-brand-500/15 text-brand-300"><s.icon className="size-5" aria-hidden /></span>
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-subtle">{s.kicker}</p>
+                  <p className="text-xs font-semibold tracking-[0.08em] text-subtle">{s.kicker}</p>
                   <h3 className="font-display text-xl font-semibold">{s.title}</h3>
                   <p className="mt-1 text-[15px] text-muted">{s.text}</p>
                 </div>
@@ -226,7 +226,7 @@ const BINS = [
 export function SmartHome() {
   const [ref, inView] = useInView<HTMLDivElement>({ threshold: 0.3 });
   return (
-    <section id="smart-home" className="relative py-24 sm:py-32">
+    <section id="smart-home" className="relative py-24 sm:py-32 lg:pt-16">
       <div className="container-app grid items-center gap-14 lg:grid-cols-2">
         <div data-reveal>
           <SectionEyebrow>Smart Home 2050</SectionEyebrow>
@@ -391,14 +391,13 @@ export function Features() {
       icon: Crown, title: 'Ranking por bairro, turma e empresa',
       text: 'Competição saudável entre pessoas, residências, bairros e organizações — por semana, mês ou ano.',
     },
+    { icon: Gift, title: 'Recompensas e desafios', text: 'Níveis, medalhas, desafios com bônus e vouchers de parceiros locais.' },
+    { icon: Building2, title: 'Painel administrativo', text: 'Moderação, ecopontos no mapa, catálogo, lixeiras, auditoria e relatórios CSV.' },
     {
       icon: BarChart3, title: 'Simulador 2050', className: 'md:col-span-2',
       text: 'Projete população, geração per capita e metas de reciclagem: veja aterro evitado, CO₂, caminhões e empregos verdes até 2050.',
       extra: <div className="mt-6"><MiniBars /></div>,
     },
-    { icon: Gift, title: 'Recompensas e desafios', text: 'Níveis, medalhas, desafios com bônus e vouchers de parceiros locais.' },
-    { icon: Building2, title: 'Painel administrativo', text: 'Moderação, ecopontos, catálogo, lixeiras, auditoria e relatórios CSV.' },
-    { icon: MapPinned, title: 'Mapa de ecopontos', text: 'Filtro por distância e material aceito, com solicitação de coleta em casa.' },
   ];
   return (
     <section id="recursos" className="relative py-24 sm:py-32">
@@ -517,9 +516,11 @@ export function Footer() {
           </ul>
         </div>
       </div>
-      <div className="container-app mt-10 flex flex-col justify-between gap-3 border-t border-line pt-6 text-xs text-subtle sm:flex-row">
-        <p>© 2026 EcoTech Zero · Tecnologia para um mundo sem desperdício.</p>
-        <p>ExpoTech 2026 · UniFECAF</p>
+      <div className="container-app mt-10">
+        <div className="flex flex-col justify-between gap-3 border-t border-line pt-6 text-xs text-subtle sm:flex-row">
+          <p>© 2026 EcoTech Zero · Tecnologia para um mundo sem desperdício.</p>
+          <p>ExpoTech 2026 · UniFECAF</p>
+        </div>
       </div>
     </footer>
   );

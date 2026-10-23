@@ -352,7 +352,8 @@ create table route_stops (
     collected_kg numeric(10, 2) check (collected_kg >= 0),
     created_at   timestamptz not null,
     updated_at   timestamptz not null,
-    constraint uq_route_stop_sequence unique (route_id, sequence)
+    -- verificado só no commit: permite renumerar as paradas dentro de uma transação
+    constraint uq_route_stop_sequence unique (route_id, sequence) deferrable initially deferred
 );
 create index ix_route_stops_route on route_stops (route_id);
 

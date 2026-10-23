@@ -79,7 +79,7 @@ export default function LandingPage() {
         Pular para o conteúdo
       </a>
       <LandingNav scrolled={scrolled} scrollTo={scrollTo} />
-      <main>
+      <main className="relative z-10">
         <Hero scrollTo={scrollTo} />
         <div className="relative">
           {/* véu para dar contraste às seções sobre a cena 3D */}
@@ -94,7 +94,7 @@ export default function LandingPage() {
           </div>
         </div>
       </main>
-      <Footer />
+      <div className="relative z-10"><Footer /></div>
     </div>
   );
 }

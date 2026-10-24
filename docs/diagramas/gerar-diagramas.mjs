@@ -68,9 +68,10 @@ writeFileSync(config, JSON.stringify({
     noteBorderColor: '#a16207',
     activationBkgColor: '#d1fae5',
   },
-  flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 30, rankSpacing: 38, padding: 10, wrappingWidth: 320, diagramPadding: 12 },
-  er: { layoutDirection: 'TB', minEntityWidth: 120, fontSize: 14 },
-  sequence: { mirrorActors: false, showSequenceNumbers: true, actorMargin: 60, messageFontSize: 15 },
+  flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis', nodeSpacing: 30, rankSpacing: 38, padding: 10, wrappingWidth: 320, diagramPadding: 12 },
+  er: { useMaxWidth: false, layoutDirection: 'TB', minEntityWidth: 120, fontSize: 14 },
+  state: { useMaxWidth: false },
+  sequence: { useMaxWidth: false, mirrorActors: false, showSequenceNumbers: true, actorMargin: 60, messageFontSize: 15 },
 }));
 
 function mmdc(args) {
@@ -88,6 +89,6 @@ for (const b of blocks) {
   const common = ['-i', input, '-c', config, '-p', pptr, '-b', 'white', '-q'];
   console.log(`> ${b.name}`);
   mmdc([...common, '-o', join(here, `${b.name}.svg`)]);
-  mmdc([...common, '-o', join(here, `${b.name}.png`), '-s', '3']);
+  mmdc([...common, '-o', join(here, `${b.name}.png`), '-s', '2']);
 }
 console.log(`${blocks.length} diagramas encontrados.`);

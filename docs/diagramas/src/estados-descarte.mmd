@@ -1,0 +1,7 @@
+stateDiagram-v2
+    direction LR
+    [*] --> PENDING : registrado
+    PENDING --> APPROVED : admin aprova / aprovação automática
+    PENDING --> REJECTED : admin recusa (com motivo)
+    APPROVED --> [*]
+    REJECTED --> [*]

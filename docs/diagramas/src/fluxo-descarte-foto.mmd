@@ -1,0 +1,26 @@
+flowchart TD
+    INI(["Morador abre 'Registrar descarte'"]):::term --> FOTO[/"Tira ou escolhe uma foto (opcional)"/]:::io
+    FOTO --> TEMF{"Enviou foto?"}:::dec
+    TEMF -- "Não" --> FIMS(["Segue sem sugestão (escolha manual)"]):::term
+    TEMF -- "Sim" --> UP["POST /api/photos (multipart, até 5 MB)"]:::proc
+    UP --> IMG{"Imagem válida?<br/>assinatura real JPEG/PNG,<br/>até 8000 px e 40 Mpx"}:::dec
+    IMG -- "Não" --> EIMG["400 INVALID_IMAGE"]:::err
+    EIMG --> FOTO
+    IMG -- "Sim" --> SAN["Reencoda em JPEG (máx. 1600 px), remove EXIF/GPS;<br/>calcula SHA-256 e dHash"]:::proc
+    SAN --> IA{"IA do servidor disponível?<br/>(ANTHROPIC_API_KEY)"}:::dec
+    IA -- "Sim" --> CL["Claude Vision classifica<br/>(resposta validada contra as 7 categorias)"]:::proc
+    IA -- "Não ou falhou" --> GRAVA
+    CL --> GRAVA["Grava a foto (com a classificação,<br/>se houver = 'verificada')"]:::proc
+    GRAVA --> DBF[("photos")]:::db
+    GRAVA --> SUG{"Resposta trouxe<br/>sugestão do servidor?"}:::dec
+    SUG -- "Sim" --> MOSTRA(["Mostra 'Confirmado pela IA (+10%)'"]):::term
+    SUG -- "Não" --> LOCAL["IA LOCAL no navegador<br/>(TensorFlow.js + MobileNet, offline)"]:::proc
+    LOCAL --> MOSTRA2(["Mostra 'Sugestão do navegador'<br/>(apenas palpite, sem bônus)"]):::term
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef sub fill:#f1f5f9,stroke:#334155,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

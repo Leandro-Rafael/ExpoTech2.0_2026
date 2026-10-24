@@ -6,6 +6,8 @@ sequenceDiagram
     participant D as PostgreSQL
 
     U->>F: abre o site
+    F->>A: GET /api/auth/session
+    A-->>F: 204 (visitante: sem sessão)
     F->>A: GET /api/auth/csrf
     A-->>F: 204 + cookie XSRF-TOKEN
     U->>F: e-mail e senha

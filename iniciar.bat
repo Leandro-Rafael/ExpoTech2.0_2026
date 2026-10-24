@@ -35,7 +35,7 @@ if not defined JAVA_EXE (
 for %%P in ("!JAVA_EXE!\..\..") do set "JAVA_HOME=%%~fP"
 :java_ok
 set "JAVA=%JAVA_HOME%\bin\java.exe"
-"%JAVA%" -version 2>&1 | findstr /r /c:"version \"25" >nul
+"%JAVA%" -version 2>&1 | findstr /r /c:"version .25\." >nul
 if errorlevel 1 (
   echo [ERRO] E preciso o JDK 25. Encontrado em "%JAVA_HOME%":
   "%JAVA%" -version
@@ -72,7 +72,7 @@ if "%REBUILD%"=="1" (
   echo [..] Empacotando o back-end com o front-end embutido ^(perfil spa^)...
   if exist "%BACK%\target\classes\static" rmdir /s /q "%BACK%\target\classes\static"
   pushd "%BACK%"
-  call mvnw.cmd -q -Pspa -DskipTests package
+  call "%BACK%\mvnw.cmd" -q -Pspa -DskipTests package
   if errorlevel 1 ( popd & echo [ERRO] O build do back-end falhou. & goto :fail )
   popd
 )
@@ -97,8 +97,8 @@ echo.
 echo  Para parar: Ctrl+C nesta janela.
 echo.
 
-rem Abre o navegador quando a API responder (em segundo plano).
-start "" /b powershell -NoProfile -WindowStyle Hidden -Command "for($i=0;$i -lt 400;$i++){try{if((Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://localhost:8080/actuator/health).StatusCode -eq 200){Start-Process 'http://localhost:8080';break}}catch{};Start-Sleep -Seconds 2}"
+rem Abre o navegador quando a API responder (em segundo plano). LZ_NO_BROWSER=1 desativa.
+if not defined LZ_NO_BROWSER start "" /b powershell -NoProfile -WindowStyle Hidden -Command "for($i=0;$i -lt 400;$i++){try{if((Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://localhost:8080/actuator/health).StatusCode -eq 200){Start-Process 'http://localhost:8080';break}}catch{};Start-Sleep -Seconds 2}"
 
 rem Roda a partir de backend\ para os dados ficarem em backend\data (banco, chaves).
 pushd "%BACK%"

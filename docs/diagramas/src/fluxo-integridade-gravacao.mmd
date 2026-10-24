@@ -1,0 +1,11 @@
+flowchart LR
+    W1(["Novo lançamento"]):::term --> W2["Serializa a escrita:<br/>extrato = lock do usuário · auditoria = advisory lock"]:::proc
+    W2 --> W3["Lê o último elo (seq, hash);<br/>primeiro elo usa 64 zeros"]:::proc
+    W3 --> W4["seq = último + 1<br/>hash = HMAC-SHA256(chave, seq + prev_hash + campos)"]:::proc
+    W4 --> W5[("INSERT (UPDATE/DELETE proibidos por trigger)")]:::db
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

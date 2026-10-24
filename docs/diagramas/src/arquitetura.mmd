@@ -1,0 +1,36 @@
+flowchart LR
+    subgraph CLI ["Navegador (celular ou computador)"]
+        direction TB
+        UI["Front-end React 19 + Vite 7<br/>React Router · TanStack Query<br/>react-hook-form + Zod"]:::fe
+        TF["IA local (fallback)<br/>TensorFlow.js + MobileNet<br/>funciona offline"]:::ai
+        MAP["Mapa Leaflet<br/>(OpenStreetMap)"]:::fe
+        UI --- TF
+        UI --- MAP
+    end
+
+    subgraph SRV ["API REST — Spring Boot 4.1 · Java 25"]
+        direction TB
+        SEC["Camada de segurança (filtros)<br/>RequestId · limite de corpo 64 KB · Rate limit (Token Bucket)<br/>JWT em cookie HttpOnly · CSRF · perfis USER/COLLECTOR/ADMIN"]:::sec
+        CTRL["Controllers (HTTP + @Valid)<br/>só recebem e devolvem DTOs"]:::be
+        SVC["Services (regras de negócio, @Transactional)<br/>antifraude · pontos · rotas · gamificação · IoT"]:::be
+        REPO["Repositories (Spring Data JPA, JDBC parametrizado)"]:::be
+        INT["Integridade<br/>cadeia HMAC-SHA256 + auditoria"]:::sec
+        SEC --> CTRL --> SVC --> REPO
+        SVC --> INT
+    end
+
+    DB[("PostgreSQL<br/>23 tabelas · Flyway V1–V6<br/>CHECK · UNIQUE · triggers append-only")]:::db
+    CLAUDE["IA do servidor<br/>Claude Vision (Anthropic)<br/>classifica a foto no upload"]:::ai
+    IOT["Lixeiras inteligentes (IoT)<br/>sensor real ou simulador"]:::iot
+
+    UI -- "HTTPS · JSON · cookies<br/>/api/**" --> SEC
+    IOT -- "POST /api/iot/readings<br/>X-Device-Id + X-Device-Key" --> SEC
+    SVC -- "chave só no servidor<br/>timeout 10 s" --> CLAUDE
+    REPO -- "JDBC (HikariCP)" --> DB
+
+    classDef fe fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef be fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef sec fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef ai fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef iot fill:#f1f5f9,stroke:#334155,color:#0a0e0c

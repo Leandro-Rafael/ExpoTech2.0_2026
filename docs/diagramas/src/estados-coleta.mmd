@@ -1,0 +1,10 @@
+stateDiagram-v2
+    direction LR
+    [*] --> REQUESTED : morador ou lixeira
+    REQUESTED --> SCHEDULED : entra em rota
+    REQUESTED --> CANCELLED : cancelada
+    SCHEDULED --> CANCELLED : cancelada (rota PLANNED)
+    SCHEDULED --> IN_ROUTE : coletor inicia a rota
+    IN_ROUTE --> COLLECTED : parada concluída
+    COLLECTED --> [*]
+    CANCELLED --> [*]

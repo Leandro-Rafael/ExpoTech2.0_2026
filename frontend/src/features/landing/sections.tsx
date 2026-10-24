@@ -19,6 +19,7 @@ import { formatCompact, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { StoryCard } from './StepVisuals';
 import { gsap, ScrollTrigger } from './gsap';
+import { scrollToY } from './useSmoothScroll';
 import { LINKS } from './hero';
 
 // ------------------------------------------------------------------ primitivas
@@ -58,34 +59,83 @@ export const STEPS: { title: string; text: string }[] = [
   { title: 'Coleta otimizada', text: 'Os pedidos viram rotas mais curtas para os coletores.' },
 ];
 
+/**
+ * Pin: os passos 01–04 ocupam 1 unidade cada; o 05 (caminhão) ocupa 2, para a sequência
+ * close → porta → garrafa entra → encolhe → rota não ficar corrida.
+ */
+const PIN_UNITS = STEPS.length + 1;
+const unitsToP = (u: number) => (u < 4 ? u : 4 + (u - 4) / 2);
+const pToUnits = (p: number) => (p < 4 ? p : 4 + (p - 4) * 2);
+/** Onde cada passo fica "inteiro" ao navegar pelo clique (05 = início da sequência do caminhão). */
+const STEP_TARGET_P = [0.55, 1.6, 2.92, 3.6, 4.14];
+
 export function HowItWorks() {
   // Passo ativo (lista à esquerda) muda 5 vezes; o cartão recebe o progresso contínuo
   // direto no DOM via `progress.current(p)` — sem re-render por quadro.
   const [active, setActive] = useState(0);
   const [pinned] = useState(() => !prefersReducedMotion());
   const progress = useRef<((p: number) => void) | null>(null);
+  const trigger = useRef<ScrollTrigger | null>(null);
 
   useLayoutEffect(() => {
     if (!pinned) return;
     const mm = gsap.matchMedia();
     mm.add('(min-width: 1024px)', () => {
       let last = -1;
-      ScrollTrigger.create({
+      trigger.current = ScrollTrigger.create({
         trigger: '[data-pin="how"]',
         start: 'top top',
-        end: () => `+=${window.innerHeight * (STEPS.length - 0.4)}`,
+        end: () => `+=${window.innerHeight * (PIN_UNITS - 0.4)}`,
         pin: true,
         anticipatePin: 1,
         onUpdate: (self) => {
-          const p = self.progress * STEPS.length;
+          const p = unitsToP(self.progress * PIN_UNITS);
           progress.current?.(p);
           const idx = Math.min(STEPS.length - 1, Math.floor(p));
           if (idx !== last) { last = idx; setActive(idx); }
         },
       });
+      return () => { trigger.current = null; };
     });
     return () => mm.revert();
   }, [pinned]);
+
+  /** Clique num passo: rola até o ponto do pin em que o cartão daquele passo está completo. */
+  const goTo = (i: number) => {
+    const st = trigger.current;
+    if (st) {
+      const y = st.start + ((st.end - st.start) * pToUnits(STEP_TARGET_P[i])) / PIN_UNITS;
+      scrollToY(Math.round(y));
+      return;
+    }
+    const el = document.getElementById(`how-step-${i}`);
+    if (el) scrollToY(Math.max(0, el.getBoundingClientRect().top + window.scrollY - 88));
+  };
+
+  const stepButton = (s: (typeof STEPS)[number], i: number, compact = false) => {
+    // Só a lista do pin acompanha o scroll; o índice compacto (celular) é navegação simples.
+    const on = !compact && pinned && i === active;
+    return (
+    <button
+      type="button"
+      onClick={() => goTo(i)}
+      aria-current={on ? 'step' : undefined}
+      aria-controls={pinned ? 'how-card' : `how-step-${i}`}
+      className={cn(
+        'group/step relative grid w-full cursor-pointer text-left outline-offset-4',
+        compact ? 'grid-cols-[2rem_1fr] items-baseline py-3' : 'grid-cols-[3rem_1fr] py-3.5',
+      )}
+    >
+      {/* indicador fino à esquerda: cresce no hover/foco (só transform) */}
+      <span aria-hidden className="absolute top-3 bottom-3 -left-4 w-px origin-center scale-y-0 bg-fg-soft transition-transform duration-200 ease-[var(--ease-out-expo)] group-hover/step:scale-y-100 group-focus-visible/step:scale-y-100" />
+      <span className={cn('font-mono text-[13px] tabular transition-colors duration-200', on ? 'text-accent' : 'text-subtle group-hover/step:text-fg-soft')}>{String(i + 1).padStart(2, '0')}</span>
+      <span className="block">
+        <span className={cn('block font-medium transition-colors duration-200', compact ? 'text-[15px]' : 'text-[17px]', on ? 'text-fg' : 'text-muted group-hover/step:text-fg')}>{s.title}</span>
+        {!compact && <span className={cn('mt-0.5 block text-[14px] leading-relaxed transition-colors duration-200', on ? 'text-fg-soft' : 'text-subtle group-hover/step:text-muted')}>{s.text}</span>}
+      </span>
+    </button>
+    );
+  };
 
   return (
     <section id="como-funciona" data-pin="how" className={cn('relative py-24', pinned && 'lg:flex lg:min-h-[100svh] lg:items-center lg:py-0')}>
@@ -95,22 +145,22 @@ export function HowItWorks() {
           <div className={cn(pinned ? 'lg:col-span-5' : 'lg:col-span-12')}>
             <h2 className="text-headline text-fg" data-reveal>Do descarte aos pontos, em cinco passos.</h2>
             {pinned && (
-              /* Desktop: lista com hairlines; o passo ativo segue o scroll */
-              <ol className="mt-10 hidden border-t border-line lg:block">
-                {STEPS.map((s, i) => (
-                  <li key={s.title} className="grid grid-cols-[3rem_1fr] border-b border-line py-3.5">
-                    <span className={cn('font-mono text-[13px] tabular transition-colors duration-500', i === active ? 'text-accent' : 'text-subtle')}>{String(i + 1).padStart(2, '0')}</span>
-                    <div>
-                      <h3 className={cn('text-[17px] font-medium transition-colors duration-500', i === active ? 'text-fg' : 'text-muted')}>{s.title}</h3>
-                      <p className={cn('mt-0.5 text-[14px] leading-relaxed transition-colors duration-500', i === active ? 'text-fg-soft' : 'text-subtle')}>{s.text}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              /* Desktop: lista navegável; o passo ativo segue o scroll */
+              <nav aria-label="Passos" className="mt-10 hidden lg:block">
+                <ol className="border-t border-line">
+                  {STEPS.map((s, i) => <li key={s.title} className="border-b border-line">{stepButton(s, i)}</li>)}
+                </ol>
+              </nav>
             )}
+            {/* Celular/tablet (e movimento reduzido): índice compacto que leva ao cartão empilhado */}
+            <nav aria-label="Passos" className={cn('mt-8', pinned && 'lg:hidden')} data-reveal>
+              <ol className="grid grid-cols-1 border-t border-line sm:grid-cols-2 sm:gap-x-8">
+                {STEPS.map((s, i) => <li key={s.title} className="border-b border-line pl-4">{stepButton(s, i, true)}</li>)}
+              </ol>
+            </nav>
           </div>
           {pinned && (
-            <div className="hidden items-center lg:col-span-6 lg:col-start-7 lg:flex">
+            <div id="how-card" className="hidden items-center lg:col-span-6 lg:col-start-7 lg:flex">
               {/* um só cartão contínuo: a mesma garrafa atravessa os 5 passos */}
               <StoryCard mode="scroll" progressRef={progress} />
             </div>
@@ -119,7 +169,7 @@ export function HowItWorks() {
           {/* Celular/tablet e movimento reduzido: passos empilhados, cada um no estado final */}
           <ol className={cn('grid gap-14 md:grid-cols-2 lg:col-span-12', pinned && 'lg:hidden')}>
             {STEPS.map((s, i) => (
-              <li key={s.title} data-reveal>
+              <li key={s.title} id={`how-step-${i}`} data-reveal className="scroll-mt-24">
                 <p className="font-mono text-[13px] text-subtle">{String(i + 1).padStart(2, '0')}</p>
                 <h3 className="mt-2 text-[19px] font-medium text-fg">{s.title}</h3>
                 <p className="mt-1 mb-6 text-[15px] leading-relaxed text-muted">{s.text}</p>

@@ -1,0 +1,23 @@
+flowchart TD
+    S0(["Sensor real ou simulador<br/>(a cada 90 s)"]):::term --> S1[/"POST /api/iot/readings<br/>X-Device-Id, X-Device-Key, nível e bateria"/]:::io
+    S1 --> S2{"Limite por IP e<br/>por dispositivo ok?"}:::dec
+    S2 -- "Não" --> SE1["429"]:::err
+    S2 -- "Sim" --> S3{"Chave confere?<br/>(hash comparado em tempo constante)"}:::dec
+    S3 -- "Não" --> SE2["401 + auditoria IOT_AUTH_FAILED"]:::err
+    S3 -- "Sim" --> S4["Trava a lixeira; ajusta valores a 0–100;<br/>atualiza nível/bateria e grava a leitura"]:::proc
+    S4 --> S5[("smart_bins · bin_readings")]:::db
+    S4 --> S6{"Nível ≥ limite configurado?"}:::dec
+    S6 -- "Não" --> SF(["202 — painel mostra o novo nível"]):::term
+    S6 -- "Sim" --> S7{"Já existe pedido aberto<br/>para esta lixeira?"}:::dec
+    S7 -- "Sim" --> SF
+    S7 -- "Não" --> S8["Cria solicitação de coleta automática<br/>origem SMART_BIN, endereço da casa,<br/>kg estimado = litros × nível × densidade do material"]:::proc
+    S8 --> S9[("collection_requests<br/>índice único: 1 pedido aberto por lixeira")]:::db
+    S8 --> S10["Auditoria SMART_BIN_AUTO_REQUEST"]:::proc --> S11[["Entra na fila de coletas (diagrama 7)"]]:::sub
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef sub fill:#f1f5f9,stroke:#334155,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

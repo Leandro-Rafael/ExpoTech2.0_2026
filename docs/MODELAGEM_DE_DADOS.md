@@ -5,6 +5,8 @@
 > Entregável obrigatório **"Modelagem de Dados"**: estrutura do banco (tabelas, relacionamentos e regras de negócio).
 > Tudo o que está aqui existe no código. Fontes da verdade:
 > `backend/src/main/resources/db/migration/V1..V6` (Flyway) e as entidades JPA em `backend/src/main/java/br/com/ecotechzero/lixozero/`.
+>
+> Imagens prontas para slides e impressão em `docs/diagramas/` (PNG em alta resolução, fundo branco; SVG vetorial para ampliar sem perder qualidade). Para regenerar depois de editar um diagrama: `node docs/diagramas/gerar-diagramas.mjs`.
 
 **Sumário**
 

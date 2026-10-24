@@ -5,6 +5,8 @@
 > Entregável obrigatório **"Fluxograma"**: o fluxo completo da aplicação, do visitante às áreas de cada perfil, e os fluxos
 > internos mais importantes. Cada passo corresponde a código real (os arquivos citados estão em
 > `backend/src/main/java/br/com/ecotechzero/lixozero/` e `frontend/src/`).
+>
+> Imagens prontas para slides e impressão em `docs/diagramas/` (PNG em alta resolução, fundo branco; SVG vetorial para ampliar sem perder qualidade). Para regenerar depois de editar um diagrama: `node docs/diagramas/gerar-diagramas.mjs`.
 
 **Sumário**
 
@@ -224,41 +226,64 @@ flowchart TD
 
 Código: `frontend/src/pages/app/NewDisposalPage.tsx`, `photo/PhotoService.java`, `photo/ImageProcessor.java`, `ai/ClaudeVisionClassifier.java`, `frontend/src/features/resident/disposal/localClassifier.ts`, `disposal/DisposalService.create`, `fraud/FraudEngine.java`.
 
-![Registro de descarte](diagramas/fluxo-descarte.png)
+**3.1 Foto e sugestão da IA**
 
-<!-- diagrama: fluxo-descarte -->
+![Registro de descarte: foto e IA](diagramas/fluxo-descarte-foto.png)
+
+<!-- diagrama: fluxo-descarte-foto -->
 ```mermaid
 flowchart TD
     INI(["Morador abre 'Registrar descarte'"]):::term --> FOTO[/"Tira ou escolhe uma foto (opcional)"/]:::io
     FOTO --> TEMF{"Enviou foto?"}:::dec
-    TEMF -- "Não" --> FORM
+    TEMF -- "Não" --> FIMS(["Segue sem sugestão (escolha manual)"]):::term
     TEMF -- "Sim" --> UP["POST /api/photos (multipart, até 5 MB)"]:::proc
     UP --> IMG{"Imagem válida?<br/>assinatura real JPEG/PNG,<br/>até 8000 px e 40 Mpx"}:::dec
-    IMG -- "Não" --> EIMG["400 INVALID_IMAGE"]:::err --> FOTO
-    IMG -- "Sim" --> SAN["Reencoda em JPEG (máx. 1600 px)<br/>remove EXIF/GPS; calcula SHA-256 e dHash"]:::proc
+    IMG -- "Não" --> EIMG["400 INVALID_IMAGE"]:::err
+    EIMG --> FOTO
+    IMG -- "Sim" --> SAN["Reencoda em JPEG (máx. 1600 px), remove EXIF/GPS;<br/>calcula SHA-256 e dHash"]:::proc
     SAN --> IA{"IA do servidor disponível?<br/>(ANTHROPIC_API_KEY)"}:::dec
-    IA -- "Sim" --> CL["Claude Vision classifica<br/>(resposta validada contra as 7 categorias)"]:::proc --> GRAVA
-    IA -- "Não ou falhou" --> GRAVA["Grava a foto (com a classificação,<br/>se houver = 'verificada')"]:::proc
+    IA -- "Sim" --> CL["Claude Vision classifica<br/>(resposta validada contra as 7 categorias)"]:::proc
+    IA -- "Não ou falhou" --> GRAVA
+    CL --> GRAVA["Grava a foto (com a classificação,<br/>se houver = 'verificada')"]:::proc
     GRAVA --> DBF[("photos")]:::db
     GRAVA --> SUG{"Resposta trouxe<br/>sugestão do servidor?"}:::dec
-    SUG -- "Sim" --> MOSTRA["Mostra sugestão 'Confirmado pela IA (+10%)'"]:::proc
-    SUG -- "Não" --> LOCAL["IA LOCAL no navegador<br/>(TensorFlow.js + MobileNet, funciona offline)"]:::proc --> MOSTRA2["Mostra 'Sugestão do navegador'<br/>(apenas palpite, sem bônus)"]:::proc
-    MOSTRA --> FORM
-    MOSTRA2 --> FORM
+    SUG -- "Sim" --> MOSTRA(["Mostra 'Confirmado pela IA (+10%)'"]):::term
+    SUG -- "Não" --> LOCAL["IA LOCAL no navegador<br/>(TensorFlow.js + MobileNet, offline)"]:::proc
+    LOCAL --> MOSTRA2(["Mostra 'Sugestão do navegador'<br/>(apenas palpite, sem bônus)"]):::term
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef sub fill:#f1f5f9,stroke:#334155,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
+```
+
+**3.2 Envio, validação e antifraude**
+
+![Registro de descarte: envio](diagramas/fluxo-descarte-envio.png)
+
+<!-- diagrama: fluxo-descarte-envio -->
+```mermaid
+flowchart TD
     FORM[/"Morador confirma ou CORRIGE a categoria,<br/>informa kg, data, local e ecoponto"/]:::io
     FORM --> ENV["POST /api/disposals<br/>header Idempotency-Key"]:::proc
     ENV --> IDEM{"Mesma chave já usada<br/>por este usuário?"}:::dec
     IDEM -- "Sim" --> DEV(["Devolve o descarte original<br/>(clique duplo não duplica)"]):::term
-    IDEM -- "Não" --> VALID{"Validações ok?<br/>categoria ativa, 0,01 kg até o máximo,<br/>data até 7 dias, lat/lon juntas,<br/>foto do próprio usuário e nunca usada,<br/>ecoponto aceita o material"}:::dec
-    VALID -- "Não" --> E400["400 — erro no campo"]:::err --> FORM
+    IDEM -- "Não" --> VALID{"Validações ok?<br/>categoria ativa · 0,01 kg até o máximo<br/>data até 7 dias · lat/lon juntas<br/>foto própria e nunca usada<br/>ecoponto aceita o material"}:::dec
+    VALID -- "Não" --> E400["400 — erro no campo"]:::err
+    E400 --> FORM
     VALID -- "Sim" --> FRAUDE[["Motor antifraude: 8 regras somam o risco 0–100"]]:::sub
     FRAUDE --> SALVA["Grava o descarte como PENDENTE<br/>com pontos estimados e risco"]:::proc
     SALVA --> DBD[("disposals")]:::db
     SALVA --> RISCO{"Risco ≥ 50?"}:::dec
-    RISCO -- "Sim" --> FLAG["Marca 'suspeito' (flagged)<br/>auditoria DISPOSAL_FLAGGED"]:::proc --> FILA(["Fica PENDENTE na fila de moderação<br/>(diagrama 4)"]):::term
+    RISCO -- "Sim" --> FLAG["Marca 'suspeito' (flagged)<br/>auditoria DISPOSAL_FLAGGED"]:::proc
+    FLAG --> FILA(["Fica PENDENTE na fila<br/>de moderação (diagrama 4)"]):::term
     RISCO -- "Não" --> AUTO{"Aprovação automática ligada?<br/>(APP_AUTO_APPROVE) e<br/>risco < 20, até 5 kg, com foto"}:::dec
     AUTO -- "Não" --> FILA
-    AUTO -- "Sim" --> APR[["Aprovação e crédito de pontos (diagrama 4)"]]:::sub --> FIM(["Descarte APROVADO"]):::term
+    AUTO -- "Sim" --> APR[["Aprovação e crédito de pontos (diagrama 4)"]]:::sub
+    APR --> FIM(["Descarte APROVADO"]):::term
 
     classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
     classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
@@ -375,39 +400,18 @@ Tudo acontece numa **única transação**: se qualquer passo falhar, nada é gra
 
 Código: `household/HouseholdService.java`, `household/SmartBinService.java`, `iot/IotController.java`, `iot/IotSimulator.java`.
 
-![Smart Home](diagramas/fluxo-smarthome.png)
+**6.1 Configuração (uma vez, pelo morador)**
 
-<!-- diagrama: fluxo-smarthome -->
+![Smart Home: 6.1 Configuração (uma vez, pelo morador)](diagramas/fluxo-smarthome-config.png)
+
+<!-- diagrama: fluxo-smarthome-config -->
 ```mermaid
 flowchart TD
-    subgraph CONF ["Configuração (uma vez, pelo morador)"]
-        direction TB
-        H1(["Morador abre 'Minha casa'"]):::term --> H2{"Já tem residência?"}:::dec
-        H2 -- "Não" --> H3["Cria residência (gera código de convite)<br/>ou entra com o código de outra"]:::proc
-        H2 -- "Sim" --> H4
-        H3 --> H4["Cadastra lixeira: nome, material,<br/>capacidade (L), limite de pedido (50–100%)"]:::proc
-        H4 --> H5[/"Recebe device_id e chave do dispositivo<br/>(mostrada UMA vez; banco guarda só o SHA-256)"/]:::io
-    end
-
-    subgraph LEIT ["Cada leitura do sensor"]
-        direction TB
-        S0(["Sensor real ou simulador<br/>(a cada 90 s)"]):::term --> S1[/"POST /api/iot/readings<br/>X-Device-Id, X-Device-Key, nível e bateria"/]:::io
-        S1 --> S2{"Limite por IP e<br/>por dispositivo ok?"}:::dec
-        S2 -- "Não" --> SE1["429"]:::err
-        S2 -- "Sim" --> S3{"Chave confere?<br/>(hash comparado em tempo constante)"}:::dec
-        S3 -- "Não" --> SE2["401 + auditoria IOT_AUTH_FAILED"]:::err
-        S3 -- "Sim" --> S4["Trava a lixeira; ajusta valores a 0–100;<br/>atualiza nível/bateria e grava a leitura"]:::proc
-        S4 --> S5[("smart_bins · bin_readings")]:::db
-        S4 --> S6{"Nível ≥ limite configurado?"}:::dec
-        S6 -- "Não" --> SF(["202 — painel mostra o novo nível"]):::term
-        S6 -- "Sim" --> S7{"Já existe pedido aberto<br/>para esta lixeira?"}:::dec
-        S7 -- "Sim" --> SF
-        S7 -- "Não" --> S8["Cria solicitação de coleta automática<br/>origem SMART_BIN, endereço da casa,<br/>kg estimado = litros × nível × densidade do material"]:::proc
-        S8 --> S9[("collection_requests<br/>índice único: 1 pedido aberto por lixeira")]:::db
-        S8 --> S10["Auditoria SMART_BIN_AUTO_REQUEST"]:::proc --> S11[["Entra na fila de coletas (diagrama 7)"]]:::sub
-    end
-
-    H5 -. "configura o dispositivo" .-> S0
+    H1(["Morador abre 'Minha casa'"]):::term --> H2{"Já tem residência?"}:::dec
+    H2 -- "Não" --> H3["Cria residência (gera código de convite)<br/>ou entra com o código de outra"]:::proc
+    H2 -- "Sim" --> H4
+    H3 --> H4["Cadastra lixeira: nome, material,<br/>capacidade (L), limite de pedido (50–100%)"]:::proc
+    H4 --> H5[/"Recebe device_id e chave do dispositivo<br/>(mostrada UMA vez; banco guarda só o SHA-256)"/]:::io
 
     classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
     classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
@@ -418,7 +422,38 @@ flowchart TD
     classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
 ```
 
-Sem leitura há mais de 6 h, a lixeira aparece como **offline** (`APP_IOT_OFFLINE_HOURS`). Depois que o coletor conclui a parada, a lixeira volta a **0 %** (`SmartBinService.emptyAfterCollection`).
+**6.2 Cada leitura do sensor**
+
+![Smart Home: 6.2 Cada leitura do sensor](diagramas/fluxo-smarthome-leitura.png)
+
+<!-- diagrama: fluxo-smarthome-leitura -->
+```mermaid
+flowchart TD
+    S0(["Sensor real ou simulador<br/>(a cada 90 s)"]):::term --> S1[/"POST /api/iot/readings<br/>X-Device-Id, X-Device-Key, nível e bateria"/]:::io
+    S1 --> S2{"Limite por IP e<br/>por dispositivo ok?"}:::dec
+    S2 -- "Não" --> SE1["429"]:::err
+    S2 -- "Sim" --> S3{"Chave confere?<br/>(hash comparado em tempo constante)"}:::dec
+    S3 -- "Não" --> SE2["401 + auditoria IOT_AUTH_FAILED"]:::err
+    S3 -- "Sim" --> S4["Trava a lixeira; ajusta valores a 0–100;<br/>atualiza nível/bateria e grava a leitura"]:::proc
+    S4 --> S5[("smart_bins · bin_readings")]:::db
+    S4 --> S6{"Nível ≥ limite configurado?"}:::dec
+    S6 -- "Não" --> SF(["202 — painel mostra o novo nível"]):::term
+    S6 -- "Sim" --> S7{"Já existe pedido aberto<br/>para esta lixeira?"}:::dec
+    S7 -- "Sim" --> SF
+    S7 -- "Não" --> S8["Cria solicitação de coleta automática<br/>origem SMART_BIN, endereço da casa,<br/>kg estimado = litros × nível × densidade do material"]:::proc
+    S8 --> S9[("collection_requests<br/>índice único: 1 pedido aberto por lixeira")]:::db
+    S8 --> S10["Auditoria SMART_BIN_AUTO_REQUEST"]:::proc --> S11[["Entra na fila de coletas (diagrama 7)"]]:::sub
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef sub fill:#f1f5f9,stroke:#334155,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
+```
+
+Os dois blocos se ligam quando o morador grava o `device_id` e a chave no dispositivo (ou quando a lixeira é simulada). Sem leitura há mais de 6 h, a lixeira aparece como **offline** (`APP_IOT_OFFLINE_HOURS`). Depois que o coletor conclui a parada, a lixeira volta a **0 %** (`SmartBinService.emptyAfterCollection`).
 
 ---
 
@@ -426,31 +461,48 @@ Sem leitura há mais de 6 h, a lixeira aparece como **offline** (`APP_IOT_OFFLIN
 
 Código: `collection/CollectionRequestService.java`, `collection/PriorityCalculator.java`, `route/RouteService.java`, `route/RouteOptimizer.java`, `route/CollectorController.java`.
 
-![Coleta e rota](diagramas/fluxo-rota.png)
+**7.1 Planejamento pelo administrador (otimização)**
 
-<!-- diagrama: fluxo-rota -->
+![Coleta: planejamento da rota](diagramas/fluxo-rota-planejamento.png)
+
+<!-- diagrama: fluxo-rota-planejamento -->
 ```mermaid
 flowchart TD
-    O1(["Solicitações REQUESTED<br/>(do morador pelo mapa ou automáticas da lixeira)"]):::term --> P1["Admin abre 'Coletas e rotas':<br/>lista ordenada por PRIORIDADE 0–100<br/>(volume, espera, eletrônico, nível da lixeira, data)"]:::proc
-    P1 --> P2[/"Seleciona solicitações, garagem<br/>e capacidade do caminhão (padrão 1000 kg)"/]:::io
-    P2 --> P3{"Todas existem e estão<br/>REQUESTED?"}:::dec
+    O1(["Admin abre 'Coletas e rotas': solicitações REQUESTED<br/>ordenadas por PRIORIDADE 0–100<br/>(volume, espera, eletrônico, nível da lixeira, data)"]):::term
+    O1 --> P2[/"Seleciona solicitações, garagem<br/>e capacidade do caminhão (padrão 1000 kg)"/]:::io
+    P2 --> P3{"Todas existem e<br/>estão REQUESTED?"}:::dec
     P3 -- "Não" --> PE["400 — solicitação inválida"]:::err
-    P3 -- "Sim" --> A1["Matriz de distâncias double[][]<br/>(fórmula de Haversine)"]:::proc
-    A1 --> A2["Vizinho mais próximo com capacidade:<br/>PriorityQueue (min-heap) escolhe a parada<br/>mais próxima que CABE no caminhão"]:::proc
-    A2 --> A3{"Ainda cabe alguma parada?"}:::dec
+    P3 -- "Sim" --> A2["Matriz de distâncias double[][] (Haversine) e<br/>vizinho mais próximo com capacidade:<br/>PriorityQueue (min-heap) escolhe a parada<br/>mais próxima que CABE no caminhão"]:::proc
+    A2 --> A3{"Ainda cabe<br/>alguma parada?"}:::dec
     A3 -- "Sim" --> A2
     A3 -- "Não" --> A4{"Sobrou parada<br/>não visitada?"}:::dec
-    A4 -- "Sim" --> A5["Volta à garagem e inicia nova viagem"]:::proc --> A2
-    A4 -- "Não" --> A6["2-opt em cada viagem:<br/>inverte trechos enquanto encurtar a rota"]:::proc
-    A6 --> A7["Compara com a rota 'ingênua' (ordem de criação)<br/>e fica com a melhor; calcula economia %"]:::proc
-    A7 --> A8[/"Pré-visualização no mapa: km, tempo, carga, economia"/]:::io
+    A4 -- "Sim: volta à garagem,<br/>nova viagem" --> A2
+    A4 -- "Não" --> A6["2-opt em cada viagem (inverte trechos enquanto encurtar);<br/>compara com a rota 'ingênua' (ordem de criação),<br/>fica com a melhor e calcula a economia %"]:::proc
+    A6 --> A8[/"Pré-visualização no mapa:<br/>km, tempo, carga, economia"/]:::io
     A8 --> A9{"Admin confirma?<br/>(nome, data até +90 dias, coletor)"}:::dec
     A9 -- "Não" --> P2
-    A9 -- "Sim" --> A10["Cria 1 rota por viagem (PLANNED) com paradas em ordem;<br/>solicitações viram SCHEDULED"]:::proc
-    A10 --> DB[("routes · route_stops · collection_requests")]:::db
-    A10 --> C1(["Coletor abre 'Minhas rotas'"]):::term
-    C1 --> C2["Inicia a rota: IN_PROGRESS;<br/>solicitações IN_ROUTE"]:::proc
-    C2 --> C3[/"Na parada: informa kg coletado (opcional)"/]:::io
+    A9 -- "Sim" --> A10["Cria 1 rota por viagem (PLANNED)<br/>com as paradas em ordem;<br/>solicitações viram SCHEDULED"]:::proc
+    A10 --> DB[("routes · route_stops ·<br/>collection_requests")]:::db
+    A10 --> FIM(["Rota disponível para o coletor"]):::term
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef sub fill:#f1f5f9,stroke:#334155,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
+```
+
+**7.2 Execução pelo coletor**
+
+![Coleta: execução](diagramas/fluxo-rota-execucao.png)
+
+<!-- diagrama: fluxo-rota-execucao -->
+```mermaid
+flowchart LR
+    C1(["Coletor abre 'Minhas rotas'"]):::term --> C2["Inicia a rota: IN_PROGRESS<br/>solicitações IN_ROUTE"]:::proc
+    C2 --> C3[/"Na parada: informa<br/>kg coletado (opcional)"/]:::io
     C3 --> C4["Parada DONE; solicitação COLLECTED;<br/>se veio de lixeira, ela volta a 0%"]:::proc
     C4 --> C5{"Todas as paradas<br/>concluídas?"}:::dec
     C5 -- "Não" --> C3
@@ -461,6 +513,7 @@ flowchart TD
     classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
     classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
     classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef sub fill:#f1f5f9,stroke:#334155,color:#0a0e0c
     classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
 ```
 
@@ -509,31 +562,41 @@ O menu de contexto (botão direito) é desativado na área logada, mas **não co
 
 Código: `integrity/LedgerChain.java`, `integrity/AuditChain.java`, `integrity/ChainHashes.java`, `integrity/IntegrityService.java`, `integrity/IntegrityController.java`.
 
-![Integridade](diagramas/fluxo-integridade.png)
+**9.1 Ao gravar um lançamento (extrato ou auditoria)**
 
-<!-- diagrama: fluxo-integridade -->
+![Integridade: 9.1 Ao gravar um lançamento (extrato ou auditoria)](diagramas/fluxo-integridade-gravacao.png)
+
+<!-- diagrama: fluxo-integridade-gravacao -->
+```mermaid
+flowchart LR
+    W1(["Novo lançamento"]):::term --> W2["Serializa a escrita:<br/>extrato = lock do usuário · auditoria = advisory lock"]:::proc
+    W2 --> W3["Lê o último elo (seq, hash);<br/>primeiro elo usa 64 zeros"]:::proc
+    W3 --> W4["seq = último + 1<br/>hash = HMAC-SHA256(chave, seq + prev_hash + campos)"]:::proc
+    W4 --> W5[("INSERT (UPDATE/DELETE proibidos por trigger)")]:::db
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
+```
+
+**9.2 Verificação pelo admin: GET /api/admin/integrity**
+
+![Integridade: 9.2 Verificação pelo admin: GET /api/admin/integrity](diagramas/fluxo-integridade-verificacao.png)
+
+<!-- diagrama: fluxo-integridade-verificacao -->
 ```mermaid
 flowchart TD
-    subgraph GRAVAR ["Ao gravar um lançamento (extrato ou auditoria)"]
-        direction TB
-        W1(["Novo lançamento"]):::term --> W2["Serializa a escrita:<br/>extrato = lock do usuário · auditoria = advisory lock"]:::proc
-        W2 --> W3["Lê o último elo (seq, hash);<br/>primeiro elo usa 64 zeros"]:::proc
-        W3 --> W4["seq = último + 1<br/>hash = HMAC-SHA256(chave, seq + prev_hash + campos)"]:::proc
-        W4 --> W5[("INSERT (UPDATE/DELETE proibidos por trigger)")]:::db
-    end
-
-    subgraph VERIF ["Admin verifica: GET /api/admin/integrity"]
-        direction TB
-        V1(["Admin clica 'Verificar integridade'"]):::term --> V2["Lê o extrato em fluxo,<br/>ordenado por usuário e seq"]:::proc
-        V2 --> V3{"Para cada linha:<br/>seq esperado? prev_hash = hash anterior?<br/>HMAC recalculado confere?<br/>saldo = anterior + valor?"}:::dec
-        V3 -- "Não" --> V4["Marca a PRIMEIRA linha quebrada"]:::err
-        V3 -- "Sim" --> V5["Lê a auditoria em fluxo (cadeia global)<br/>e confere o último elo conhecido"]:::proc
-        V4 --> V5
-        V5 --> V6["Confere saldos:<br/>users.points = soma = último saldo;<br/>total_earned = soma dos ganhos"]:::proc
-        V6 --> V7{"Tudo íntegro?"}:::dec
-        V7 -- "Sim" --> V8(["Relatório OK"]):::term
-        V7 -- "Não" --> V9(["Relatório aponta tabela, linha e usuário<br/>+ alerta no log"]):::err
-    end
+    V1(["Admin clica 'Verificar integridade'"]):::term --> V2["Lê o extrato em fluxo,<br/>ordenado por usuário e seq"]:::proc
+    V2 --> V3{"Para cada linha:<br/>seq esperado? prev_hash = hash anterior?<br/>HMAC recalculado confere?<br/>saldo = anterior + valor?"}:::dec
+    V3 -- "Não" --> V4["Marca a PRIMEIRA linha quebrada"]:::err
+    V3 -- "Sim" --> V5["Lê a auditoria em fluxo (cadeia global)<br/>e confere o último elo conhecido"]:::proc
+    V4 --> V5
+    V5 --> V6["Confere saldos:<br/>users.points = soma = último saldo;<br/>total_earned = soma dos ganhos"]:::proc
+    V6 --> V7{"Tudo íntegro?"}:::dec
+    V7 -- "Sim" --> V8(["Relatório OK"]):::term
+    V7 -- "Não" --> V9(["Relatório aponta tabela, linha e usuário<br/>+ alerta no log"]):::err
 
     classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
     classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
@@ -641,33 +704,49 @@ sequenceDiagram
 
 ## 11. Ciclos de vida (estados)
 
-![Estados](diagramas/estados.png)
+**Descarte**
 
-<!-- diagrama: estados -->
+![Estados do descarte](diagramas/estados-descarte.png)
+
+<!-- diagrama: estados-descarte -->
 ```mermaid
 stateDiagram-v2
     direction LR
-    state "Descarte" as D {
-        [*] --> PENDING : registrado
-        PENDING --> APPROVED : admin aprova / aprovação automática
-        PENDING --> REJECTED : admin recusa (com motivo)
-        APPROVED --> [*]
-        REJECTED --> [*]
-    }
-    state "Solicitação de coleta" as C {
-        [*] --> REQUESTED : morador ou lixeira
-        REQUESTED --> SCHEDULED : entra em rota
-        REQUESTED --> CANCELLED : cancelada
-        SCHEDULED --> CANCELLED : cancelada (rota PLANNED)
-        SCHEDULED --> IN_ROUTE : coletor inicia a rota
-        IN_ROUTE --> COLLECTED : parada concluída
-        COLLECTED --> [*]
-        CANCELLED --> [*]
-    }
-    state "Rota" as R {
-        [*] --> PLANNED : criada pelo admin
-        PLANNED --> IN_PROGRESS : coletor inicia
-        IN_PROGRESS --> DONE : todas as paradas concluídas
-        DONE --> [*]
-    }
+    [*] --> PENDING : registrado
+    PENDING --> APPROVED : admin aprova / aprovação automática
+    PENDING --> REJECTED : admin recusa (com motivo)
+    APPROVED --> [*]
+    REJECTED --> [*]
+```
+
+**Solicitação de coleta**
+
+![Estados da solicitação de coleta](diagramas/estados-coleta.png)
+
+<!-- diagrama: estados-coleta -->
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> REQUESTED : morador ou lixeira
+    REQUESTED --> SCHEDULED : entra em rota
+    REQUESTED --> CANCELLED : cancelada
+    SCHEDULED --> CANCELLED : cancelada (rota PLANNED)
+    SCHEDULED --> IN_ROUTE : coletor inicia a rota
+    IN_ROUTE --> COLLECTED : parada concluída
+    COLLECTED --> [*]
+    CANCELLED --> [*]
+```
+
+**Rota**
+
+![Estados da rota](diagramas/estados-rota.png)
+
+<!-- diagrama: estados-rota -->
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> PLANNED : criada pelo admin
+    PLANNED --> IN_PROGRESS : coletor inicia
+    IN_PROGRESS --> DONE : todas as paradas concluídas
+    DONE --> [*]
 ```

@@ -1,0 +1,15 @@
+flowchart LR
+    C1(["Coletor abre 'Minhas rotas'"]):::term --> C2["Inicia a rota: IN_PROGRESS<br/>solicitações IN_ROUTE"]:::proc
+    C2 --> C3[/"Na parada: informa<br/>kg coletado (opcional)"/]:::io
+    C3 --> C4["Parada DONE; solicitação COLLECTED;<br/>se veio de lixeira, ela volta a 0%"]:::proc
+    C4 --> C5{"Todas as paradas<br/>concluídas?"}:::dec
+    C5 -- "Não" --> C3
+    C5 -- "Sim" --> C6(["Rota DONE"]):::term
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef sub fill:#f1f5f9,stroke:#334155,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

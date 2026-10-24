@@ -5,7 +5,8 @@
  *   02 A IA identifica caixa de detecção + varredura + rótulo
  *   03 Validação       garrafa vai para a esquerda; checagens ao lado ganham ✓ uma a uma
  *   04 Pontos          garrafa centralizada; "+3 +5 +8…" sobem e somem
- *   05 Coleta          garrafa cai no caminhão, que percorre a rota otimizada
+ *   05 Coleta          traseira do caminhão: as duas portas abrem, a garrafa entra, as portas fecham;
+ *                      a câmera inclina para a vista de cima, o caminhão encolhe até o depósito e percorre a rota
  *
  * Desempenho: tudo é SVG/HTML inline; o progresso do scroll (0..5) é aplicado direto no DOM
  * (`apply(p)`), sem re-render do React por quadro, mexendo só em transform/opacity
@@ -24,20 +25,29 @@ const H = 320;
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
-const easeIn = (t: number) => t * t * t;
 
 /** Pose da garrafa: centro x, topo y, escala (desenho local: 52×134, centro x=26). */
 interface Pose { cx: number; top: number; s: number }
 const P_PHOTO: Pose = { cx: 260, top: 46, s: 1.4 };
 const P_CHECK: Pose = { cx: 122, top: 58, s: 1.28 };
 const P_POINTS: Pose = { cx: 260, top: 52, s: 1.3 };
-const P_LIFT: Pose = { cx: 74, top: 18, s: 0.62 };
+/** Garrafa "pairando" antes de ir para o caminhão (centro x, centro y, escala). */
+const HOVER = { x: 92, y: 70, s: 0.5 };
 const poseLerp = (a: Pose, b: Pose, t: number): Pose => ({ cx: lerp(a.cx, b.cx, t), top: lerp(a.top, b.top, t), s: lerp(a.s, b.s, t) });
 
 const STOPS: [number, number][] = [[62, 262], [150, 172], [236, 228], [326, 118], [408, 192], [466, 86]];
 const NAIVE = [0, 2, 1, 4, 3, 5];
 const DEPOT = STOPS[0];
-const P_DROP: Pose = { cx: DEPOT[0], top: DEPOT[1] - 34, s: 0.24 };
+
+/**
+ * Passo 05 — caminhão. Um só estilo plano (ortográfico) em duas vistas do MESMO desenho:
+ *   traseira (close, portas de duas folhas) → câmera "inclina" → vista de cima (ícone na rota).
+ * REAR: centro da traseira no palco. Abertura local: x −90..90, y −102..42.
+ */
+const REAR = { x: 290, y: 168 };
+const OPEN = { x0: REAR.x - 90, x1: REAR.x + 90, y0: REAR.y - 102, y1: REAR.y + 42 };
+const TOP_S = 0.16; // ícone: 300×116 local → ~48×19 px no palco
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const routeD = STOPS.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ');
 const naiveD = NAIVE.map((k, i) => `${i ? 'L' : 'M'}${STOPS[k][0]} ${STOPS[k][1]}`).join(' ');
 const SEG = STOPS.slice(1).map(([x, y], i) => Math.hypot(x - STOPS[i][0], y - STOPS[i][1]));
@@ -112,17 +122,76 @@ function BottleArt() {
   );
 }
 
-/** Caminhão de coleta em traço limpo, centrado na origem, apontando para +x. */
-function TruckArt() {
+/**
+ * Traseira do caminhão de coleta (plano, mesmo traço da vista de cima): carroceria neutra,
+ * uma faixa esmeralda contínua, DUAS portas com dobradiças nas bordas externas que abrem
+ * para fora (scaleX a partir da dobradiça = rotação em vista ortográfica) e interior escuro
+ * em perspectiva de um ponto.
+ */
+function TruckRear({ r }: { r: (k: string) => (el: SVGElement | null) => void }) {
+  const door = (side: -1 | 1) => {
+    const x = side < 0 ? -90 : 0;
+    return (
+      <g ref={r(side < 0 ? 'doorL' : 'doorR')}>
+        <rect x={x} y="-102" width="90" height="144" fill="url(#tr-door)" />
+        <rect x={x} y="-102" width="90" height="144" fill="none" stroke="#0a0e0c" strokeOpacity=".22" strokeWidth="1.5" />
+        <path d={`M${x + 8} -78h74M${x + 8} 18h74`} stroke="#0a0e0c" strokeOpacity=".1" strokeWidth="2" />
+        <rect x={x} y="-34" width="90" height="9" fill="#34d399" />
+        <rect x={side < 0 ? -14 : 10} y="-18" width="4" height="26" rx="2" fill="#7d8680" />
+        {/* sombreamento conforme gira */}
+        <rect ref={r(side < 0 ? 'shadeL' : 'shadeR')} x={x} y="-102" width="90" height="144" fill="#000" style={{ opacity: 0 }} />
+      </g>
+    );
+  };
   return (
-    <g>
-      <rect x="-22" y="-12" width="28" height="19" rx="2.5" fill="#c8cec9" />
-      <rect x="-19" y="-8" width="22" height="2.5" rx="1.25" fill="#34d399" />
-      <path d="M7 -7h8.5l6.5 7v7.5H7z" fill="#ecefea" />
-      <path d="M10 -4.5h5l3.6 4H10z" fill="#1c231e" />
-      <circle cx="-13" cy="8.5" r="3.6" fill="#0a0e0c" stroke="#7d8680" strokeWidth="1.4" />
-      <circle cx="13" cy="8.5" r="3.6" fill="#0a0e0c" stroke="#7d8680" strokeWidth="1.4" />
-    </g>
+    <>
+      <defs>
+        <linearGradient id="tr-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#d3d9d4" /><stop offset="1" stopColor="#b9c0bb" /></linearGradient>
+        <linearGradient id="tr-door" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#c9d0cb" /><stop offset="1" stopColor="#b2bab4" /></linearGradient>
+      </defs>
+      <ellipse cx="0" cy="102" rx="132" ry="8" fill="#000" opacity=".4" />
+      <rect x="-102" y="62" width="34" height="38" rx="6" fill="#0a0e0c" />
+      <rect x="68" y="62" width="34" height="38" rx="6" fill="#0a0e0c" />
+      <rect x="-112" y="-122" width="224" height="184" rx="10" fill="url(#tr-body)" />
+      <rect x="-104" y="-118" width="208" height="3" rx="1.5" fill="#fff" opacity=".35" />
+      <rect x="-112" y="-34" width="22" height="9" fill="#34d399" />
+      <rect x="90" y="-34" width="22" height="9" fill="#34d399" />
+      {/* interior escuro com profundidade */}
+      <rect x="-90" y="-102" width="180" height="144" fill="#070a08" />
+      <path d="M-90 42 L90 42 L50 6 L-50 6 Z" fill="#0e1310" />
+      <rect x="-50" y="-64" width="100" height="70" fill="#121815" />
+      <path d="M-90 -102 L-50 -64 M90 -102 L50 -64 M-90 42 L-50 6 M90 42 L50 6" stroke="#ecefea" strokeOpacity=".07" strokeWidth="1.5" />
+      <rect x="-90" y="-102" width="180" height="144" fill="none" stroke="#9aa39d" strokeWidth="4" />
+      {[-92, 88].map((hx) => [-88, 22].map((hy) => <rect key={`${hx}${hy}`} x={hx} y={hy} width="4" height="12" rx="1" fill="#7d8680" />))}
+      <rect x="-108" y="40" width="12" height="16" rx="2" fill="#f5b544" opacity=".85" />
+      <rect x="96" y="40" width="12" height="16" rx="2" fill="#f5b544" opacity=".85" />
+      <rect x="-20" y="46" width="40" height="12" rx="2" fill="#ecefea" opacity=".85" />
+      <rect x="-118" y="60" width="236" height="12" rx="3" fill="#2b332e" />
+      {door(-1)}
+      {door(1)}
+    </>
+  );
+}
+
+/** O mesmo caminhão visto de cima (frente para +x): baú, faixa, cabine, para-brisa, giroflex. */
+function TruckTop() {
+  return (
+    <>
+      <defs>
+        <linearGradient id="tt-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#d3d9d4" /><stop offset="1" stopColor="#b9c0bb" /></linearGradient>
+      </defs>
+      <rect x="-144" y="-50" width="300" height="116" rx="14" fill="#000" opacity=".35" />
+      {[-118, 92].map((wx) => [-64, 58].map((wy) => <rect key={`${wx}${wy}`} x={wx} y={wy} width="30" height="6" rx="2" fill="#0a0e0c" />))}
+      <rect x="-150" y="-56" width="214" height="112" rx="8" fill="url(#tt-body)" />
+      <path d="M-110 -50V50M-70 -50V50M-30 -50V50M10 -50V50M50 -50V50" stroke="#0a0e0c" strokeOpacity=".08" strokeWidth="2" />
+      <rect x="-150" y="-6" width="214" height="12" fill="#34d399" />
+      <rect x="64" y="-44" width="8" height="88" fill="#2b332e" />
+      <rect x="70" y="-50" width="80" height="100" rx="16" fill="#ecefea" />
+      <rect x="122" y="-40" width="20" height="80" rx="6" fill="#1c231e" />
+      <rect x="86" y="-14" width="10" height="28" rx="3" fill="#f5b544" opacity=".85" />
+      <rect x="112" y="-62" width="10" height="6" rx="2" fill="#c8cec9" />
+      <rect x="112" y="56" width="10" height="6" rx="2" fill="#c8cec9" />
+    </>
   );
 }
 
@@ -170,17 +239,38 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       if (i === 2) pose = poseLerp(P_PHOTO, P_CHECK, easeOut(clamp(t / 0.2)));
       else if (i === 3) pose = poseLerp(P_CHECK, P_POINTS, easeOut(clamp(t / 0.2)));
       else if (i === 4) {
-        pose = t < 0.15 ? poseLerp(P_POINTS, P_LIFT, easeOut(t / 0.15)) : poseLerp(P_LIFT, P_DROP, easeIn(clamp((t - 0.15) / 0.2)));
-        bottleO = 1 - clamp((t - 0.29) / 0.07);
+        // A: sobe para "pairar" à esquerda · B (.2–.38): arco até o centro da abertura ·
+        // C (.38–.47): cai para dentro — some ao passar a soleira (clip na abertura)
+        const hoverPose: Pose = { cx: HOVER.x, top: HOVER.y - 67 * HOVER.s, s: HOVER.s };
+        if (t < 0.2) pose = poseLerp(P_POINTS, hoverPose, easeInOut(clamp(t / 0.16)));
+        else if (t < 0.38) {
+          const a = easeInOut(clamp((t - 0.2) / 0.18));
+          const c = { x: REAR.x - 110, y: REAR.y - 150 };
+          const e = { x: REAR.x, y: REAR.y - 58 };
+          const bx = (1 - a) * (1 - a) * HOVER.x + 2 * (1 - a) * a * c.x + a * a * e.x;
+          const by = (1 - a) * (1 - a) * HOVER.y + 2 * (1 - a) * a * c.y + a * a * e.y;
+          const bs = lerp(HOVER.s, 0.48, a);
+          pose = { cx: bx, top: by - 67 * bs, s: bs };
+        } else {
+          const d = clamp((t - 0.38) / 0.09);
+          const bs = lerp(0.48, 0.38, d);
+          const by = lerp(REAR.y - 58, REAR.y + 92, d * d);
+          pose = { cx: REAR.x, top: by - 67 * bs, s: bs };
+        }
+        bottleO = t > 0.48 ? 0 : 1;
       }
+      attr('bottleClip', 'clip-path', i === 4 && t >= 0.38 ? 'url(#sc-open)' : 'none');
       attr('bottle', 'transform', `translate(${(pose.cx - 26 * pose.s).toFixed(2)} ${pose.top.toFixed(2)}) scale(${pose.s.toFixed(4)})`);
       op('bottle', bottleO);
       op('shadow', i === 4 ? 1 - clamp(t / 0.1) : 1);
 
-      // cenário: bancada (passos 1–4) ↔ mapa (passo 5)
-      const mapO = i === 4 ? clamp((t - 0.05) / 0.15) : 0;
+      // "câmera": traseira → vista de cima, enquanto encolhe até o depósito (.58–.76)
+      const cam = i === 4 ? easeInOut(clamp((t - 0.58) / 0.18)) : 0;
+      const mapO = i === 4 ? clamp((cam - 0.15) / 0.6) : 0;
       op('photo', 1 - mapO);
       op('map', mapO);
+      const zoom = lerp(1.8, 1, cam);
+      attr('map', 'transform', `translate(${DEPOT[0]} ${DEPOT[1]}) scale(${zoom.toFixed(4)}) translate(${-DEPOT[0]} ${-DEPOT[1]})`);
 
       // IA: caixa + varredura + rótulo
       op('bbox', i === 1 ? clamp((t - 0.05) / 0.12) : i === 2 ? 1 - clamp(t / 0.1) : 0);
@@ -204,11 +294,36 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       // pontos
       op('particles', vis(3) * (i === 3 ? clamp((t - 0.12) / 0.1) : 1));
 
-      // coleta: caminhão percorre a rota
-      const drive = i === 4 ? clamp((t - 0.38) / 0.55) : 0;
+      // coleta: traseira em close → portas abrem → garrafa entra → portas fecham → câmera inclina → rota
+      const drive = i === 4 ? clamp((t - 0.78) / 0.2) : 0;
       const pt = along(drive * ROUTE_LEN);
-      op('truck', i === 4 ? clamp((t - 0.1) / 0.1) : 0);
-      attr('truck', 'transform', `translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)}) rotate(${pt.deg.toFixed(1)}) scale(1.35)`);
+      const start = along(0);
+      const appear = i === 4 ? easeOut(clamp((t - 0.02) / 0.12)) : 0;
+      const settle = i === 4 ? Math.sin(Math.PI * clamp((t - 0.53) / 0.06)) * 2.5 : 0;
+      // traseira: entra subindo, depois "achata" (inclinação) e encolhe rumo ao depósito
+      const rx = lerp(REAR.x, start.x, cam);
+      const ry = lerp(REAR.y + (1 - appear) * 16 + settle, start.y, cam);
+      const rs = lerp(1, 0.24, cam);
+      attr('truckRear', 'transform', `translate(${rx.toFixed(1)} ${ry.toFixed(1)}) scale(${rs.toFixed(4)} ${(rs * lerp(1, 0.12, cam)).toFixed(4)})`);
+      op('truckRear', appear * (1 - clamp((cam - 0.35) / 0.3)));
+      // vista de cima: nasce "achatada" no comprimento e abre até a planta; depois percorre a rota
+      let tx = rx;
+      let ty = ry;
+      let deg = lerp(-90, start.deg, cam);
+      let sLen = lerp(0.62, TOP_S, cam) * lerp(0.15, 1, cam);
+      let sWid = lerp(0.62, TOP_S, cam);
+      if (drive > 0) { tx = pt.x; ty = pt.y; deg = pt.deg; sLen = TOP_S; sWid = TOP_S; }
+      attr('truckTop', 'transform', `translate(${tx.toFixed(1)} ${ty.toFixed(1)}) rotate(${deg.toFixed(1)}) scale(${sLen.toFixed(4)} ${sWid.toFixed(4)})`);
+      op('truckTop', i === 4 ? clamp((cam - 0.35) / 0.3) : 0);
+      // portas (duas folhas): abrem .12–.24, fecham .46–.55 com leve acomodação
+      const open = i === 4 ? easeInOut(clamp((t - 0.12) / 0.12)) - easeInOut(clamp((t - 0.46) / 0.09)) : 0;
+      const wobble = i === 4 ? Math.sin(Math.PI * clamp((t - 0.55) / 0.04)) * 0.04 : 0;
+      const dsx = lerp(1, -0.32, clamp(open)) - wobble;
+      attr('doorL', 'transform', `translate(-90 0) scale(${dsx.toFixed(3)} 1) translate(90 0)`);
+      attr('doorR', 'transform', `translate(90 0) scale(${dsx.toFixed(3)} 1) translate(-90 0)`);
+      const shade = dsx >= 0 ? (1 - dsx) * 0.35 : 0.3 + Math.abs(dsx) * 0.2;
+      op('shadeL', shade);
+      op('shadeR', shade);
       attr('route', 'stroke-dashoffset', (ROUTE_LEN * (1 - drive)).toFixed(1));
       STOP_AT.forEach((at, k) => { if (k > 0) op(`stop${k}`, drive * ROUTE_LEN >= at - 2 ? 1 : 0); });
 
@@ -265,7 +380,14 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
                 </g>
               ))}
             </g>
+            {/* caminhão: traseira (close) e vista de cima (rota) — mesmo desenho, mesmo estilo */}
+            <g ref={ref('truckRear')} style={{ opacity: 0 }}><TruckRear r={ref} /></g>
+            <g ref={ref('truckTop')} style={{ opacity: 0 }}><TruckTop /></g>
+            <clipPath id="sc-open" clipPathUnits="userSpaceOnUse">
+              <rect x={OPEN.x0} y={OPEN.y0} width={OPEN.x1 - OPEN.x0} height={OPEN.y1 - OPEN.y0} />
+            </clipPath>
             {/* garrafa persistente (+ sombra, caixa de detecção e linha de varredura acompanham) */}
+            <g ref={ref('bottleClip')}>
             <g ref={ref('bottle')}>
               <ellipse ref={ref('shadow')} cx="26" cy="138" rx="34" ry="5" fill="#000" opacity=".45" />
               <BottleArt />
@@ -277,8 +399,7 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
                 <line x1="-10" x2="62" y1="0" y2="0" stroke="#34d399" strokeWidth="1.2" />
               </g>
             </g>
-            {/* caminhão */}
-            <g ref={ref('truck')} style={{ opacity: 0 }}><TruckArt /></g>
+            </g>
           </svg>
 
           {/* rótulo da IA (passo 2) */}

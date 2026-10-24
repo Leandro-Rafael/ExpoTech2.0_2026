@@ -1,0 +1,6 @@
+stateDiagram-v2
+    direction LR
+    [*] --> PLANNED : criada pelo admin
+    PLANNED --> IN_PROGRESS : coletor inicia
+    IN_PROGRESS --> DONE : todas as paradas concluídas
+    DONE --> [*]

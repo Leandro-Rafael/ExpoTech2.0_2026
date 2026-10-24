@@ -18,13 +18,12 @@ export function NavItemLink({ item, collapsed, onNavigate }: { item: NavItem; co
       className={({ isActive }) => cn(
         'group relative flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors duration-150',
         collapsed && 'justify-center px-0',
-        isActive ? 'bg-gradient-to-r from-brand-500/16 to-brand-500/[0.03] text-fg' : 'text-muted hover:bg-white/[0.04] hover:text-fg-soft',
+        isActive ? 'bg-white/[0.06] text-fg' : 'text-muted hover:bg-white/[0.03] hover:text-fg',
       )}
     >
       {({ isActive }) => (
         <>
-          {isActive && <span aria-hidden className="absolute top-2 bottom-2 left-0 w-[3px] rounded-full bg-brand-gradient shadow-[0_0_12px_rgb(52_211_153/0.8)]" />}
-          <Icon aria-hidden className={cn('size-[18px] shrink-0 transition-colors', isActive ? 'text-brand-300' : 'text-subtle group-hover:text-fg-soft')} />
+          <Icon aria-hidden className={cn('size-[18px] shrink-0 transition-colors', isActive ? 'text-fg' : 'text-subtle group-hover:text-fg-soft')} />
           <span className={cn('truncate', collapsed && 'sr-only')}>{item.label}</span>
         </>
       )}
@@ -39,7 +38,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
     <aside
       aria-label="Navegação principal"
       className={cn(
-        'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-line bg-bg-deep/80 backdrop-blur-xl transition-[width] duration-300 ease-[var(--ease-out-expo)] lg:flex',
+        'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-line bg-bg transition-[width] duration-300 ease-[var(--ease-out-expo)] lg:flex',
         collapsed ? 'w-[var(--sidebar-w-collapsed)]' : 'w-[var(--sidebar-w)]',
       )}
     >
@@ -55,7 +54,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             {collapsed ? (
               <div aria-hidden className="mx-auto mb-2 h-px w-6 bg-line-strong" />
             ) : (
-              <p className="mb-1.5 px-3 text-[11px] font-semibold tracking-[0.14em] text-subtle uppercase">{section.label}</p>
+              <p className="label-mono mb-1.5 px-3 text-[11px]">{section.label}</p>
             )}
             <ul className="flex flex-col gap-0.5">
               {section.items.map((item) => (
@@ -67,10 +66,10 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       </nav>
 
       {user && !collapsed && (
-        <Link to="/app/conquistas" className="mx-3 mb-3 block rounded-2xl border border-line bg-gradient-to-br from-brand-500/10 to-lime-300/[0.03] p-4 transition-colors hover:border-line-strong">
+        <Link to="/app/conquistas" className="mx-3 mb-3 block rounded-xl border border-line p-4 transition-colors hover:border-line-strong hover:bg-white/[0.02]">
           <div className="mb-2.5 flex items-baseline justify-between">
-            <span className="text-xs text-muted">Nível {user.level.index + 1}</span>
-            <span className="font-display text-sm font-semibold text-lime-200">{user.level.name}</span>
+            <span className="label-mono">Nível {user.level.index + 1}</span>
+            <span className="text-sm font-medium text-fg">{user.level.name}</span>
           </div>
           <ProgressBar value={user.level.progress} size="xs" valueLabel={null} />
           <p className="mt-2 text-[11px] text-muted">

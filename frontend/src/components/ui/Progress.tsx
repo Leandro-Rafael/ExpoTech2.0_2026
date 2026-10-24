@@ -36,7 +36,7 @@ export function ProgressBar({ value, label, valueLabel, size = 'sm', color, clas
         className={cn('relative w-full overflow-hidden rounded-full bg-white/6', heights[size])}
       >
         <div
-          className={cn('h-full rounded-full transition-[width] duration-700 ease-[var(--ease-out-expo)]', !color && 'bg-brand-gradient')}
+          className={cn('h-full rounded-full transition-[width] duration-700 ease-[var(--ease-out-expo)]', !color && 'bg-brand-500')}
           style={{ width: `${v * 100}%`, ...(color ? { backgroundColor: color } : {}) }}
         />
       </div>
@@ -66,7 +66,7 @@ export function ProgressRing({ value, size = 96, stroke = 8, children, color, cl
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
         <defs>
           <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#10b981" /><stop offset="1" stopColor="#bef264" />
+            <stop offset="0" stopColor="#10b981" /><stop offset="1" stopColor="#34d399" />
           </linearGradient>
         </defs>
         <circle cx={size / 2} cy={size / 2} r={r} stroke="rgb(255 255 255 / 0.07)" strokeWidth={stroke} fill="none" />

@@ -8,42 +8,33 @@ export interface EmptyStateProps {
   icon?: LucideIcon;
   title: ReactNode;
   description?: ReactNode;
-  /** Botão(ões) de ação. */
+  /** Botão(ões) de ação. Use no máximo um primário. */
   action?: ReactNode;
+  /** Só danger/warning mudam a cor do ícone; o resto é neutro. */
   tone?: Extract<Tone, 'brand' | 'lime' | 'danger' | 'warning' | 'info' | 'neutral'>;
   /** Versão menor, para dentro de cards. */
   compact?: boolean;
-  /** Itens extras abaixo (ex.: lista de recursos que virão). */
+  /** Itens extras abaixo (ex.: lista do que a tela terá). */
   children?: ReactNode;
   className?: string;
 }
 
-const tones = {
-  brand: 'text-brand-300 from-brand-500/25',
-  lime: 'text-lime-300 from-lime-300/20',
-  danger: 'text-danger from-danger/20',
-  warning: 'text-warning from-warning/20',
-  info: 'text-info from-info/20',
-  neutral: 'text-fg-soft from-white/10',
-};
+const iconTone: Record<string, string> = { danger: 'text-danger', warning: 'text-warning' };
 
-/** Estado vazio ilustrado. `<EmptyState icon={Recycle} title="Nenhum descarte ainda" action={<ButtonLink…/>} />` */
-export function EmptyState({ icon: Icon = Inbox, title, description, action, tone = 'brand', compact, children, className }: EmptyStateProps) {
+/** Estado vazio. `<EmptyState icon={Recycle} title="Nenhum descarte ainda" action={<ButtonLink…/>} />` */
+export function EmptyState({ icon: Icon = Inbox, title, description, action, tone = 'neutral', compact, children, className }: EmptyStateProps) {
   return (
     <div className={cn('relative flex flex-col items-center text-center', compact ? 'px-4 py-8' : 'px-6 py-14 sm:py-20', className)}>
-      <div className="relative mb-5">
-        <div aria-hidden className={cn('absolute -inset-6 rounded-full bg-radial to-transparent to-70% blur-xl', tones[tone])} />
-        <div className={cn(
-          'relative flex items-center justify-center rounded-2xl border border-line-strong bg-surface-2/80 shadow-card',
-          compact ? 'size-12' : 'size-16', tones[tone].split(' ')[0],
-        )}>
-          <Icon className={compact ? 'size-6' : 'size-7'} aria-hidden strokeWidth={1.75} />
-        </div>
+      <div className={cn(
+        'mb-5 flex items-center justify-center rounded-xl border border-line-strong bg-surface-2',
+        compact ? 'size-11' : 'size-14', iconTone[tone] ?? 'text-fg-soft',
+      )}>
+        <Icon className={compact ? 'size-5' : 'size-6'} aria-hidden strokeWidth={1.6} />
       </div>
-      <h3 className={cn('font-display font-semibold text-fg', compact ? 'text-base' : 'text-xl')}>{title}</h3>
-      {description && <p className={cn('mt-2 max-w-md text-muted', compact ? 'text-sm' : 'text-[15px] leading-relaxed')}>{description}</p>}
+      <h3 className={cn('font-semibold tracking-tight text-fg', compact ? 'text-base' : 'text-xl')}>{title}</h3>
+      {description && <p className={cn('mt-2 max-w-[52ch] text-muted', compact ? 'text-sm' : 'text-[15px] leading-relaxed')}>{description}</p>}
       {action && <div className="mt-6 flex flex-wrap items-center justify-center gap-3">{action}</div>}
-      {children && <div className="mt-8 w-full">{children}</div>}
+      {children && <div className="mt-10 w-full">{children}</div>}
     </div>
   );
 }

@@ -38,7 +38,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined;
+          // Código compartilhado do app (kit de UI, API, auth, layout) num chunk só —
+          // evita dezenas de micro-chunks pré-carregados. Páginas/landing seguem lazy.
+          if (!id.includes('node_modules')) {
+            if (/\/src\/(components|lib|hooks|api|auth|app)\//.test(id)) return 'core';
+            return undefined;
+          }
+          if (id.includes('/node_modules/lucide-react/')) return 'core';
           for (const [chunk, pkgs] of Object.entries(heavyChunks)) {
             if (pkgs.some((p) => id.includes(`/node_modules/${p}`))) return chunk;
           }

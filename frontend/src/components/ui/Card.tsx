@@ -2,7 +2,7 @@ import type { ComponentPropsWithRef, ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
 export interface CardProps extends ComponentPropsWithRef<'div'> {
-  /** glass (padrão, vidro), solid (superfície opaca), outline (só borda), gradient (borda em gradiente + brilho). */
+  /** glass/solid = superfície padrão; outline = só hairline; gradient = superfície elevada (legado). */
   variant?: 'glass' | 'solid' | 'outline' | 'gradient';
   /** Efeito hover de elevação (para cards clicáveis). */
   interactive?: boolean;
@@ -13,7 +13,7 @@ const variants = {
   glass: 'glass',
   solid: 'bg-surface border border-line shadow-card',
   outline: 'border border-line bg-transparent',
-  gradient: 'glass ring-gradient shadow-glow',
+  gradient: 'surface-raised',
 };
 const paddings = { none: '', sm: 'p-4', md: 'p-5 sm:p-6', lg: 'p-6 sm:p-8' };
 
@@ -25,7 +25,7 @@ export function Card({ variant = 'glass', interactive, padding = 'md', className
         'relative rounded-2xl',
         variants[variant],
         paddings[padding],
-        interactive && 'cursor-pointer transition-[transform,border-color,box-shadow] duration-300 ease-[var(--ease-out-expo)] hover:-translate-y-0.5 hover:border-line-strong hover:shadow-pop',
+        interactive && 'cursor-pointer transition-[border-color,background-color] duration-200 hover:border-line-strong hover:bg-surface-2',
         className,
       )}
       {...rest}
@@ -41,7 +41,7 @@ export function CardHeader({ title, description, action, icon, className }: Card
       <div className="flex min-w-0 items-start gap-3">
         {icon && <div className="mt-0.5 shrink-0">{icon}</div>}
         <div className="min-w-0">
-          <h3 className="font-display text-base font-semibold text-fg">{title}</h3>
+          <h3 className="text-[15px] font-semibold text-fg">{title}</h3>
           {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
         </div>
       </div>

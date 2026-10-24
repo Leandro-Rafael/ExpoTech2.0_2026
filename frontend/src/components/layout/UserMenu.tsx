@@ -14,16 +14,14 @@ export function PointsChip({ className }: { className?: string }) {
   if (!user) return null;
   return (
     <div
-      className={cn('flex h-9 items-center gap-2 rounded-full border border-lime-300/20 bg-lime-300/[0.06] pr-3 pl-1 text-sm', className)}
+      className={cn('flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-sm', className)}
       title={`${formatNumber(user.points)} pontos disponíveis · nível ${user.level.name}`}
     >
-      <span className="inline-flex size-7 items-center justify-center rounded-full bg-brand-gradient text-bg-deep">
-        <Sparkles className="size-3.5" aria-hidden />
-      </span>
-      <span className="font-display font-semibold text-fg tabular">{formatNumber(user.points)}</span>
-      <span className="text-xs text-muted">pts</span>
+      <Sparkles className="size-3.5 text-brand-300" aria-hidden />
+      <span className="font-mono text-[13px] font-medium text-fg tabular">{formatNumber(user.points)}</span>
+      <span className="font-mono text-[11px] text-subtle uppercase">pts</span>
       <span aria-hidden className="mx-0.5 h-4 w-px bg-line-strong" />
-      <span className="text-xs font-medium text-lime-200">{user.level.name}</span>
+      <span className="text-xs text-fg-soft">{user.level.name}</span>
     </div>
   );
 }

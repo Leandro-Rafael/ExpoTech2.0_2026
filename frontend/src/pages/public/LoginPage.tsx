@@ -3,11 +3,11 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowRight, KeyRound, Lock, Mail, ShieldAlert, Timer, UserRound, Truck, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Check, Copy, KeyRound, Lock, Mail, ShieldAlert, Timer, UserRound, Truck, ShieldCheck } from 'lucide-react';
 import { ApiError, applyServerErrors, errorMessage } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
 import { safeRedirect } from '@/auth/guards';
-import { Button, Field, FormError, Input, PasswordInput, toast } from '@/components/ui';
+import { Button, Field, FormError, IconButton, Input, PasswordInput, toast } from '@/components/ui';
 import { AuthLayout } from '@/features/auth/AuthLayout';
 import { useCooldown } from '@/features/auth/useCooldown';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -22,8 +22,8 @@ type FormValues = z.infer<typeof schema>;
 
 const DEMO = [
   { role: 'Administrador', icon: ShieldCheck, email: 'admin@ecotechzero.com.br', password: 'EcoTech@2050' },
-  { role: 'Coletor', icon: Truck, email: 'coletor@ecotechzero.com.br', password: 'Coletor@2050' },
-  { role: 'Morador', icon: UserRound, email: 'morador@ecotechzero.com.br', password: 'Morador@2050' },
+  { role: 'Coletor', icon: Truck, email: 'coletor@ecotechzero.com.br', password: 'Coleta@2050' },
+  { role: 'Morador', icon: UserRound, email: 'morador@ecotechzero.com.br', password: 'Recicla@2050' },
 ];
 
 export default function LoginPage() {
@@ -34,6 +34,7 @@ export default function LoginPage() {
   const cooldown = useCooldown();
   const [locked, setLocked] = useState<string | null>(null);
   const [filled, setFilled] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: '', password: '' }, mode: 'onTouched' });
   const { register, handleSubmit, setValue, setError, formState: { errors, isSubmitting } } = form;
@@ -55,6 +56,10 @@ export default function LoginPage() {
         setError('root.server', { message: errorMessage(e) });
         return;
       }
+      if (e instanceof ApiError && e.code === 'FORBIDDEN') {
+        setError('root.server', { message: 'Esta conta está desativada. Fale com a administração.' });
+        return;
+      }
       if (e instanceof ApiError && e.code === 'BAD_CREDENTIALS') {
         setError('root.server', { message: 'E-mail ou senha incorretos. Confira e tente novamente.' });
         setValue('password', '');
@@ -63,6 +68,16 @@ export default function LoginPage() {
       applyServerErrors(e, setError, { knownFields: ['email', 'password'], toast: false });
     }
   });
+
+  const copyDemo = async (d: (typeof DEMO)[number]) => {
+    try {
+      await navigator.clipboard.writeText(`${d.email}\n${d.password}`);
+      setCopied(d.email);
+      window.setTimeout(() => setCopied(null), 1600);
+    } catch {
+      toast.error('Não foi possível copiar. Use o botão "Usar".');
+    }
+  };
 
   const fillDemo = (d: (typeof DEMO)[number]) => {
     setValue('email', d.email, { shouldValidate: true, shouldDirty: true });
@@ -75,11 +90,11 @@ export default function LoginPage() {
     <AuthLayout
       title="Entrar na sua conta"
       subtitle="Acompanhe seus descartes, pontos e o impacto da sua casa."
-      footer={<>Ainda não tem conta? <Link to={`/cadastro${location.search}`} className="font-medium text-brand-300 hover:text-lime-300">Criar conta grátis</Link></>}
+      footer={<>Ainda não tem conta? <Link to={`/cadastro${location.search}`} className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg">Criar conta grátis</Link></>}
     >
       <form onSubmit={onSubmit} noValidate className="space-y-5">
         {locked && (
-          <div role="alert" className="flex gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3.5 text-sm text-warning">
+          <div role="alert" className="flex gap-3 rounded-xl border border-warning/30 bg-warning/[0.08] p-3.5 text-sm text-warning">
             <ShieldAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
             <div>
               <p className="font-medium">Conta temporariamente bloqueada</p>
@@ -101,31 +116,25 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      {/* Credenciais de demonstração */}
-      <section aria-labelledby="demo-title" className="mt-8 rounded-2xl border border-dashed border-lime-300/25 bg-lime-300/[0.04] p-4">
+      {/* Credenciais de demonstração: e-mail e senha completos, preencher ou copiar */}
+      <section aria-labelledby="demo-title" className="mt-10">
         <div className="mb-3 flex items-center gap-2">
-          <KeyRound className="size-4 text-lime-300" aria-hidden />
-          <h2 id="demo-title" className="text-sm font-semibold text-lime-200">Contas de demonstração</h2>
-          <span className="ml-auto text-[11px] text-muted">Clique para preencher</span>
+          <KeyRound className="size-4 text-subtle" aria-hidden />
+          <h2 id="demo-title" className="font-sans text-sm font-medium tracking-normal text-fg">Contas de demonstração</h2>
         </div>
-        <ul className="grid grid-cols-1 gap-2">
+        <ul className="divide-y divide-line rounded-2xl border border-line">
           {DEMO.map((d) => (
-            <li key={d.email}>
-              <button
-                type="button"
-                onClick={() => fillDemo(d)}
-                className={cn(
-                  'group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors',
-                  filled === d.email ? 'border-brand-300/50 bg-brand-500/10' : 'border-line bg-bg-deep/40 hover:border-line-strong hover:bg-white/[0.03]',
-                )}
-              >
-                <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-brand-300"><d.icon className="size-4" aria-hidden /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium text-fg">{d.role}</span>
-                  <span className="block truncate font-mono text-[11.5px] text-muted">{d.email} · {d.password}</span>
-                </span>
-                <ArrowRight className="size-4 text-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-brand-300" aria-hidden />
-              </button>
+            <li key={d.email} className={cn('flex items-center gap-3 px-4 py-3 transition-colors', filled === d.email && 'bg-white/[0.04]')}>
+              <d.icon className="size-4 shrink-0 text-subtle" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-fg">{d.role}</p>
+                <p className="font-mono text-[12px] break-all text-muted">{d.email}</p>
+                <p className="font-mono text-[12px] text-fg-soft">{d.password}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <IconButton icon={copied === d.email ? Check : Copy} label={`Copiar credenciais de ${d.role}`} size="sm" onClick={() => copyDemo(d)} />
+                <Button size="sm" variant="secondary" onClick={() => fillDemo(d)} aria-label={`Preencher com a conta ${d.role}`}>Usar</Button>
+              </div>
             </li>
           ))}
         </ul>

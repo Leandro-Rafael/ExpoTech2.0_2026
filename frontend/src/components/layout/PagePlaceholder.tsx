@@ -24,13 +24,12 @@ export function PagePlaceholder({ eyebrow, title, description, icon, emptyTitle,
     <>
       <PageHeader eyebrow={eyebrow} title={title} description={description} icon={icon} />
       <Card padding="none" className="overflow-hidden">
-        <div aria-hidden className="pointer-events-none absolute inset-0 grid-bg opacity-60" />
         <EmptyState icon={icon} title={emptyTitle} description={emptyDescription} action={action}>
           {features && features.length > 0 && (
-            <ul className="mx-auto grid max-w-2xl gap-2 text-left sm:grid-cols-2">
+            <ul className="mx-auto grid max-w-2xl gap-x-8 text-left sm:grid-cols-2">
               {features.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 rounded-xl border border-line bg-bg-deep/40 px-3.5 py-3 text-sm text-fg-soft">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand-300" aria-hidden />
+                <li key={f} className="flex items-start gap-2.5 border-t border-line px-1 py-3 text-sm text-fg-soft">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-subtle" aria-hidden />
                   {f}
                 </li>
               ))}

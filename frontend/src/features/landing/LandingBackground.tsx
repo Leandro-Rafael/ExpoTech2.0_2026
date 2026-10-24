@@ -13,18 +13,18 @@ function hasWebGL(): boolean {
   }
 }
 
-/** Fundo estático (primeira pintura, movimento reduzido e fallback sem WebGL). */
-/** Brilho ambiente (sempre visível, também sob a cena 3D). */
+/** Único brilho ambiente (estático), atrás do anel. Funciona como "bloom" barato. */
 function AmbientGlow() {
   return (
-    <div aria-hidden className="absolute inset-0 bg-[radial-gradient(45%_55%_at_74%_48%,rgb(16_185_129/0.16),transparent_70%),radial-gradient(50%_40%_at_10%_90%,rgb(190_242_100/0.07),transparent_60%),radial-gradient(60%_45%_at_50%_-10%,rgb(5_150_105/0.16),transparent_60%)] max-sm:bg-[radial-gradient(80%_40%_at_50%_22%,rgb(16_185_129/0.2),transparent_70%)]" />
+    <div aria-hidden className="absolute inset-0 bg-[radial-gradient(42%_50%_at_74%_50%,rgb(16_185_129/0.13),transparent_70%)] max-sm:bg-[radial-gradient(80%_38%_at_50%_24%,rgb(16_185_129/0.15),transparent_70%)]" />
   );
 }
 
+/** Fundo estático (primeira pintura, movimento reduzido e fallback sem WebGL). */
 export function StaticBackdrop({ className }: { className?: string }) {
   return (
     <div aria-hidden className={cn('absolute inset-0 overflow-hidden', className)}>
-      <svg className="absolute top-[8%] left-1/2 h-[64vmin] w-[64vmin] -translate-x-1/2 opacity-70 sm:top-1/2 sm:left-[70%] sm:h-[78vmin] sm:w-[78vmin] sm:-translate-y-1/2" viewBox="0 0 200 200" fill="none">
+      <svg className="absolute top-[8%] left-1/2 h-[64vmin] w-[64vmin] -translate-x-1/2 opacity-70 sm:top-1/2 sm:left-[72%] sm:h-[78vmin] sm:w-[78vmin] sm:-translate-y-1/2" viewBox="0 0 200 200" fill="none">
         <defs>
           <linearGradient id="sb-ring" x1="20" y1="180" x2="180" y2="20" gradientUnits="userSpaceOnUse">
             <stop offset="0" stopColor="#059669" /><stop offset=".55" stopColor="#22c55e" /><stop offset="1" stopColor="#bef264" />
@@ -32,13 +32,11 @@ export function StaticBackdrop({ className }: { className?: string }) {
           <filter id="sb-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6" /></filter>
         </defs>
         <g transform="rotate(-20 100 100)">
-          <ellipse cx="100" cy="100" rx="86" ry="34" stroke="url(#sb-ring)" strokeWidth="10" filter="url(#sb-blur)" opacity=".55" />
+          <ellipse cx="100" cy="100" rx="86" ry="34" stroke="url(#sb-ring)" strokeWidth="10" filter="url(#sb-blur)" opacity=".5" />
           <ellipse cx="100" cy="100" rx="86" ry="34" stroke="url(#sb-ring)" strokeWidth="1.6" strokeDasharray="1 3.5" strokeLinecap="round" />
         </g>
-        <circle cx="100" cy="100" r="40" fill="url(#sb-ring)" opacity=".08" />
-        <circle cx="100" cy="100" r="40" stroke="#34d399" strokeOpacity=".25" strokeDasharray="0.8 3" strokeLinecap="round" />
+        <circle cx="100" cy="100" r="40" stroke="#34d399" strokeOpacity=".22" strokeDasharray="0.8 3" strokeLinecap="round" />
       </svg>
-      <div className="absolute inset-0 grid-bg opacity-40" />
     </div>
   );
 }
@@ -77,8 +75,8 @@ export function LandingBackground() {
           </Suspense>
         </div>
       )}
-      {/* vinheta para legibilidade do texto */}
-      <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_40%,transparent_40%,rgb(3_10_7/0.85))]" />
+      {/* vinheta sutil para legibilidade */}
+      <div className="absolute inset-0 bg-[radial-gradient(130%_100%_at_60%_45%,transparent_55%,rgb(10_14_12/0.7))]" />
     </div>
   );
 }

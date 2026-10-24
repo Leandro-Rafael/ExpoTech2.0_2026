@@ -1,6 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/inter/index.css';
+// Fontes: Geist (UI), Geist Mono (dados/rótulos), Fraunces com eixo óptico (h1/h2), Space Grotesk (só o logo).
+import '@fontsource-variable/geist/index.css';
+import '@fontsource-variable/geist-mono/index.css';
+import '@fontsource-variable/fraunces/opsz.css';
+import '@fontsource-variable/fraunces/opsz-italic.css';
 import '@fontsource-variable/space-grotesk/index.css';
 import './styles/index.css';
 import { App } from './app/App';

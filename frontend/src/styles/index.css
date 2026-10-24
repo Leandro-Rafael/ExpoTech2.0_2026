@@ -1,89 +1,103 @@
 /*
  * Design system — Lixo Zero 2050 / EcoTech Zero
- * Tema escuro premium derivado da paleta do logo (esmeralda → lima).
- * Tokens definidos via Tailwind v4 `@theme`: viram utilitários (bg-surface,
- * text-muted, rounded-xl, font-display, shadow-glow...) e variáveis CSS.
+ *
+ * Base neutra profunda (leve tom verde), UM acento (lima da marca) e esmeralda para
+ * dados/estados positivos e para a cena 3D. Regras de uso em CONVENTIONS.md.
+ * Tokens via Tailwind v4 `@theme`: viram utilitários (bg-surface, text-muted, font-display...).
  */
 @import 'tailwindcss';
 @import './utilities.css';
 
 @theme {
-  /* Tipografia */
-  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Space Grotesk Variable', 'Space Grotesk', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  /* Tipografia
+   * display (Fraunces): SOMENTE h1/h2 e números editoriais grandes da landing.
+   * sans (Geist): toda a interface e textos.
+   * mono (Geist Mono): rótulos de seção, dados, números, códigos.
+   * logo (Space Grotesk): exclusivo do wordmark do logo. */
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces Variable', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --font-logo: 'Space Grotesk Variable', 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
 
-  /* Fundo e superfícies */
-  --color-bg: #030a07;
-  --color-bg-deep: #04140d;
-  --color-surface: #07170f;
-  --color-surface-2: #0b1f15;
-  --color-surface-3: #10291c;
-  --color-elevated: #0d2318;
-  --color-line: rgb(190 242 100 / 0.08);
-  --color-line-strong: rgb(190 242 100 / 0.16);
+  /* Escala tipográfica fluida (h1 56→96, h2 40→56) */
+  --text-display: clamp(3.5rem, 2.2rem + 4.6vw, 6rem);
+  --text-display--line-height: 1.02;
+  --text-headline: clamp(2.5rem, 1.9rem + 1.9vw, 3.5rem);
+  --text-headline--line-height: 1.06;
+  --text-title: clamp(1.75rem, 1.5rem + 0.8vw, 2.25rem);
+  --text-title--line-height: 1.12;
 
-  /* Texto */
-  --color-fg: #f4f7f5;
-  --color-fg-soft: #cfdcd4;
-  --color-muted: #8fa89a;
-  --color-subtle: #5f7a6b;
+  /* Superfícies (neutro com leve tom verde) */
+  --color-bg: #0a0e0c;
+  --color-bg-deep: #070a08;
+  --color-surface: #111613;
+  --color-surface-2: #161c18;
+  --color-surface-3: #1c231e;
+  --color-elevated: #161c18;
+  --color-line: rgb(236 239 234 / 0.08);
+  --color-line-strong: rgb(236 239 234 / 0.14);
 
-  /* Marca */
+  /* Texto (todos ≥ AA sobre bg/surface) */
+  --color-fg: #ecefea;
+  --color-fg-soft: #c8cec9;
+  --color-muted: #a3aca6;
+  --color-subtle: #7d8680;
+
+  /* Acento único: lima da marca (CTA primário, foco, destaque-chave) */
+  --color-accent: #c5f26b;
+  --color-accent-hover: #d3f68c;
+  --color-accent-ink: #0a0e0c;
+  --color-lime-300: #c5f26b;
+  --color-lime-200: #dcf7a6;
+
+  /* Esmeralda: dados, estados positivos, cena 3D */
   --color-brand-700: #047857;
   --color-brand-600: #059669;
   --color-brand-500: #10b981;
   --color-brand-400: #22c55e;
   --color-brand-300: #34d399;
-  --color-lime-300: #bef264;
-  --color-lime-200: #d9f99d;
 
   /* Semânticas */
   --color-success: #34d399;
-  --color-warning: #fbbf24;
-  --color-danger: #f87171;
-  --color-info: #38bdf8;
+  --color-warning: #f5b544;
+  --color-danger: #f28b82;
+  --color-info: #7cc4f0;
 
-  /* Raios */
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --radius-2xl: 24px;
-  --radius-3xl: 32px;
+  /* Raios: escala curta (8/12/16) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
 
-  /* Sombras / brilhos */
-  --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 10px 30px -12px rgb(0 0 0 / 0.6);
-  --shadow-pop: 0 1px 0 0 rgb(255 255 255 / 0.06) inset, 0 24px 60px -16px rgb(0 0 0 / 0.75);
-  --shadow-glow: 0 0 0 1px rgb(52 211 153 / 0.25), 0 8px 32px -6px rgb(16 185 129 / 0.45);
-  --shadow-glow-lg: 0 0 0 1px rgb(190 242 100 / 0.25), 0 20px 80px -10px rgb(34 197 94 / 0.5);
+  /* Sombras neutras (sem brilho colorido) */
+  --shadow-card: inset 0 1px 0 0 rgb(255 255 255 / 0.04), 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-pop: inset 0 1px 0 0 rgb(255 255 255 / 0.06), 0 16px 40px -12px rgb(0 0 0 / 0.7);
+  --shadow-glow: var(--shadow-card);
+  --shadow-glow-lg: var(--shadow-pop);
 
-  /* Easing */
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Movimento: uma curva, um ritmo */
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Animações utilitárias */
   --animate-shimmer: shimmer 1.6s linear infinite;
-  --animate-float: float 7s ease-in-out infinite;
+  --animate-float: none;
   --animate-pulse-ring: pulse-ring 2.2s var(--ease-out-expo) infinite;
   --animate-spin-slow: spin 18s linear infinite;
-  --animate-fade-up: fade-up 0.6s var(--ease-out-expo) both;
+  --animate-fade-up: fade-up 0.5s var(--ease-out-expo) both;
 
   @keyframes shimmer {
     from { background-position: -200% 0; }
     to { background-position: 200% 0; }
   }
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
   @keyframes pulse-ring {
-    0% { box-shadow: 0 0 0 0 rgb(52 211 153 / 0.45); }
-    100% { box-shadow: 0 0 0 14px rgb(52 211 153 / 0); }
+    0% { box-shadow: 0 0 0 0 rgb(52 211 153 / 0.35); }
+    100% { box-shadow: 0 0 0 10px rgb(52 211 153 / 0); }
   }
   @keyframes fade-up {
-    from { opacity: 0; transform: translateY(12px); }
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
 }
@@ -92,17 +106,17 @@
   :root {
     color-scheme: dark;
     --header-h: 64px;
-    --sidebar-w: 264px;
-    --sidebar-w-collapsed: 76px;
-    --gradient-brand: linear-gradient(135deg, #059669 0%, #22c55e 55%, #bef264 100%);
-    --gradient-text: linear-gradient(90deg, #34d399 0%, #bef264 100%);
+    --sidebar-w: 256px;
+    --sidebar-w-collapsed: 72px;
+    --gradient-brand: linear-gradient(90deg, #10b981, #34d399);
+    --gradient-text: none;
   }
 
   html {
     background: var(--color-bg);
     color: var(--color-fg);
     font-family: var(--font-sans);
-    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -111,51 +125,52 @@
 
   body {
     min-height: 100dvh;
-    background:
-      radial-gradient(1200px 600px at 85% -10%, rgb(16 185 129 / 0.08), transparent 60%),
-      radial-gradient(900px 500px at -10% 110%, rgb(190 242 100 / 0.05), transparent 60%),
-      var(--color-bg);
-    background-attachment: fixed;
+    background: var(--color-bg);
+    line-height: 1.6;
     overflow-x: hidden;
   }
 
-  h1, h2, h3, h4 {
+  /* Serifa editorial só em h1/h2; h3+ ficam na sans. */
+  h1, h2 {
     font-family: var(--font-display);
+    font-weight: 400;
     letter-spacing: -0.02em;
+    font-optical-sizing: auto;
+    text-wrap: balance;
+  }
+  h3, h4, h5, h6 {
+    font-family: var(--font-sans);
+    letter-spacing: -0.01em;
     text-wrap: balance;
   }
   p { text-wrap: pretty; }
+  em { font-style: italic; }
 
-  ::selection { background: rgb(190 242 100 / 0.28); color: #fff; }
+  ::selection { background: rgb(197 242 107 / 0.3); color: #fff; }
 
-  /* Anel de foco global e consistente (somente navegação por teclado) */
+  /* Anel de foco: acento, só no teclado */
   :focus-visible {
-    outline: 2px solid var(--color-lime-300);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
     border-radius: 6px;
   }
   :focus:not(:focus-visible) { outline: none; }
 
-  /* Scrollbar discreta */
-  * { scrollbar-width: thin; scrollbar-color: rgb(143 168 154 / 0.25) transparent; }
+  * { scrollbar-width: thin; scrollbar-color: rgb(163 172 166 / 0.25) transparent; }
   *::-webkit-scrollbar { width: 10px; height: 10px; }
-  *::-webkit-scrollbar-thumb { background: rgb(143 168 154 / 0.22); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+  *::-webkit-scrollbar-thumb { background: rgb(163 172 166 / 0.22); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
 
-  /* Remove setas de input number (usamos NumberInput próprio) */
   input[type='number']::-webkit-outer-spin-button,
   input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 
-  /* Lenis */
   html.lenis, html.lenis body { height: auto; }
   .lenis.lenis-smooth { scroll-behavior: auto !important; }
   .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
   .lenis.lenis-stopped { overflow: hidden; }
 
-  /* Leaflet: tema escuro */
   .leaflet-container { background: var(--color-bg-deep); font-family: var(--font-sans); }
 
-  /* Movimento reduzido: desliga animações pesadas */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.001ms !important;

@@ -4,9 +4,9 @@ import { cn } from '@/lib/cn';
 
 /** Classes compartilhadas por Input, NumberInput, Textarea e Select. */
 export const controlClasses =
-  'w-full rounded-xl border border-line-strong bg-bg-deep/60 text-fg placeholder:text-subtle ' +
+  'w-full rounded-[10px] border border-line-strong bg-bg-deep/70 text-fg placeholder:text-subtle ' +
   'transition-[border-color,box-shadow,background] duration-150 ' +
-  'hover:border-brand-300/35 focus:border-brand-300/70 focus:bg-bg-deep focus:shadow-[0_0_0_4px_rgb(52_211_153/0.14)] focus:outline-none ' +
+  'hover:border-[rgb(236_239_234/0.24)] focus:border-[rgb(236_239_234/0.36)] focus:bg-bg-deep focus:shadow-[0_0_0_3px_rgb(197_242_107/0.14)] focus:outline-none ' +
   'aria-invalid:border-danger/70 aria-invalid:focus:shadow-[0_0_0_4px_rgb(248_113_113/0.15)] ' +
   'disabled:cursor-not-allowed disabled:opacity-55 read-only:bg-surface/60';
 

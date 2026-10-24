@@ -37,7 +37,7 @@ export function CategoryIcon({ icon, code, color, variant = 'tile', size = 'md',
     <span
       {...a11y}
       className={cn('inline-flex shrink-0 items-center justify-center border', variant === 'circle' ? 'rounded-full' : 'rounded-xl', box[size], className)}
-      style={{ color: hex, backgroundColor: hexAlpha(hex, 0.13), borderColor: hexAlpha(hex, 0.3), boxShadow: `0 6px 20px -10px ${hexAlpha(hex, 0.7)}` }}
+      style={{ color: hex, backgroundColor: hexAlpha(hex, 0.12), borderColor: hexAlpha(hex, 0.26) }}
     >
       <Icon aria-hidden />
     </span>

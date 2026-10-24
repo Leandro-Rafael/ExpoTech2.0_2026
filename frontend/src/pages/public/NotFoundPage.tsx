@@ -10,7 +10,7 @@ export default function NotFoundPage() {
   useDocumentTitle('Página não encontrada');
   const content = (
     <div className="relative">
-      <p aria-hidden className="pointer-events-none absolute inset-x-0 -top-10 text-center font-display text-[160px] leading-none font-bold text-white/[0.03] select-none sm:text-[220px]">404</p>
+      <p aria-hidden className="pointer-events-none absolute inset-x-0 -top-10 text-center font-mono text-[160px] leading-none font-medium text-white/[0.03] select-none sm:text-[220px]">404</p>
       <EmptyState
         icon={Compass}
         title="Esta página foi para a reciclagem"

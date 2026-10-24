@@ -2,8 +2,8 @@ import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { passwordChecks, passwordStrength, strengthLabels } from '@/lib/validation';
 
-const colors = ['bg-danger', 'bg-danger', 'bg-warning', 'bg-brand-400', 'bg-lime-300'];
-const text = ['text-danger', 'text-danger', 'text-warning', 'text-brand-300', 'text-lime-300'];
+const colors = ['bg-danger', 'bg-danger', 'bg-warning', 'bg-brand-400', 'bg-brand-300'];
+const text = ['text-danger', 'text-danger', 'text-warning', 'text-brand-300', 'text-brand-300'];
 
 /** Medidor de força + checklist da política de senha. */
 export function PasswordStrength({ password, email, className }: { password: string; email?: string; className?: string }) {
@@ -18,7 +18,7 @@ export function PasswordStrength({ password, email, className }: { password: str
             <span key={i} className={cn('h-1.5 flex-1 rounded-full transition-colors duration-300', active && i < Math.max(1, level) ? colors[level] : 'bg-white/8')} />
           ))}
         </div>
-        <span className={cn('w-20 text-right text-xs font-medium', active ? text[level] : 'text-subtle')}>
+        <span className={cn('w-20 text-right font-mono text-[11px] uppercase', active ? text[level] : 'text-subtle')}>
           {active ? strengthLabels[level] : 'Força'}
         </span>
       </div>

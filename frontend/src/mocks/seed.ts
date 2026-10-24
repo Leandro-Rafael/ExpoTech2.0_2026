@@ -88,9 +88,9 @@ export function seedDatabase(version: number, nowDate: Date): MockDb {
     return u;
   };
   const admin = mkUser('Ana Ribeiro', 'admin@ecotechzero.com.br', 'EcoTech@2050', 'ADMIN', 400);
-  const collector = mkUser('Carlos Henrique Lima', 'coletor@ecotechzero.com.br', 'Coletor@2050', 'COLLECTOR', 390);
+  const collector = mkUser('Carlos Henrique Lima', 'coletor@ecotechzero.com.br', 'Coleta@2050', 'COLLECTOR', 390);
   const collector2 = mkUser('Juliana Matos', 'juliana.matos@ecotechzero.com.br', RESIDENT_PASSWORD, 'COLLECTOR', 200);
-  const morador = mkUser('Mariana Alves', 'morador@ecotechzero.com.br', 'Morador@2050', 'USER', 370, { organizationId: orgByKey.get('CC4')!.id });
+  const morador = mkUser('Mariana Alves', 'morador@ecotechzero.com.br', 'Recicla@2050', 'USER', 370, { organizationId: orgByKey.get('CC4')!.id });
 
   const activity = new Map<string, number>([[morador.id, 1.6]]);
   for (const hs of HOUSEHOLDS) {

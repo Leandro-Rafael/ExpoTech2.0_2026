@@ -128,7 +128,7 @@ export const ORGANIZATIONS: { key: string; name: string; type: OrganizationType 
 ];
 
 /** Senha de todos os moradores fictícios (além das 3 contas de demonstração). */
-export const RESIDENT_PASSWORD = 'Reciclar@2050';
+export const RESIDENT_PASSWORD = 'Recicla@2050';
 
 export interface HouseholdSeed {
   key: string; name: string; neighborhood: string; address: string;

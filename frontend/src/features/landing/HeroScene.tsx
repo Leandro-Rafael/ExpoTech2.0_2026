@@ -10,8 +10,8 @@
  * - 30 fps quando ociosa (intro concluída, sem mouse/scroll recentes).
  * - Buffer de desenho limitado (DPR 1 em máquinas com ≤ 4 threads, largura interna ≤ 1600 px).
  * - Máscara de "continentes" do planeta calculada UMA vez na CPU (atributo), não por quadro.
- * - Governador adaptativo: mede o intervalo médio de quadros; se passar de ~20 ms reduz DPR
- *   e partículas, depois limita a 30 fps e, em último caso, chama onFail() → fundo estático.
+ * - Governador adaptativo (após a intro): mediana do intervalo de quadros > 28 ms reduz DPR e
+ *   partículas, depois fixa 30 fps; só cai para o fundo estático se ainda ficar abaixo de ~25 fps.
  */
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
@@ -28,6 +28,7 @@ uniform float uProgress;
 uniform float uScroll;
 uniform float uPixelRatio;
 uniform float uSize;
+uniform float uTextFade; // 1 = esmaece partículas na metade esquerda (texto) conforme o scroll
 attribute vec3 aScatter;
 attribute vec4 aRing;   // theta, phi, raio, velocidade
 attribute vec3 aMeta;   // tamanho, atraso, semente
@@ -57,8 +58,10 @@ void main() {
   vHead = exp(-d * d * 3.0) * p;
   float g = abs(ang - 1.05);
   g = min(g, TAU - g);
-  vAlpha = mix(0.3, 1.0, p) * mix(1.0, smoothstep(0.06, 0.32, g), p) * (1.0 - uScroll * 0.45);
-  gl_PointSize = uSize * aMeta.x * (1.0 + vHead * 1.2) * uPixelRatio * (9.0 / -mv.z);
+  float ndcX = gl_Position.x / gl_Position.w;
+  float textMask = mix(1.0, smoothstep(-0.15, 0.35, ndcX), uScroll * uTextFade);
+  vAlpha = mix(0.3, 1.0, p) * mix(1.0, smoothstep(0.06, 0.32, g), p) * (1.0 - uScroll * 0.7) * textMask;
+  gl_PointSize = uSize * aMeta.x * (1.0 + vHead * 0.5) * uPixelRatio * (9.0 / -mv.z);
 }
 `;
 
@@ -77,8 +80,8 @@ void main() {
   float a = 1.0 - d2 * 4.0;
   a *= a;
   vec3 col = vGrad < 0.55 ? mix(uC1, uC2, vGrad / 0.55) : mix(uC2, uC3, (vGrad - 0.55) / 0.45);
-  col = mix(col, vec3(0.93, 1.0, 0.8), vHead * 0.55);
-  gl_FragColor = vec4(col, min(1.0, a * vAlpha * uAlphaMul * (0.95 + vHead * 1.2)));
+  col = mix(col, vec3(0.85, 1.0, 0.7), vHead * 0.3);
+  gl_FragColor = vec4(col, min(1.0, a * vAlpha * uAlphaMul * (0.95 + vHead * 0.45)));
 }
 `;
 
@@ -224,17 +227,19 @@ export default function HeroScene({ onReady, onFail }: Props) {
       vertexShader: RING_VERT, fragmentShader: RING_FRAG, transparent: true, depthWrite: false, depthTest: false, blending: AdditiveBlending,
       uniforms: {
         uTime: { value: 0 }, uProgress: { value: 0 }, uScroll: { value: 0 }, uPixelRatio: { value: baseDpr },
-        uSize: { value: size }, uAlphaMul: { value: alphaMul },
+        uSize: { value: size }, uAlphaMul: { value: alphaMul }, uTextFade: { value: isSmall ? 0.6 : 1 },
         uC1: { value: new Color('#059669') }, uC2: { value: new Color('#22c55e') }, uC3: { value: new Color('#bef264') },
       },
     });
     const ringGeo = buildRing(N, false);
-    const ringMat = makeRingMat(isSmall ? 3.0 : 3.4, 1);
+    // Celular: anel menor na tela = mais sobreposição aditiva → menos alfa por ponto (não estoura para branco).
+    const ringMat = makeRingMat(isSmall ? 2.6 : 3.4, isSmall ? 0.62 : 1);
     const ringPoints = new Points(ringGeo, ringMat);
     ringPoints.frustumCulled = false;
     ringGroup.add(ringPoints);
     const haloGeo = buildRing(H, true);
-    const haloMat = makeRingMat(isSmall ? 3.0 : 3.4, isSmall ? 0.09 : 0.075);
+    const haloAlpha = isSmall ? 0.05 : 0.075;
+    const haloMat = makeRingMat(isSmall ? 3.0 : 3.4, haloAlpha);
     const halo = new Points(haloGeo, haloMat);
     halo.frustumCulled = false;
     ringGroup.add(halo);
@@ -314,7 +319,7 @@ export default function HeroScene({ onReady, onFail }: Props) {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       const aspect = w / h;
-      if (aspect > 1.25) layout = { x: Math.min(3.1, 1.2 + (aspect - 1.25) * 2.4), y: -0.1, scale: 1 };
+      if (aspect > 1.25) layout = { x: Math.min(3.0, 1.6 + (aspect - 1.25) * 4), y: -0.15, scale: 0.85 };
       else if (aspect > 0.85) layout = { x: 0.9, y: 0.2, scale: 0.9 };
       else layout = { x: 0, y: 1.75, scale: 0.52 };
       if (!running && !failed && !first) { update(0); renderOnce(); }
@@ -332,6 +337,8 @@ export default function HeroScene({ onReady, onFail }: Props) {
       mouse.x += (mouse.tx - mouse.x) * 0.05;
       mouse.y += (mouse.ty - mouse.y) * 0.05;
 
+      // halo some rápido ao rolar (senão vira "bokeh" sobre o conteúdo)
+      haloMat.uniforms.uAlphaMul.value = haloAlpha * (1 - scrollS) * (1 - scrollS);
       for (const m of ringMats) {
         m.uniforms.uTime.value = elapsed;
         m.uniforms.uProgress.value = introEased;
@@ -383,12 +390,14 @@ export default function HeroScene({ onReady, onFail }: Props) {
       lastTick = now;
 
       // Intervalo médio entre quadros do navegador (após aquecimento e com folga entre passos).
-      if (now - startedAt > 1500 && now - lastStepAt > 2000) {
+      if (now - startedAt > 4000 && now - lastStepAt > 2500) {
         samples.push(interval);
-        if (samples.length >= 60) {
-          const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
+        if (samples.length >= 90) {
+          const s = [...samples].sort((a, b) => a - b);
+          const median = s[Math.floor(s.length / 2)];
           samples.length = 0;
-          if (avg > 20) { lastStepAt = now; setQuality(quality + 1); if (failed) return; }
+          const limit = quality >= 2 ? 40 : 28; // em 30 fps fixo, só desiste abaixo de ~25 fps
+          if (median > limit) { lastStepAt = now; setQuality(quality + 1); if (failed) return; }
         }
       }
 
@@ -439,18 +448,11 @@ export default function HeroScene({ onReady, onFail }: Props) {
     applySize();
     const ro = new ResizeObserver(() => applySize());
     ro.observe(host);
-    let disposed = false;
-    // Compila os shaders de forma assíncrona (KHR_parallel_shader_compile quando disponível)
-    // para não travar o thread principal no primeiro quadro.
-    renderer.compileAsync(scene, camera).catch(() => undefined).then(() => {
-      if (disposed || failed) return;
-      update(0);
-      renderOnce();
-      start();
-    });
+    update(0);
+    renderOnce();
+    start();
 
     return () => {
-      disposed = true;
       stop();
       ro.disconnect();
       window.removeEventListener('pointermove', onPointer);

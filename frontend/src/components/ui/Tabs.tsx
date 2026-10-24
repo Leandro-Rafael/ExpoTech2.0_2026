@@ -80,14 +80,14 @@ export function Tabs<V extends string>({ items, value, onChange, idBase, variant
                 transition={{ type: 'spring', stiffness: 500, damping: 40 }}
                 className={variant === 'pills'
                   ? 'absolute inset-0 rounded-lg border border-line-strong bg-surface-3 shadow-[0_1px_0_rgb(255_255_255/0.05)_inset]'
-                  : 'absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand-gradient'}
+                  : 'absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-fg'}
               />
             )}
             <span className="relative z-10 inline-flex items-center gap-2">
               {Icon && <Icon className="size-4" aria-hidden />}
               {item.label}
               {item.count != null && (
-                <span className={cn('rounded-full px-1.5 text-[11px] tabular', active ? 'bg-brand-400/20 text-brand-300' : 'bg-white/5 text-muted')}>{item.count}</span>
+                <span className={cn('rounded-full px-1.5 font-mono text-[11px] tabular', active ? 'bg-white/10 text-fg' : 'bg-white/5 text-muted')}>{item.count}</span>
               )}
             </span>
           </button>

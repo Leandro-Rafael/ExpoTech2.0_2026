@@ -1,52 +1,124 @@
-/** Mini-interfaces ilustrativas usadas no "Como funciona" (apenas visuais, sem dados reais). */
+/** Mini-interfaces ilustrativas do "Como funciona" (visuais, sem dados reais). Um estilo de cartão só. */
 import type { ReactNode } from 'react';
-import { BadgeCheck, Camera, Check, Fingerprint, MapPin, Medal, Recycle, ScanLine, ShieldCheck, Sparkles, Truck } from 'lucide-react';
+import { Camera, Check, MapPin } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
-function Frame({ children, className }: { children: ReactNode; className?: string }) {
+function Frame({ children, className, title, meta }: { children: ReactNode; className?: string; title: string; meta?: string }) {
   return (
-    <div className={cn('glass-strong relative w-full overflow-hidden rounded-3xl p-5 sm:p-6', className)}>
-      <div aria-hidden className="pointer-events-none absolute -top-32 -right-32 size-80 bg-[radial-gradient(closest-side,rgb(16_185_129/0.16),transparent)]" />
-      {children}
+    <div className={cn('surface w-full rounded-2xl', className)}>
+      <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
+        <span className="text-[13px] font-medium text-fg-soft">{title}</span>
+        {meta && <span className="font-mono text-[11px] text-subtle tabular">{meta}</span>}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function Row({ k, v }: { k: string; v: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-t border-line py-3 first:border-t-0 first:pt-0">
+      <span className="text-[13px] text-muted">{k}</span>
+      <span className="font-mono text-[13px] text-fg tabular">{v}</span>
+    </div>
+  );
+}
+
+/**
+ * "Foto" ilustrada de uma garrafa PET sobre a bancada (SVG inline, sem imagens externas).
+ * `scanning` adiciona caixa de detecção, linha de varredura e o rótulo da IA.
+ */
+function BottlePhoto({ scanning = false }: { scanning?: boolean }) {
+  return (
+    <div className="relative aspect-[16/10] overflow-hidden rounded-xl border border-line bg-[#0d1210]">
+      <svg viewBox="0 0 320 200" className="absolute inset-0 size-full" aria-hidden>
+        <defs>
+          <linearGradient id="bp-wall" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#1a221d" /><stop offset="1" stopColor="#111713" />
+          </linearGradient>
+          <linearGradient id="bp-table" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#202a24" /><stop offset="1" stopColor="#141b17" />
+          </linearGradient>
+          <linearGradient id="bp-body" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#9fd6ff" stopOpacity=".16" />
+            <stop offset=".35" stopColor="#d8efff" stopOpacity=".38" />
+            <stop offset=".6" stopColor="#9fd6ff" stopOpacity=".14" />
+            <stop offset="1" stopColor="#7cc4f0" stopOpacity=".26" />
+          </linearGradient>
+          <radialGradient id="bp-light" cx=".3" cy=".1" r=".9">
+            <stop offset="0" stopColor="#ffffff" stopOpacity=".07" /><stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <rect width="320" height="132" fill="url(#bp-wall)" />
+        <rect y="132" width="320" height="68" fill="url(#bp-table)" />
+        <rect width="320" height="200" fill="url(#bp-light)" />
+        <line x1="0" y1="132" x2="320" y2="132" stroke="#ecefea" strokeOpacity=".06" />
+        {/* sombra */}
+        <ellipse cx="166" cy="168" rx="46" ry="6" fill="#000" opacity=".45" />
+        {/* garrafa */}
+        <g transform="translate(140 34)">
+          <rect x="15" y="0" width="22" height="12" rx="3" fill="#2f7fd6" />
+          <rect x="15" y="9" width="22" height="3" fill="#1f5fa8" />
+          <path d="M17 12h18v10c0 6 15 12 15 26v76c0 6-4 10-10 10H12c-6 0-10-4-10-10V48c0-14 15-20 15-26z" fill="url(#bp-body)" stroke="#d8efff" strokeOpacity=".5" strokeWidth="1.2" />
+          <rect x="2.6" y="66" width="46.8" height="30" fill="#e9efe9" opacity=".88" />
+          <rect x="9" y="74" width="24" height="3" rx="1.5" fill="#2f7fd6" opacity=".8" />
+          <rect x="9" y="81" width="34" height="2" rx="1" fill="#7d8680" opacity=".7" />
+          <rect x="9" y="86" width="18" height="2" rx="1" fill="#7d8680" opacity=".7" />
+          <path d="M10 104v24M42 104v24" stroke="#d8efff" strokeOpacity=".22" />
+          <path d="M8 50c3-8 8-12 10-14" stroke="#ffffff" strokeOpacity=".55" strokeWidth="2" strokeLinecap="round" fill="none" />
+          <path d="M7 104v18" stroke="#ffffff" strokeOpacity=".35" strokeWidth="2" strokeLinecap="round" />
+        </g>
+        {scanning && (
+          <g fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round">
+            <path d="M124 26v-8h10M210 18h10v8M220 166v8h-10M134 174h-10v-8" />
+            <rect x="124" y="18" width="96" height="156" rx="2" strokeOpacity=".22" strokeWidth="1" />
+          </g>
+        )}
+      </svg>
+      {scanning && (
+        <>
+          <div aria-hidden className="pointer-events-none absolute inset-x-[38%] top-[9%] h-px bg-brand-300 shadow-[0_0_8px_rgb(52_211_153/0.8)] [--scan-distance:150px] motion-safe:animate-[scan_2.6s_ease-in-out_infinite] max-sm:[--scan-distance:110px]" />
+          <div className="absolute top-[9%] left-[70%] animate-fade-up rounded-md border border-line-strong bg-bg/90 px-2.5 py-1.5 [animation-delay:400ms]">
+            <p className="font-mono text-[10px] text-subtle uppercase">Plástico · PET</p>
+            <p className="font-mono text-[13px] text-fg tabular">96%</p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 export function VisualRegister() {
   return (
-    <Frame>
-      <div className="mb-4 flex items-center justify-between text-xs text-muted"><span>Novo descarte</span><span className="tabular">23/10 · 14:02</span></div>
-      <div className="relative mb-4 aspect-[16/10] overflow-hidden rounded-2xl border border-line bg-[radial-gradient(circle_at_40%_40%,rgb(52_211_153/0.25),transparent_60%),linear-gradient(135deg,#0b1f15,#04140d)]">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex size-24 items-center justify-center rounded-3xl border border-brand-300/30 bg-brand-500/10 text-brand-300"><Camera className="size-10" /></div>
-        </div>
-        <span className="absolute bottom-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-fg-soft">garrafa-pet.jpg · 1,2 MB</span>
+    <Frame title="Novo descarte" meta="23/10 · 14:02">
+      <div className="relative mb-5">
+        <BottlePhoto />
+        <span className="absolute bottom-2.5 left-2.5 inline-flex items-center gap-1.5 rounded-md bg-bg/85 px-2 py-1 font-mono text-[10.5px] text-fg-soft">
+          <Camera className="size-3" aria-hidden />garrafa-pet.jpg · 1,2 MB
+        </span>
       </div>
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-xl border border-line bg-bg-deep/50 p-3"><p className="text-[11px] text-muted">Quantidade</p><p className="font-display text-lg font-semibold tabular">2,4 kg</p></div>
-        <div className="rounded-xl border border-line bg-bg-deep/50 p-3"><p className="text-[11px] text-muted">Local</p><p className="flex items-center gap-1 font-medium text-fg-soft"><MapPin className="size-3.5 text-brand-300" />Vila Mariana</p></div>
-      </div>
+      <Row k="Quantidade" v="2,4 kg" />
+      <Row k="Local" v={<span className="inline-flex items-center gap-1"><MapPin className="size-3.5 text-subtle" aria-hidden />Vila Mariana</span>} />
     </Frame>
   );
 }
 
 export function VisualAI() {
   return (
-    <Frame>
-      <div className="relative mb-4 aspect-[16/10] overflow-hidden rounded-2xl border border-line bg-[linear-gradient(135deg,#0b1f15,#04140d)]">
-        <div className="absolute inset-6 rounded-xl border-2 border-dashed border-lime-300/50" />
-        <div className="absolute inset-x-6 top-1/2 h-0.5 bg-gradient-to-r from-transparent via-lime-300 to-transparent shadow-[0_0_20px_#bef264] motion-safe:animate-[float_2.4s_ease-in-out_infinite]" />
-        <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-lime-200"><ScanLine className="size-3.5" />Analisando imagem…</div>
+    <Frame title="Identificação por IA" meta="0,8 s">
+      <div className="mb-5"><BottlePhoto scanning /></div>
+      <div className="space-y-2.5">
+        {[{ n: 'Plástico (PET)', p: 96, c: '#e5484d' }, { n: 'Papel', p: 3, c: '#3b82f6' }, { n: 'Vidro', p: 1, c: '#22c55e' }].map((r, i) => (
+          <div key={r.n}>
+            <div className="mb-1 flex justify-between text-[13px]">
+              <span className={i === 0 ? 'text-fg' : 'text-muted'}>{r.n}</span>
+              <span className="font-mono text-fg-soft tabular">{r.p}%</span>
+            </div>
+            <div className="h-1 rounded-full bg-white/[0.06]"><div className="h-full rounded-full opacity-80" style={{ width: `${r.p}%`, background: r.c }} /></div>
+          </div>
+        ))}
       </div>
-      <div className="flex items-center gap-3 rounded-2xl border border-brand-300/30 bg-brand-500/10 p-3.5">
-        <span className="inline-flex size-11 items-center justify-center rounded-xl bg-[#ef4444]/15 text-[#f87171]"><Recycle className="size-5" /></span>
-        <div className="flex-1">
-          <p className="text-[11px] text-muted">Categoria sugerida</p>
-          <p className="font-display font-semibold">Plástico · PET</p>
-        </div>
-        <div className="text-right"><p className="font-display text-xl font-semibold text-lime-300 tabular">96%</p><p className="text-[10px] text-muted">confiança</p></div>
-      </div>
-      <p className="mt-3 flex items-center gap-1.5 text-xs text-muted"><Sparkles className="size-3.5 text-lime-300" />Lave e amasse a garrafa antes de descartar.</p>
+      <p className="mt-4 text-[13px] text-muted">Lave e amasse a garrafa antes de descartar.</p>
     </Frame>
   );
 }
@@ -54,18 +126,17 @@ export function VisualAI() {
 export function VisualApproval() {
   const checks = ['Foto inédita (hash perceptual)', 'Quantidade dentro do limite', 'Localização consistente', 'Frequência normal de envios'];
   return (
-    <Frame>
-      <div className="mb-4 flex items-center gap-2 text-sm font-medium"><ShieldCheck className="size-4 text-brand-300" />Validação antifraude</div>
-      <ul className="space-y-2">
+    <Frame title="Validação antifraude" meta="risco 0,04">
+      <ul>
         {checks.map((c) => (
-          <li key={c} className="flex items-center gap-3 rounded-xl border border-line bg-bg-deep/50 px-3 py-2.5 text-sm text-fg-soft">
-            <span className="inline-flex size-5 items-center justify-center rounded-full bg-brand-400/20 text-brand-300"><Check className="size-3" strokeWidth={3} /></span>{c}
+          <li key={c} className="flex items-center gap-3 border-t border-line py-3 text-[14px] text-fg-soft first:border-t-0 first:pt-0">
+            <Check className="size-4 text-brand-300" strokeWidth={2.5} aria-hidden />{c}
           </li>
         ))}
       </ul>
-      <div className="mt-4 flex items-center justify-between rounded-2xl border border-success/30 bg-success/10 px-4 py-3">
-        <span className="flex items-center gap-2 text-sm font-medium text-success"><BadgeCheck className="size-4" />Descarte aprovado</span>
-        <span className="flex items-center gap-1 text-xs text-muted"><Fingerprint className="size-3.5" />risco 0,04</span>
+      <div className="mt-4 flex items-center justify-between rounded-xl border border-line bg-bg-deep/60 px-4 py-3">
+        <span className="text-[14px] font-medium text-fg">Descarte aprovado</span>
+        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-brand-300 uppercase"><span className="size-1.5 rounded-full bg-brand-300" />aprovado</span>
       </div>
     </Frame>
   );
@@ -73,17 +144,16 @@ export function VisualApproval() {
 
 export function VisualPoints() {
   return (
-    <Frame className="text-center">
-      <p className="text-xs text-muted">Pontos creditados</p>
-      <p className="mt-1 font-display text-6xl font-bold text-gradient tabular">+48</p>
-      <p className="mt-1 text-sm text-fg-soft">2,4 kg × 20 pts/kg</p>
-      <div className="mx-auto mt-6 max-w-xs text-left">
-        <div className="mb-1.5 flex justify-between text-xs"><span className="text-muted">Nível Broto</span><span className="text-lime-200">Árvore em 152 pts</span></div>
-        <div className="h-2 overflow-hidden rounded-full bg-white/8"><div className="h-full w-[68%] rounded-full bg-brand-gradient" /></div>
+    <Frame title="Pontos creditados" meta="nível Broto">
+      <p className="font-mono text-6xl font-medium tracking-[-0.04em] text-fg tabular">+48<span className="ml-2 text-xl text-subtle">pts</span></p>
+      <p className="mt-2 font-mono text-[13px] text-muted">2,4 kg × 20 pts/kg</p>
+      <div className="mt-7">
+        <div className="mb-2 flex justify-between text-[13px]"><span className="text-muted">Até o nível Árvore</span><span className="font-mono text-fg-soft tabular">152 pts</span></div>
+        <div className="h-1 rounded-full bg-white/[0.06]"><div className="h-full w-[68%] rounded-full bg-brand-500" /></div>
       </div>
-      <div className="mt-6 flex justify-center gap-2">
-        {[{ i: Medal, t: 'Primeiro descarte' }, { i: Recycle, t: '10 kg de plástico' }].map((b) => (
-          <span key={b.t} className="inline-flex items-center gap-1.5 rounded-full border border-lime-300/25 bg-lime-300/10 px-3 py-1 text-xs text-lime-200"><b.i className="size-3.5" />{b.t}</span>
+      <div className="mt-6 flex flex-wrap gap-2">
+        {['Primeiro descarte', '10 kg de plástico'].map((b) => (
+          <span key={b} className="rounded-md border border-line px-2.5 py-1 text-xs text-fg-soft">{b}</span>
         ))}
       </div>
     </Frame>
@@ -94,25 +164,21 @@ export function VisualRoute() {
   const stops: [number, number][] = [[40, 150], [95, 92], [150, 128], [210, 70], [262, 112], [300, 48]];
   const d = stops.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ');
   return (
-    <Frame>
-      <div className="mb-3 flex items-center justify-between text-sm"><span className="flex items-center gap-2 font-medium"><Truck className="size-4 text-brand-300" />Rota otimizada</span><span className="rounded-full bg-lime-300/12 px-2.5 py-1 text-xs font-medium text-lime-200">−31% km</span></div>
-      <svg viewBox="0 0 340 190" className="w-full rounded-2xl border border-line bg-bg-deep/60" aria-hidden>
-        <defs><linearGradient id="rt" x1="0" x2="1"><stop offset="0" stopColor="#10b981" /><stop offset="1" stopColor="#bef264" /></linearGradient></defs>
-        {Array.from({ length: 8 }, (_, i) => <line key={`h${i}`} x1="0" x2="340" y1={i * 26} y2={i * 26} stroke="rgb(190 242 100 / 0.05)" />)}
-        {Array.from({ length: 14 }, (_, i) => <line key={`v${i}`} y1="0" y2="190" x1={i * 26} x2={i * 26} stroke="rgb(190 242 100 / 0.05)" />)}
-        <path d="M40 150 L150 128 L95 92 L262 112 L210 70 L300 48" stroke="rgb(248 113 113 / 0.35)" strokeWidth="2" strokeDasharray="4 5" fill="none" />
-        <path d={d} stroke="url(#rt)" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" className="[stroke-dasharray:600] motion-safe:animate-[dash_3s_ease-out_forwards]" />
+    <Frame title="Rota otimizada" meta="−31% km">
+      <svg viewBox="0 0 340 190" className="w-full rounded-xl border border-line bg-bg-deep/60" aria-hidden>
+        <path d="M40 150 L150 128 L95 92 L262 112 L210 70 L300 48" stroke="rgb(236 239 234 / 0.18)" strokeWidth="1.5" strokeDasharray="3 5" fill="none" />
+        <path d={d} stroke="#34d399" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         {stops.map(([x, y], i) => (
           <g key={i}>
-            <circle cx={x} cy={y} r="9" fill="#04140d" stroke={i === 0 ? '#bef264' : '#34d399'} strokeWidth="2" />
-            <text x={x} y={y + 3.5} textAnchor="middle" fontSize="9" fill="#f4f7f5" fontFamily="Inter Variable, sans-serif">{i === 0 ? 'D' : i}</text>
+            <circle cx={x} cy={y} r="8.5" fill="#0a0e0c" stroke={i === 0 ? '#ecefea' : '#34d399'} strokeWidth="1.5" />
+            <text x={x} y={y + 3.2} textAnchor="middle" fontSize="8.5" fill="#ecefea" fontFamily="Geist Mono Variable, monospace">{i === 0 ? 'D' : i}</text>
           </g>
         ))}
       </svg>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-        <div className="rounded-xl bg-bg-deep/50 p-2"><p className="text-muted">Paradas</p><p className="font-display text-base font-semibold">5</p></div>
-        <div className="rounded-xl bg-bg-deep/50 p-2"><p className="text-muted">Distância</p><p className="font-display text-base font-semibold">8,2 km</p></div>
-        <div className="rounded-xl bg-bg-deep/50 p-2"><p className="text-muted">Carga</p><p className="font-display text-base font-semibold">340 kg</p></div>
+      <div className="mt-4 grid grid-cols-3 divide-x divide-line text-center">
+        {[['Paradas', '5'], ['Distância', '8,2 km'], ['Carga', '340 kg']].map(([k, v]) => (
+          <div key={k}><p className="text-[12px] text-muted">{k}</p><p className="font-mono text-[15px] text-fg tabular">{v}</p></div>
+        ))}
       </div>
     </Frame>
   );

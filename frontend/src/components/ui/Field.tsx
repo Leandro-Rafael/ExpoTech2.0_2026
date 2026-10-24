@@ -64,7 +64,7 @@ export function Field({ label, error, hint, required, optional, labelAside, id, 
           {label && (
             <label htmlFor={controlId} className="text-[13px] font-medium text-fg-soft">
               {label}
-              {required && <span className="ml-0.5 text-lime-300" aria-hidden>*</span>}
+              {required && <span className="ml-0.5 text-subtle" aria-hidden>*</span>}
               {optional && <span className="ml-1.5 font-normal text-subtle">(opcional)</span>}
             </label>
           )}

@@ -13,12 +13,12 @@ export interface IconButtonProps extends Omit<ComponentPropsWithRef<'button'>, '
 }
 
 const variants = {
-  ghost: 'text-muted hover:text-fg hover:bg-white/6',
-  secondary: 'glass text-fg-soft hover:text-fg hover:border-line-strong',
-  primary: 'bg-brand-gradient text-bg-deep hover:brightness-110',
-  danger: 'text-danger hover:bg-danger/12',
+  ghost: 'text-muted hover:text-fg hover:bg-white/[0.05]',
+  secondary: 'border border-line-strong text-fg-soft hover:text-fg hover:bg-white/[0.04]',
+  primary: 'bg-accent text-accent-ink hover:bg-accent-hover',
+  danger: 'text-danger hover:bg-danger/10',
 };
-const sizes = { sm: 'size-8 rounded-md [&_svg]:size-4', md: 'size-10 rounded-lg [&_svg]:size-[18px]', lg: 'size-12 rounded-xl [&_svg]:size-5' };
+const sizes = { sm: 'size-8 rounded-md [&_svg]:size-4', md: 'size-10 rounded-[10px] [&_svg]:size-[18px]', lg: 'size-12 rounded-xl [&_svg]:size-5' };
 
 /** Botão só com ícone (sempre com rótulo acessível). `<IconButton icon={X} label="Fechar" />` */
 export function IconButton({ icon: Icon, label, variant = 'ghost', size = 'md', loading, className, type = 'button', disabled, ...rest }: IconButtonProps) {

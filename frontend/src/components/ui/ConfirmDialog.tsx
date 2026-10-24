@@ -34,7 +34,7 @@ export function ConfirmDialog({
       hideClose
       title={
         <span className="flex items-center gap-3">
-          <span className={cn('inline-flex size-10 items-center justify-center rounded-xl', tone === 'danger' ? 'bg-danger/12 text-danger' : 'bg-brand-500/12 text-brand-300')}>
+          <span className={cn('inline-flex size-10 items-center justify-center rounded-xl', tone === 'danger' ? 'bg-danger/10 text-danger' : 'border border-line text-fg-soft')}>
             <Icon className="size-5" aria-hidden />
           </span>
           {title}

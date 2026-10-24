@@ -8,29 +8,26 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'dan
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 
 const base =
-  'group/btn relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-medium ' +
-  'transition-[background,box-shadow,transform,color,border-color,opacity] duration-200 ease-[var(--ease-out-expo)] ' +
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300 ' +
-  'disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 active:scale-[0.98]';
+  'group/btn relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-medium tracking-[-0.005em] ' +
+  'transition-[background-color,color,border-color,transform,opacity] duration-200 ease-[var(--ease-out-expo)] ' +
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ' +
+  'disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 active:translate-y-0';
 
 const variants: Record<ButtonVariant, string> = {
-  primary:
-    'bg-brand-gradient text-bg-deep font-semibold shadow-[0_0_0_1px_rgb(190_242_100/0.35)_inset,0_8px_24px_-8px_rgb(34_197_94/0.6)] ' +
-    'hover:shadow-[0_0_0_1px_rgb(217_249_157/0.6)_inset,0_12px_36px_-8px_rgb(132_204_22/0.65)] hover:brightness-110',
-  secondary:
-    'glass text-fg hover:border-line-strong hover:bg-surface-3/70',
-  ghost: 'text-fg-soft hover:bg-white/5 hover:text-fg',
-  outline: 'border border-line-strong text-fg hover:border-brand-300/50 hover:bg-brand-500/5',
-  danger:
-    'bg-danger/15 text-danger border border-danger/30 hover:bg-danger/25 hover:border-danger/50',
-  link: 'text-brand-300 hover:text-lime-300 underline-offset-4 hover:underline px-0! h-auto!',
+  // Acento: use UM primário por tela/área.
+  primary: 'bg-accent text-accent-ink font-semibold hover:bg-accent-hover hover:-translate-y-px',
+  secondary: 'border border-line-strong text-fg hover:border-[rgb(236_239_234/0.24)] hover:bg-white/[0.04]',
+  ghost: 'text-fg-soft hover:bg-white/[0.05] hover:text-fg',
+  outline: 'border border-line-strong text-fg hover:bg-white/[0.04]',
+  danger: 'border border-danger/35 text-danger hover:bg-danger/10',
+  link: 'text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg px-0! h-auto!',
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-[13px] rounded-md [&_svg]:size-3.5',
-  md: 'h-10 px-4 text-sm rounded-lg [&_svg]:size-4',
-  lg: 'h-12 px-6 text-[15px] rounded-xl [&_svg]:size-[18px]',
-  xl: 'h-14 px-8 text-base rounded-2xl [&_svg]:size-5',
+  sm: 'h-9 px-3.5 text-[13px] rounded-lg [&_svg]:size-3.5',
+  md: 'h-11 px-4.5 text-sm rounded-[10px] [&_svg]:size-4',
+  lg: 'h-12 px-5 text-[15px] rounded-xl [&_svg]:size-[18px]',
+  xl: 'h-14 px-6 text-base rounded-xl [&_svg]:size-5',
 };
 
 interface CommonProps {

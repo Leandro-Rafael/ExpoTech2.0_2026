@@ -68,7 +68,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
           >
             <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-3 sm:px-6 sm:pt-6">
               <div className="min-w-0">
-                <h2 id={titleId} className="font-display text-lg font-semibold text-fg">{title}</h2>
+                <h2 id={titleId} className="font-sans text-lg font-semibold tracking-tight text-fg">{title}</h2>
                 {description && <p id={descId} className="mt-1 text-sm text-muted">{description}</p>}
               </div>
               {!hideClose && <IconButton icon={X} label="Fechar" size="sm" onClick={onClose} className="-mt-1 -mr-1" />}

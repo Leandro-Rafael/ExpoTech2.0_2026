@@ -7,12 +7,12 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 export interface PageHeaderProps {
   title: string;
   description?: ReactNode;
-  /** Texto pequeno acima do título (seção). */
+  /** Rótulo mono acima do título (seção), ex.: "Principal". */
   eyebrow?: ReactNode;
+  /** Ícone discreto ao lado do rótulo. */
   icon?: LucideIcon;
-  /** Botões à direita (no celular quebram para baixo). */
+  /** Botões à direita (no celular quebram para baixo). Um primário no máximo. */
   actions?: ReactNode;
-  /** Link "voltar". */
   back?: { to: string; label?: string };
   /** Define document.title (padrão: true). */
   setTitle?: boolean;
@@ -20,32 +20,30 @@ export interface PageHeaderProps {
   children?: ReactNode;
 }
 
-/** Cabeçalho padrão de página do app. Também define o título da aba. */
+/** Cabeçalho padrão de página: rótulo mono + título serifado + descrição curta. */
 export function PageHeader({ title, description, eyebrow, icon: Icon, actions, back, setTitle = true, className, children }: PageHeaderProps) {
   useDocumentTitle(setTitle ? title : null);
   return (
-    <header className={cn('mb-6 sm:mb-8', className)}>
+    <header className={cn('mb-8 sm:mb-10', className)}>
       {back && (
-        <Link to={back.to} className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-fg">
+        <Link to={back.to} className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-fg">
           <ArrowLeft className="size-4" aria-hidden /> {back.label ?? 'Voltar'}
         </Link>
       )}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex min-w-0 items-start gap-4">
-          {Icon && (
-            <span className="hidden size-12 shrink-0 items-center justify-center rounded-2xl border border-brand-400/25 bg-gradient-to-br from-brand-500/20 to-lime-300/5 text-brand-300 shadow-glow sm:inline-flex">
-              <Icon className="size-6" aria-hidden />
-            </span>
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          {eyebrow && (
+            <p className="label-mono mb-3 flex items-center gap-2">
+              {Icon && <Icon className="size-3.5" aria-hidden />}
+              {eyebrow}
+            </p>
           )}
-          <div className="min-w-0">
-            {eyebrow && <p className="mb-1 text-xs font-semibold tracking-[0.14em] text-brand-300 uppercase">{eyebrow}</p>}
-            <h1 className="font-display text-2xl font-semibold tracking-tight text-fg sm:text-[32px] sm:leading-tight">{title}</h1>
-            {description && <p className="mt-1.5 max-w-2xl text-[15px] text-muted">{description}</p>}
-          </div>
+          <h1 className="text-[clamp(2rem,1.55rem+1.5vw,2.75rem)] leading-[1.08] text-fg">{title}</h1>
+          {description && <p className="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-muted sm:text-base">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {children && <div className="mt-5">{children}</div>}
+      {children && <div className="mt-6">{children}</div>}
     </header>
   );
 }

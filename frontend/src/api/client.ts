@@ -70,7 +70,8 @@ export class ApiError extends Error {
 /** Mensagem amigável em PT para qualquer erro (ApiError ou não). Use em toasts/ErrorState. */
 export function errorMessage(err: unknown, fallback = 'Algo deu errado. Tente novamente.'): string {
   if (err instanceof ApiError) {
-    if (err.isRateLimited) return rateLimitMessage(err.retryAfter);
+    if (err.code === 'RATE_LIMITED' || err.isRateLimited) return rateLimitMessage(err.retryAfter);
+    if (err.code === 'ACCOUNT_LOCKED') return err.detail ?? lockedMessage(err.retryAfter);
     if (err.detail) return err.detail;
     return errorCodeMessage[err.code] ?? err.title ?? fallback;
   }
@@ -121,7 +122,15 @@ export function ensureCsrf(force = false): Promise<void> {
 // ---------------------------------------------------------------- refresh single-flight
 
 let refreshPromise: Promise<boolean> | null = null;
+/** Momento (performance.now) da última renovação bem-sucedida. */
+let lastRefreshOkAt = -Infinity;
 
+/**
+ * Renova a sessão (POST /auth/refresh) com UMA promessa compartilhada: o back-end detecta
+ * reuso do refresh token e encerra a sessão se duas renovações correrem em paralelo.
+ * Requisições que receberam 401 mas foram ENVIADAS antes de uma renovação já concluída
+ * apenas repetem (não renovam de novo) — ver `send()`.
+ */
 function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
@@ -130,16 +139,16 @@ function refreshSession(): Promise<boolean> {
         const res = await fetch(`${API_BASE}/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
-          headers: csrfHeaders('POST'),
+          headers: { Accept: 'application/json', ...csrfHeaders('POST') },
         });
+        if (res.ok) lastRefreshOkAt = performance.now();
         return res.ok;
       } catch {
         return false;
+      } finally {
+        refreshPromise = null;
       }
-    })().finally(() => {
-      // Libera no próximo tick para que requisições paralelas reaproveitem o resultado.
-      setTimeout(() => { refreshPromise = null; }, 0);
-    });
+    })();
   }
   return refreshPromise;
 }
@@ -186,13 +195,24 @@ async function toApiError(res: Response): Promise<ApiError> {
     status: res.status,
     code,
     title: problem.title ?? res.statusText ?? 'Erro',
-    detail: res.status === 429 ? rateLimitMessage(retryAfter) : problem.detail ?? errorCodeMessage[code],
+    detail: code === 'RATE_LIMITED' || res.status === 429
+      ? rateLimitMessage(retryAfter)
+      : code === 'ACCOUNT_LOCKED'
+        ? lockedMessage(retryAfter)
+        : problem.detail ?? errorCodeMessage[code],
     fieldErrors: Array.isArray(problem.errors) ? problem.errors : [],
     retryAfter,
   });
   return err;
 }
 
+function lockedMessage(seconds: number | null): string {
+  if (!seconds || seconds <= 0) return errorCodeMessage.ACCOUNT_LOCKED;
+  const min = Math.max(1, Math.ceil(seconds / 60));
+  return `Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em ${min} min.`;
+}
+
+/** Só usado quando o corpo não traz `code`. Sempre trate erros pelo `code`. */
 function defaultCode(status: number): string {
   switch (status) {
     case 400: return 'VALIDATION_ERROR';
@@ -200,6 +220,9 @@ function defaultCode(status: number): string {
     case 403: return 'FORBIDDEN';
     case 404: return 'NOT_FOUND';
     case 409: return 'CONFLICT';
+    case 413: return 'INVALID_IMAGE';
+    case 422: return 'BUSINESS_RULE';
+    case 423: return 'ACCOUNT_LOCKED';
     case 429: return 'RATE_LIMITED';
     default: return status >= 500 ? 'INTERNAL_ERROR' : 'UNKNOWN';
   }
@@ -221,6 +244,7 @@ async function send(method: string, path: string, body: Body | undefined, opts: 
   if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
 
   let res: Response;
+  const sentAt = performance.now();
   try {
     res = await fetch(buildUrl(path, opts.query), { method, headers, body: payload, credentials: 'include', signal: opts.signal });
   } catch (e) {
@@ -229,6 +253,8 @@ async function send(method: string, path: string, body: Body | undefined, opts: 
   }
 
   if (res.status === 401 && !opts.skipRefresh && !retried) {
+    // Enviada antes de uma renovação que já terminou? Só repete com o cookie novo.
+    if (sentAt < lastRefreshOkAt) return send(method, path, body, opts, true);
     const ok = await refreshSession();
     if (ok) return send(method, path, body, opts, true);
     if (!opts.silent401) emitUnauthorized();

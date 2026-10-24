@@ -19,11 +19,11 @@ export function MobileNav() {
     <>
       <nav
         aria-label="Navegação rápida"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg-deep/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <div className="mx-auto flex h-16 max-w-lg items-stretch px-2">
           {MOBILE_TABS.slice(0, 2).map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(tab, isActive ? 'text-brand-300' : 'text-muted')}>
+            <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(tab, isActive ? 'text-fg' : 'text-subtle')}>
               <item.icon className="size-5" aria-hidden />
               {item.label}
             </NavLink>
@@ -32,18 +32,18 @@ export function MobileNav() {
             <Link
               to="/app/descartar"
               aria-label="Registrar descarte"
-              className="-mt-7 inline-flex size-14 items-center justify-center rounded-2xl bg-brand-gradient text-bg-deep shadow-[0_10px_30px_-6px_rgb(34_197_94/0.7),0_0_0_4px_var(--color-bg)] transition-transform active:scale-95"
+              className="-mt-6 inline-flex size-13 items-center justify-center rounded-2xl bg-accent text-accent-ink shadow-[0_0_0_4px_var(--color-bg)] transition-transform active:scale-95"
             >
               <Plus className="size-7" strokeWidth={2.5} aria-hidden />
             </Link>
           </div>
           {MOBILE_TABS.slice(2).map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(tab, isActive ? 'text-brand-300' : 'text-muted')}>
+            <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(tab, isActive ? 'text-fg' : 'text-subtle')}>
               <item.icon className="size-5" aria-hidden />
               {item.label}
             </NavLink>
           ))}
-          <button type="button" onClick={() => setOpen(true)} className={cn(tab, 'text-muted')} aria-haspopup="dialog" aria-expanded={open}>
+          <button type="button" onClick={() => setOpen(true)} className={cn(tab, 'text-subtle')} aria-haspopup="dialog" aria-expanded={open}>
             <LayoutGrid className="size-5" aria-hidden />
             Menu
           </button>
@@ -54,7 +54,7 @@ export function MobileNav() {
         <div className="mb-4"><PointsChip className="w-fit" /></div>
         {sections.map((s) => (
           <div key={s.id} className="mb-4">
-            <p className="mb-1.5 px-1 text-[11px] font-semibold tracking-[0.14em] text-subtle uppercase">{s.label}</p>
+            <p className="label-mono mb-1.5 px-1 text-[11px]">{s.label}</p>
             <ul className="grid grid-cols-1 gap-0.5">
               {s.items.map((item) => <li key={item.to}><NavItemLink item={item} onNavigate={() => setOpen(false)} /></li>)}
             </ul>

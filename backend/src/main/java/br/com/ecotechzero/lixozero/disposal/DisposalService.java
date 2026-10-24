@@ -19,7 +19,6 @@ import br.com.ecotechzero.lixozero.disposal.DisposalDtos.CreateDisposalRequest;
 import br.com.ecotechzero.lixozero.disposal.DisposalDtos.DisposalDto;
 import br.com.ecotechzero.lixozero.fraud.FraudContext;
 import br.com.ecotechzero.lixozero.fraud.FraudEngine;
-import br.com.ecotechzero.lixozero.photo.Photo;
 import br.com.ecotechzero.lixozero.photo.PhotoMeta;
 import br.com.ecotechzero.lixozero.photo.PhotoRepository;
 import br.com.ecotechzero.lixozero.security.AuthUser;

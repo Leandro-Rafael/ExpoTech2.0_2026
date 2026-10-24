@@ -45,11 +45,11 @@ export function Logo({ variant = 'compact', size = 36, className, product }: Log
   if (variant === 'mark') return <LogoMark size={size} className={className} />;
   return (
     <span className={cn('inline-flex items-center gap-2.5', className)} aria-label="EcoTech Zero" role="img">
-      <LogoMark size={size} className="shrink-0 drop-shadow-[0_0_14px_rgb(34_197_94/0.35)]" />
+      <LogoMark size={size} className="shrink-0" />
       <span className="flex flex-col leading-none" aria-hidden>
-        <span className="font-display font-bold tracking-tight" style={{ fontSize: size * 0.5 }}>
-          <span className="text-gradient">Eco</span><span className="text-fg">Tech</span>
-          <span className="ml-1.5 align-middle text-[0.52em] font-semibold tracking-[0.32em] text-fg-soft">ZERO</span>
+        <span className="font-logo font-bold tracking-tight" style={{ fontSize: size * 0.5 }}>
+          <span style={{ backgroundImage: 'linear-gradient(90deg,#34d399,#bef264)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>Eco</span><span className="text-fg">Tech</span>
+          <span className="ml-1.5 align-middle font-logo text-[0.52em] font-semibold tracking-[0.32em] text-fg-soft">ZERO</span>
         </span>
         {variant === 'full' && (
           <span className="mt-1 text-[9px] font-medium tracking-[0.18em] text-muted uppercase">Tecnologia para um mundo sem desperdício</span>

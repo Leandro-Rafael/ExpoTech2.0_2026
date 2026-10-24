@@ -41,17 +41,17 @@ export function AppShell() {
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
 
       <div className={cn('transition-[padding] duration-300 ease-[var(--ease-out-expo)]', collapsed ? 'lg:pl-[var(--sidebar-w-collapsed)]' : 'lg:pl-[var(--sidebar-w)]')}>
-        <header className="sticky top-0 z-30 h-[var(--header-h)] border-b border-line bg-bg/70 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 h-[var(--header-h)] border-b border-line bg-bg/85 backdrop-blur-md">
           <div className="container-app flex h-full items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Link to="/app" className="rounded-lg lg:hidden" aria-label="Início"><Logo size={30} /></Link>
-              {title && <p className="hidden truncate font-display text-[15px] font-medium text-fg-soft lg:block">{title}</p>}
+              {title && <p className="hidden truncate text-sm font-medium text-fg-soft lg:block">{title}</p>}
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <ButtonLink to="/app/descartar" size="md" leftIcon={ScanLine} className="hidden md:inline-flex">
+              <ButtonLink to="/app/descartar" size="md" leftIcon={ScanLine} className="max-md:hidden">
                 Registrar descarte
               </ButtonLink>
-              <PointsChip className="hidden sm:flex" />
+              <PointsChip className="max-sm:hidden" />
               <UserMenu />
             </div>
           </div>

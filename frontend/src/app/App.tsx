@@ -36,10 +36,9 @@ export function App() {
           closeButton
           toastOptions={{
             style: {
-              background: 'rgb(11 31 21 / 0.92)',
-              border: '1px solid rgb(190 242 100 / 0.14)',
-              backdropFilter: 'blur(14px)',
-              color: '#f4f7f5',
+              background: '#161c18',
+              border: '1px solid rgb(236 239 234 / 0.14)',
+              color: '#ecefea',
               fontFamily: 'var(--font-sans)',
             },
           }}

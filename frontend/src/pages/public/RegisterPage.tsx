@@ -67,7 +67,7 @@ export default function RegisterPage() {
     <AuthLayout
       title="Criar sua conta"
       subtitle="Em menos de um minuto você começa a ganhar pontos reciclando."
-      footer={<>Já tem conta? <Link to={`/entrar${location.search}`} className="font-medium text-brand-300 hover:text-lime-300">Entrar</Link></>}
+      footer={<>Já tem conta? <Link to={`/entrar${location.search}`} className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg">Entrar</Link></>}
     >
       <form onSubmit={onSubmit} noValidate className="space-y-5">
         <FormError error={errors.root?.server} />

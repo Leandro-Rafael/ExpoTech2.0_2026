@@ -6,14 +6,14 @@ import type { EnumMeta, Tone } from '@/lib/labels';
 export const toneClasses: Record<Tone, string> = {
   neutral: 'bg-white/5 text-fg-soft border-white/10',
   brand: 'bg-brand-500/12 text-brand-300 border-brand-400/25',
-  lime: 'bg-lime-300/12 text-lime-200 border-lime-300/25',
+  lime: 'bg-white/[0.06] text-fg border-line-strong',
   success: 'bg-success/12 text-success border-success/25',
   warning: 'bg-warning/12 text-warning border-warning/25',
   danger: 'bg-danger/12 text-danger border-danger/25',
   info: 'bg-info/12 text-info border-info/25',
 };
 export const toneDot: Record<Tone, string> = {
-  neutral: 'bg-muted', brand: 'bg-brand-300', lime: 'bg-lime-300', success: 'bg-success',
+  neutral: 'bg-muted', brand: 'bg-brand-300', lime: 'bg-fg', success: 'bg-success',
   warning: 'bg-warning', danger: 'bg-danger', info: 'bg-info',
 };
 

@@ -17,7 +17,7 @@ export function Checkbox({ label, description, className, id, ...rest }: Checkbo
         <input
           id={inputId}
           type="checkbox"
-          className="peer absolute inset-0 size-5 cursor-pointer appearance-none rounded-md border border-line-strong bg-bg-deep/60 transition-colors checked:border-transparent checked:bg-brand-400 hover:border-brand-300/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300 aria-invalid:border-danger"
+          className="peer absolute inset-0 size-5 cursor-pointer appearance-none rounded-md border border-line-strong bg-bg-deep/60 transition-colors checked:border-transparent checked:bg-fg hover:border-[rgb(236_239_234/0.3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-danger"
           {...rest}
         />
         <Check aria-hidden strokeWidth={3} className="pointer-events-none absolute inset-0 m-auto size-3.5 scale-50 text-bg-deep opacity-0 transition-all peer-checked:scale-100 peer-checked:opacity-100" />
@@ -61,11 +61,11 @@ export function Switch({ checked, onChange, label, description, disabled, id, cl
         className={cn(
           'relative inline-flex shrink-0 items-center rounded-full border p-0.5 transition-colors duration-200',
           track,
-          checked ? 'border-transparent bg-brand-400 shadow-[0_0_18px_-4px_rgb(34_197_94/0.7)]' : 'border-line-strong bg-surface-3',
+          checked ? 'border-transparent bg-brand-500' : 'border-line-strong bg-surface-3',
           disabled && 'cursor-not-allowed opacity-50',
         )}
       >
-        <span data-on={checked} className={cn('rounded-full bg-white shadow transition-transform duration-200 ease-[var(--ease-spring)]', knob)} />
+        <span data-on={checked} className={cn('rounded-full bg-white shadow-sm transition-transform duration-200 ease-[var(--ease-out-expo)]', knob)} />
       </button>
       {(label || description) && (
         <label htmlFor={sid} className="cursor-pointer text-sm">

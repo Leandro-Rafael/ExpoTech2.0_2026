@@ -10,7 +10,7 @@ import type {
 import { seedDatabase } from './seed';
 
 export const STORAGE_KEY = 'lixozero2050.mockdb';
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 export interface UserRec {
   id: UUID;

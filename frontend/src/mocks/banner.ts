@@ -13,7 +13,7 @@ export function mountBanner(onReset: () => void) {
     el.setAttribute('role', 'status');
     el.setAttribute('aria-label', 'Modo demonstração');
     el.style.cssText = [
-      'position:fixed', 'left:12px', 'bottom:12px', 'z-index:2147483000', 'display:flex', 'align-items:center', 'gap:8px',
+      'position:fixed', 'left:12px', (window.matchMedia('(max-width: 1023px)').matches ? 'bottom:calc(84px + env(safe-area-inset-bottom))' : 'bottom:12px'), 'z-index:2147483000', 'display:flex', 'align-items:center', 'gap:8px',
       'padding:6px 6px 6px 12px', 'border-radius:999px', 'font:500 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif',
       'color:#eafff3', 'background:rgba(9,46,34,.88)', 'border:1px solid rgba(132,204,22,.45)',
       'box-shadow:0 6px 24px rgba(0,0,0,.25)', 'backdrop-filter:blur(6px)', '-webkit-backdrop-filter:blur(6px)', 'max-width:calc(100vw - 24px)',

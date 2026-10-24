@@ -5,6 +5,9 @@ import { LandingBackground } from '@/features/landing/LandingBackground';
 import { FinalCta, Features, Footer, Hero, HowItWorks, ImpactStats, LandingNav, SmartHome, Timeline } from '@/features/landing/sections';
 import { gsap, ScrollTrigger, useSmoothScroll } from '@/features/landing/useSmoothScroll';
 
+/** Curva única do produto (equivale a cubic-bezier(0.22, 1, 0.36, 1)). */
+const EASE = 'power3.out';
+
 type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
 
 /**
@@ -36,13 +39,13 @@ export default function LandingPage() {
   useLayoutEffect(() => {
     if (prefersReducedMotion()) return;
     const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: 'expo.out' } });
-      tl.fromTo('[data-hero="eyebrow"]', { y: 20, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.8 })
-        .fromTo('[data-hero="word"]', { yPercent: 110 }, { yPercent: 0, duration: 1.1, stagger: 0.06 }, '-=0.5')
-        .fromTo('[data-hero="sub"]', { y: 24, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.9 }, '-=0.8')
-        .fromTo('[data-hero="cta"]', { y: 20, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.8 }, '-=0.7')
-        .fromTo('[data-hero="chips"]', { y: 12, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6 }, '-=0.6')
-        .fromTo('[data-hero="float"]', { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, stagger: 0.15 }, '-=0.9');
+      // Uma só linguagem de movimento: opacidade + 14px, 0.6s, mesma curva, escalonamento sutil.
+      const tl = gsap.timeline({ defaults: { ease: EASE, duration: 0.6 } });
+      tl.fromTo('[data-hero="label"]', { y: 14, autoAlpha: 0 }, { y: 0, autoAlpha: 1 })
+        .fromTo('[data-hero="word"]', { y: 14, autoAlpha: 0 }, { y: 0, autoAlpha: 1, stagger: 0.05 }, '-=0.4')
+        .fromTo('[data-hero="sub"]', { y: 14, autoAlpha: 0 }, { y: 0, autoAlpha: 1 }, '-=0.35')
+        .fromTo('[data-hero="cta"]', { y: 14, autoAlpha: 0 }, { y: 0, autoAlpha: 1 }, '-=0.45')
+        .fromTo('[data-hero="ticker"]', { y: 14, autoAlpha: 0 }, { y: 0, autoAlpha: 1 }, '-=0.3');
     }, root);
     return () => ctx.revert();
   }, []);
@@ -51,11 +54,11 @@ export default function LandingPage() {
   useLayoutEffect(() => {
     if (!rest || prefersReducedMotion()) return;
     const ctx = gsap.context(() => {
-      gsap.set('[data-reveal]', { y: 36, autoAlpha: 0 });
+      gsap.set('[data-reveal]', { y: 14, autoAlpha: 0 });
       ScrollTrigger.batch('[data-reveal]', {
-        start: 'top 90%',
+        start: 'top 88%',
         once: true,
-        onEnter: (els) => gsap.to(els, { y: 0, autoAlpha: 1, duration: 0.9, ease: 'expo.out', stagger: 0.08, overwrite: true }),
+        onEnter: (els) => gsap.to(els, { y: 0, autoAlpha: 1, duration: 0.6, ease: EASE, stagger: 0.06, overwrite: true }),
       });
       gsap.fromTo('[data-timeline-line]', { scaleX: 0, scaleY: 0 }, {
         scaleX: 1, scaleY: 1, ease: 'none',

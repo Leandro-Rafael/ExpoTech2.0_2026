@@ -25,6 +25,8 @@ public class LoginAttemptService {
 
     public static final int MAX_FAILURES = 5;
     public static final Duration LOCK_DURATION = Duration.ofMinutes(15);
+    /** Teto de e-mails acompanhados em memória (o rate limit por IP já limita o ritmo de novas entradas). */
+    static final int MAX_TRACKED = 50_000;
 
     private record Attempt(int failures, Instant lastFailure, Instant lockedUntil) {
     }
@@ -56,6 +58,13 @@ public class LoginAttemptService {
     @Transactional
     public boolean recordFailure(String email, User user) {
         Instant now = clock.instant();
+        if (attempts.size() >= MAX_TRACKED && !attempts.containsKey(email)) {
+            evictStale(); // memória limitada: e-mails inventados não podem crescer o mapa sem fim
+            if (attempts.size() >= MAX_TRACKED) {
+                // ainda cheio: descarta contadores parciais (bloqueios ativos e o estado no banco são mantidos)
+                attempts.values().removeIf(a -> a.lockedUntil() == null);
+            }
+        }
         Attempt updated = attempts.compute(email, (k, old) -> {
             int previous = old == null || old.lastFailure().plus(LOCK_DURATION).isBefore(now) ? 0 : old.failures();
             int failures = previous + 1;

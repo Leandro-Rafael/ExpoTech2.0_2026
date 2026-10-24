@@ -3,6 +3,7 @@ package br.com.ecotechzero.lixozero.security;
 import br.com.ecotechzero.lixozero.config.AppProperties;
 import br.com.ecotechzero.lixozero.user.User;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -38,6 +39,7 @@ public class JwtService {
     private static final Logger log = LoggerFactory.getLogger(JwtService.class);
     private static final String ISSUER = "lixozero-api";
     private static final int MIN_SECRET_BYTES = 32;
+    private static final int MAX_TOKEN_LENGTH = 2048;
 
     private final SecretKey key;
     private final AppProperties props;
@@ -67,18 +69,30 @@ public class JwtService {
                 .compact();
     }
 
-    /** Valida assinatura, emissor e expiração. Tokens inválidos simplesmente não autenticam. */
+    /**
+     * Valida assinatura, algoritmo (somente HS256: "none" e troca de algoritmo são rejeitados), emissor,
+     * expiração e "não antes de" (nbf). Tokens inválidos ou grandes demais simplesmente não autenticam.
+     */
     public Optional<TokenClaims> parse(String token) {
+        if (token == null || token.length() > MAX_TOKEN_LENGTH) {
+            return Optional.empty();
+        }
         try {
-            Claims claims = Jwts.parser()
+            Jws<Claims> jws = Jwts.parser()
                     .verifyWith(key)
                     .requireIssuer(ISSUER)
                     .clockSkewSeconds(30)
                     .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
+                    .parseSignedClaims(token);
+            if (!Jwts.SIG.HS256.getId().equals(jws.getHeader().getAlgorithm())) {
+                return Optional.empty();
+            }
+            Claims claims = jws.getPayload();
             Integer version = claims.get("ver", Integer.class);
-            return Optional.of(new TokenClaims(UUID.fromString(claims.getSubject()), version == null ? -1 : version));
+            if (claims.getSubject() == null || version == null || claims.getExpiration() == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new TokenClaims(UUID.fromString(claims.getSubject()), version));
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
@@ -129,6 +143,14 @@ public class JwtService {
     }
 
     private static void restrictPermissions(Path file) {
+        try {
+            if (Files.getFileStore(file).supportsFileAttributeView("posix")) {
+                Files.setPosixFilePermissions(file, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")); // chmod 600
+                return;
+            }
+        } catch (IOException | UnsupportedOperationException ignored) {
+            // segue para o modo genérico abaixo
+        }
         try {
             file.toFile().setReadable(false, false);
             file.toFile().setReadable(true, true);

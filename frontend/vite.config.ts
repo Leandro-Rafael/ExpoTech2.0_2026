@@ -41,6 +41,8 @@ export default defineConfig({
           // Código compartilhado do app (kit de UI, API, auth, layout) num chunk só —
           // evita dezenas de micro-chunks pré-carregados. Páginas/landing seguem lazy.
           if (!id.includes('node_modules')) {
+            // Wrappers de gráficos/mapa importam recharts/leaflet: ficam fora do core (lazy).
+            if (/\/src\/components\/(charts|map)\//.test(id)) return undefined;
             if (/\/src\/(components|lib|hooks|api|auth|app)\//.test(id)) return 'core';
             return undefined;
           }

@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -153,7 +154,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiProblem> handleIntegrity(DataIntegrityViolationException ex) {
-        log.warn("Violação de integridade: {}", ex.getMostSpecificCause().getMessage());
+        // registra só a constraint (a mensagem do PostgreSQL repete os valores da linha, ex.: e-mails)
+        String constraint = ex.getCause() instanceof org.hibernate.exception.ConstraintViolationException cve
+                ? cve.getConstraintName() : ex.getMostSpecificCause().getClass().getSimpleName();
+        log.warn("Violação de integridade: {}", constraint);
         return problem(ErrorCode.CONFLICT, HttpStatus.CONFLICT, "A operação conflita com dados já existentes.", null);
     }
 
@@ -163,8 +167,29 @@ public class GlobalExceptionHandler {
         return problem(ErrorCode.CONFLICT, HttpStatus.CONFLICT, "O registro foi alterado por outra operação. Tente novamente.", null);
     }
 
+    /**
+     * Demais exceções do próprio Spring MVC (406, 400 de binding, timeout assíncrono...) já trazem o status
+     * HTTP correto: respondemos com ele, sem detalhes internos, em vez de transformá-las em 500.
+     */
+    private static ResponseEntity<ApiProblem> frameworkError(HttpStatus status) {
+        ErrorCode code = switch (status) {
+            case NOT_FOUND -> ErrorCode.NOT_FOUND;
+            case UNAUTHORIZED -> ErrorCode.UNAUTHORIZED;
+            case FORBIDDEN -> ErrorCode.FORBIDDEN;
+            case CONFLICT -> ErrorCode.CONFLICT;
+            default -> ErrorCode.VALIDATION_ERROR;
+        };
+        return problem(code, status, "Requisição inválida.", null);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiProblem> handleUnexpected(Exception ex) {
+        if (ex instanceof ErrorResponse er) {
+            HttpStatus status = HttpStatus.resolve(er.getStatusCode().value());
+            if (status != null && status.is4xxClientError()) {
+                return frameworkError(status);
+            }
+        }
         String requestId = MDC.get(RequestIdFilterConstants.MDC_KEY);
         log.error("Erro inesperado (requestId={})", requestId, ex);
         return problem(ErrorCode.INTERNAL_ERROR, HttpStatus.INTERNAL_SERVER_ERROR,

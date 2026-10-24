@@ -137,6 +137,10 @@ public class RouteService {
         if (route.getStatus() == RouteStatus.DONE) {
             throw ApiException.conflict("Esta rota já foi concluída.");
         }
+        if (route.getStatus() == RouteStatus.PLANNED && route.getStops().isEmpty()) {
+            // todas as solicitações foram canceladas: a rota nunca terminaria
+            throw ApiException.business("Esta rota não tem mais paradas (as solicitações foram canceladas).");
+        }
         if (route.getStatus() == RouteStatus.PLANNED) {
             route.start(users.getReferenceById(me.id()), clock.instant());
             route.getStops().forEach(s -> {

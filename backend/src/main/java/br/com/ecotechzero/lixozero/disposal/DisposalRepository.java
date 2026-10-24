@@ -1,6 +1,7 @@
 package br.com.ecotechzero.lixozero.disposal;
 
 import br.com.ecotechzero.lixozero.category.CategoryCode;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -76,5 +77,5 @@ public interface DisposalRepository extends JpaRepository<Disposal, UUID> {
 
     @EntityGraph(attributePaths = {"category", "user"})
     @Query("select d from Disposal d where d.disposedAt >= :from and d.disposedAt < :to order by d.disposedAt")
-    List<Disposal> findForReport(@Param("from") Instant from, @Param("to") Instant to);
+    List<Disposal> findForReport(@Param("from") Instant from, @Param("to") Instant to, Limit limit);
 }

@@ -92,6 +92,20 @@ public final class RouteOptimizer {
         return (int) Math.round(distanceKm / AVERAGE_SPEED_KMH * 60 + stopCount * SERVICE_MINUTES_PER_STOP);
     }
 
+    /** Comprimento (km) da rota fechada garagem -> pontos na ordem dada -> garagem. */
+    public static double closedTourKm(GeoPoint depot, List<GeoPoint> points) {
+        if (points.isEmpty()) {
+            return 0;
+        }
+        double total = 0;
+        GeoPoint previous = depot;
+        for (GeoPoint p : points) {
+            total += previous.distanceKm(p);
+            previous = p;
+        }
+        return total + previous.distanceKm(depot);
+    }
+
     static double[][] distanceMatrix(GeoPoint depot, List<Stop> stops) {
         int n = stops.size() + 1;
         double[] lat = new double[n];

@@ -1,0 +1,107 @@
+/**
+ * Mapa curado: rótulos do ImageNet (MobileNet) → categorias do Lixo Zero.
+ * Comparação por PALAVRA inteira em cada sinônimo do rótulo ("water bottle", "can opener, tin opener"),
+ * para evitar falsos positivos como "can" em "candle".
+ */
+import type { CategoryCode } from '@/api/types';
+
+export const LABEL_KEYWORDS: Record<Exclude<CategoryCode, 'REJEITO'>, string[]> = {
+  PLASTICO: [
+    'water bottle', 'pop bottle', 'soda bottle', 'plastic bag', 'water jug', 'pill bottle', 'lotion', 'sunscreen',
+    'packet', 'bucket', 'pail', 'shower cap', 'syringe', 'tub', 'bubble', 'balloon', 'toothbrush', 'plunger', 'lighter',
+    'crate', 'band aid', 'diaper', 'plastic',
+  ],
+  PAPEL: [
+    'carton', 'envelope', 'newspaper', 'paper towel', 'toilet tissue', 'book jacket', 'comic book', 'menu',
+    'binder', 'crossword puzzle', 'paper', 'book', 'mailbag', 'tissue', 'cardboard', 'box', 'notepad', 'jigsaw puzzle',
+  ],
+  VIDRO: [
+    'wine bottle', 'beer bottle', 'beer glass', 'goblet', 'red wine', 'whiskey jug', 'jar', 'vase', 'perfume',
+    'beaker', 'measuring cup', 'pitcher', 'carafe', 'decanter', 'glass', 'mirror',
+  ],
+  METAL: [
+    'can', 'tin', 'milk can', 'hair spray', 'frying pan', 'wok', 'caldron', 'cauldron', 'dutch oven', 'ladle',
+    'spatula', 'strainer', 'nail', 'screw', 'padlock', 'chain', 'safety pin', 'thimble', 'coffeepot', 'teapot',
+    'can opener', 'corkscrew', 'chain mail', 'steel', 'iron', 'aluminium', 'aluminum', 'foil', 'cocktail shaker', 'spoon',
+  ],
+  ORGANICO: [
+    'banana', 'orange', 'lemon', 'granny smith', 'apple', 'pineapple', 'strawberry', 'fig', 'pomegranate', 'custard apple',
+    'jackfruit', 'corn', 'ear', 'mushroom', 'broccoli', 'cauliflower', 'cucumber', 'zucchini', 'squash', 'acorn squash',
+    'butternut squash', 'spaghetti squash', 'bell pepper', 'artichoke', 'head cabbage', 'potato', 'mashed potato',
+    'pizza', 'hotdog', 'cheeseburger', 'bagel', 'pretzel', 'french loaf', 'loaf', 'meat loaf', 'burrito', 'guacamole',
+    'trifle', 'ice cream', 'acorn', 'hay', 'egg', 'plate', 'consomme', 'hot pot', 'carbonara', 'espresso', 'eggnog',
+    'daisy', 'buckeye', 'hip', 'rapeseed', 'coral fungus', 'agaric', 'bolete', 'dough', 'chocolate sauce', 'potpie',
+  ],
+  ELETRONICO: [
+    'cellular telephone', 'cellular phone', 'cellphone', 'mobile phone', 'cell', 'phone', 'dial telephone',
+    'laptop', 'notebook', 'notebook computer', 'desktop computer', 'computer keyboard', 'keypad', 'mouse',
+    'computer mouse', 'remote control', 'remote', 'monitor', 'screen', 'crt screen', 'television', 'ipod',
+    'hand-held computer', 'modem', 'joystick', 'printer', 'loudspeaker', 'hard disc', 'hard disk', 'power drill',
+    'electric fan', 'hair drier', 'hand blower', 'toaster', 'microwave', 'radio', 'tape player', 'cassette player',
+    'cd player', 'digital clock', 'digital watch', 'calculator', 'switch', 'projector', 'space bar', 'iron',
+    'electric guitar', 'polaroid camera', 'reflex camera', 'camera', 'headphone', 'earphone', 'vacuum',
+    'washer', 'dishwasher', 'refrigerator', 'stove', 'spotlight', 'lamp', 'table lamp', 'game console', 'oscilloscope',
+  ],
+};
+
+export interface LocalGuess {
+  code: CategoryCode;
+  confidence: number;
+  reasoning: string;
+  /** Rótulos brutos (para exibir em "o que a IA viu"). */
+  labels: { className: string; probability: number }[];
+}
+
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const COMPILED = Object.entries(LABEL_KEYWORDS).map(([code, words]) => ({
+  code: code as CategoryCode,
+  re: new RegExp(`(^|[^a-z])(${words.map(escape).join('|')})([^a-z]|$)`, 'i'),
+}));
+
+const CATEGORY_PT: Record<CategoryCode, string> = {
+  PLASTICO: 'Plástico', PAPEL: 'Papel', VIDRO: 'Vidro', METAL: 'Metal', ORGANICO: 'Orgânico', ELETRONICO: 'Eletrônico', REJEITO: 'Rejeito',
+};
+
+function matchCategory(className: string): CategoryCode | null {
+  const synonyms = className.toLowerCase().split(/,\s*/);
+  for (const syn of synonyms) {
+    for (const { code, re } of COMPILED) if (re.test(syn)) return code;
+  }
+  return null;
+}
+
+const pct = (p: number) => `${Math.round(p * 100)}%`;
+
+/** Agrega as probabilidades do top-k por categoria e explica a decisão em português. */
+export function mapPredictions(preds: { className: string; probability: number }[]): LocalGuess {
+  const totals = new Map<CategoryCode, { sum: number; best: { className: string; probability: number } }>();
+  for (const p of preds) {
+    const code = matchCategory(p.className);
+    if (!code) continue;
+    const cur = totals.get(code);
+    if (!cur) totals.set(code, { sum: p.probability, best: p });
+    else cur.sum += p.probability;
+  }
+  const ranked = [...totals.entries()].sort((a, b) => b[1].sum - a[1].sum);
+  const top = preds[0];
+  if (!ranked.length) {
+    return {
+      code: 'REJEITO',
+      confidence: Math.min(0.3, top?.probability ?? 0.2),
+      reasoning: top
+        ? `O modelo viu algo parecido com “${top.className.split(',')[0]}” (${pct(top.probability)}), que não corresponde a um material reciclável conhecido. Sugerimos Rejeito — corrija se souber o material.`
+        : 'Não foi possível reconhecer o objeto. Escolha a categoria manualmente.',
+      labels: preds,
+    };
+  }
+  const [code, info] = ranked[0];
+  // Confiança: probabilidade agregada, com teto para não parecer certeza absoluta.
+  const confidence = Math.max(0.05, Math.min(0.97, info.sum));
+  const label = info.best.className.split(',')[0];
+  return {
+    code,
+    confidence,
+    reasoning: `Reconhecido como “${label}” (${pct(info.best.probability)}), um item típico de ${CATEGORY_PT[code].toLowerCase()}.${ranked.length > 1 ? ` Também considerado: ${CATEGORY_PT[ranked[1][0]].toLowerCase()} (${pct(ranked[1][1].sum)}).` : ''}`,
+    labels: preds,
+  };
+}

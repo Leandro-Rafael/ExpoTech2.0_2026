@@ -1,35 +1,32 @@
 import { useEffect, useRef } from 'react';
-import Lenis from 'lenis';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import type Lenis from 'lenis';
 import { prefersReducedMotion } from '@/hooks/useReducedMotion';
 
-gsap.registerPlugin(ScrollTrigger);
-
 /**
- * Lenis (scroll suave) sincronizado com o ticker do GSAP/ScrollTrigger.
- * Desativado com prefers-reduced-motion e em telas de toque. Destruído ao sair da página.
+ * Lenis (scroll suave, modo lerp) sincronizado com o gsap.ticker/ScrollTrigger.
+ * Carregado sob demanda (chunk "scroll"), então não pesa na primeira pintura.
+ * Desligado com prefers-reduced-motion e em telas de toque. Destruído ao sair da página.
  * A cena 3D também roda no gsap.ticker: um único requestAnimationFrame para tudo.
- * Retorna `scrollTo(alvo)` para âncoras.
+ * Retorna `scrollTo(alvo)` para âncoras (usa scroll nativo enquanto o Lenis não carregou).
  */
 export function useSmoothScroll() {
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
-    // Touch: o scroll nativo é mais fluido que qualquer emulação.
     if (prefersReducedMotion() || window.matchMedia('(pointer: coarse)').matches) return;
-    // lerp (e não duração longa): mais leve e estável em CPUs fracas.
-    const lenis = new Lenis({ lerp: 0.1, smoothWheel: true, syncTouch: false, wheelMultiplier: 1 });
-    lenisRef.current = lenis;
-    lenis.on('scroll', ScrollTrigger.update);
-    const tick = (time: number) => lenis.raf(time * 1000);
-    gsap.ticker.add(tick);
-    gsap.ticker.lagSmoothing(0);
-    return () => {
-      gsap.ticker.remove(tick);
-      lenis.destroy();
-      lenisRef.current = null;
-    };
+    let disposed = false;
+    let cleanup = () => {};
+    void Promise.all([import('lenis'), import('./gsap')]).then(([{ default: LenisCtor }, { gsap, ScrollTrigger }]) => {
+      if (disposed) return;
+      const lenis = new LenisCtor({ lerp: 0.1, smoothWheel: true, syncTouch: false, wheelMultiplier: 1 });
+      lenisRef.current = lenis;
+      lenis.on('scroll', ScrollTrigger.update);
+      const tick = (time: number) => lenis.raf(time * 1000);
+      gsap.ticker.add(tick);
+      gsap.ticker.lagSmoothing(0);
+      cleanup = () => { gsap.ticker.remove(tick); lenis.destroy(); lenisRef.current = null; };
+    });
+    return () => { disposed = true; cleanup(); };
   }, []);
 
   return (target: string | HTMLElement) => {
@@ -39,5 +36,3 @@ export function useSmoothScroll() {
     else el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   };
 }
-
-export { gsap, ScrollTrigger };

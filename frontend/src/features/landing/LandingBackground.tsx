@@ -20,24 +20,23 @@ function AmbientGlow() {
   );
 }
 
-/** Fundo estático (primeira pintura, movimento reduzido e fallback sem WebGL). */
+/**
+ * Fundo estático = um quadro real da própria cena 3D (public/scene/*.webp, ~40 KB).
+ * Usado na primeira pintura, com movimento reduzido e como fallback sem WebGL/GPU fraca:
+ * o visual é o mesmo da cena animada.
+ */
 export function StaticBackdrop({ className }: { className?: string }) {
   return (
-    <div aria-hidden className={cn('absolute inset-0 overflow-hidden', className)}>
-      <svg className="absolute top-[8%] left-1/2 h-[64vmin] w-[64vmin] -translate-x-1/2 opacity-70 sm:top-1/2 sm:left-[72%] sm:h-[78vmin] sm:w-[78vmin] sm:-translate-y-1/2" viewBox="0 0 200 200" fill="none">
-        <defs>
-          <linearGradient id="sb-ring" x1="20" y1="180" x2="180" y2="20" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#059669" /><stop offset=".55" stopColor="#22c55e" /><stop offset="1" stopColor="#bef264" />
-          </linearGradient>
-          <filter id="sb-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6" /></filter>
-        </defs>
-        <g transform="rotate(-20 100 100)">
-          <ellipse cx="100" cy="100" rx="86" ry="34" stroke="url(#sb-ring)" strokeWidth="10" filter="url(#sb-blur)" opacity=".5" />
-          <ellipse cx="100" cy="100" rx="86" ry="34" stroke="url(#sb-ring)" strokeWidth="1.6" strokeDasharray="1 3.5" strokeLinecap="round" />
-        </g>
-        <circle cx="100" cy="100" r="40" stroke="#34d399" strokeOpacity=".22" strokeDasharray="0.8 3" strokeLinecap="round" />
-      </svg>
-    </div>
+    <picture aria-hidden className={cn('absolute inset-0', className)}>
+      <source media="(max-width: 767px)" srcSet="/scene/ring-mobile.webp" type="image/webp" />
+      <img
+        src="/scene/ring-desktop.webp"
+        alt=""
+        decoding="async"
+        fetchPriority="low"
+        className="size-full object-cover object-[right_center] max-md:object-top"
+      />
+    </picture>
   );
 }
 

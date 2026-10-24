@@ -4,11 +4,13 @@ import br.com.ecotechzero.lixozero.audit.AuditAction;
 import br.com.ecotechzero.lixozero.audit.AuditService;
 import br.com.ecotechzero.lixozero.common.ApiException;
 import br.com.ecotechzero.lixozero.common.ErrorCode;
+import br.com.ecotechzero.lixozero.common.RequestContext;
 import br.com.ecotechzero.lixozero.common.TokenBucketRateLimiter;
 import br.com.ecotechzero.lixozero.household.HouseholdDtos.ReadingRequest;
 import br.com.ecotechzero.lixozero.household.SmartBin;
 import br.com.ecotechzero.lixozero.household.SmartBinRepository;
 import br.com.ecotechzero.lixozero.household.SmartBinService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,10 +29,15 @@ import java.util.UUID;
  * Endpoint para dispositivos IoT reais (ESP32 etc.). Sem cookies e sem CSRF: o dispositivo se autentica
  * com os headers X-Device-Id e X-Device-Key. A chave é comparada pelo hash em TEMPO CONSTANTE
  * ({@link MessageDigest#isEqual}), evitando ataques de temporização.
+ * <p>
+ * Limites: por IP (antes de autenticar, para que tentativas com ids inventados não inundem o log de
+ * auditoria) e por dispositivo. O corpo é validado (0 a 100) e o tamanho total limitado pelo
+ * {@code RequestBodyLimitFilter}.
  */
 @RestController
 public class IotController {
 
+    private static final int MAX_KEY_LENGTH = 128;
     private static final String DUMMY_HASH = SmartBinService.sha256("dispositivo-inexistente");
 
     private final SmartBinRepository bins;
@@ -52,7 +59,12 @@ public class IotController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void reading(@RequestHeader("X-Device-Id") String deviceIdHeader,
                         @RequestHeader("X-Device-Key") String deviceKey,
-                        @Valid @RequestBody ReadingRequest body) {
+                        @Valid @RequestBody ReadingRequest body,
+                        HttpServletRequest request) {
+        limiter.check(TokenBucketRateLimiter.Policy.IOT_IP, RequestContext.clientIp(request));
+        if (deviceKey.length() > MAX_KEY_LENGTH) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "Dispositivo não autorizado.");
+        }
         UUID deviceId = parse(deviceIdHeader);
         limiter.check(TokenBucketRateLimiter.Policy.IOT_DEVICE, deviceId.toString());
         SmartBin bin = authenticate(deviceId, deviceKey);

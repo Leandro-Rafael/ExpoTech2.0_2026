@@ -1,0 +1,79 @@
+/*
+ * Tema escuro dos mapas (Leaflet). Importado só por MapView (chunk lazy "leaflet").
+ * Controles com hairline + superfície do design system; marcadores via divIcon (sem PNG).
+ */
+.ez-map.leaflet-container {
+  background: var(--color-bg-deep);
+  font-family: var(--font-sans);
+  color: var(--color-fg);
+  outline: none;
+}
+.ez-map .leaflet-tile-pane { filter: saturate(0.85) brightness(0.95); }
+
+/* Controles */
+.ez-map .leaflet-bar {
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow-pop);
+}
+.ez-map .leaflet-bar a,
+.ez-map .leaflet-bar a:hover {
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+  background: var(--color-surface-2);
+  color: var(--color-fg-soft);
+  border-bottom: 1px solid var(--color-line);
+  font: 500 17px/34px var(--font-sans);
+  transition: background-color 0.15s, color 0.15s;
+}
+.ez-map .leaflet-bar a:last-child { border-bottom: 0; }
+.ez-map .leaflet-bar a:hover { background: var(--color-surface-3); color: var(--color-fg); }
+.ez-map .leaflet-bar a.leaflet-disabled { color: var(--color-subtle); background: var(--color-surface); }
+.ez-map .leaflet-bar a:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.ez-map .leaflet-control-zoom { margin: 12px !important; }
+
+.ez-map .leaflet-control-attribution {
+  background: rgb(7 10 8 / 0.72);
+  color: var(--color-subtle);
+  font: 10.5px/1.6 var(--font-sans);
+  padding: 1px 8px;
+  border-top-left-radius: 8px;
+}
+.ez-map .leaflet-control-attribution a { color: var(--color-muted); text-decoration: none; }
+.ez-map .leaflet-control-attribution a:hover { color: var(--color-fg); text-decoration: underline; }
+
+/* Marcadores divIcon: o Leaflet aplica fundo/borda brancos por padrão. */
+.ez-map .leaflet-div-icon.ez-marker {
+  background: transparent;
+  border: 0;
+}
+.ez-map .ez-marker:focus-visible { outline: none; }
+.ez-map .ez-marker:focus-visible > div { outline: 2px solid var(--color-accent); outline-offset: 3px; border-radius: 999px; }
+
+/* Tooltips */
+.ez-map .leaflet-tooltip.ez-tooltip {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-line-strong);
+  border-radius: 8px;
+  color: var(--color-fg-soft);
+  font: 500 12px/1.35 var(--font-sans);
+  padding: 5px 9px;
+  box-shadow: var(--shadow-pop);
+  white-space: nowrap;
+}
+.ez-map .leaflet-tooltip.ez-tooltip::before { display: none; }
+
+/* Pulso da posição atual (só transform/opacity). */
+@keyframes ez-pulse {
+  0% { transform: scale(0.6); opacity: 0.6; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.ez-pulse { animation: ez-pulse 2s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+@media (prefers-reduced-motion: reduce) { .ez-pulse { animation: none; opacity: 0.25; } }
+
+/* Polilinha ingênua: tracejado fino */
+.ez-map .ez-route-naive { stroke-linecap: round; }
+.ez-map.ez-picking { cursor: crosshair; }
+.ez-map.ez-picking .leaflet-interactive { cursor: pointer; }

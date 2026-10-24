@@ -89,5 +89,7 @@ class DomainRulesTest {
         assertThat(CsvReportServiceTestAccess.escape("@SUM")).isEqualTo("'@SUM");
         assertThat(CsvReportServiceTestAccess.escape("a;b")).isEqualTo("\"a;b\"");
         assertThat(CsvReportServiceTestAccess.escape("Maria")).isEqualTo("Maria");
+        assertThat(CsvReportServiceTestAccess.escape("  =1+1")).isEqualTo("'  =1+1");   // espaços antes da fórmula
+        assertThat(CsvReportServiceTestAccess.escape("|cmd")).isEqualTo("'|cmd");
     }
 }

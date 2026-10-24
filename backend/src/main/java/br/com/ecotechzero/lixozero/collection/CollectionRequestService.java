@@ -8,6 +8,9 @@ import br.com.ecotechzero.lixozero.common.Numbers;
 import br.com.ecotechzero.lixozero.common.Text;
 import br.com.ecotechzero.lixozero.common.TokenBucketRateLimiter;
 import br.com.ecotechzero.lixozero.config.AppProperties;
+import br.com.ecotechzero.lixozero.route.CollectionRoute;
+import br.com.ecotechzero.lixozero.route.CollectionRouteRepository;
+import br.com.ecotechzero.lixozero.route.RouteStatus;
 import br.com.ecotechzero.lixozero.route.RouteStopRepository;
 import br.com.ecotechzero.lixozero.security.AuthUser;
 import br.com.ecotechzero.lixozero.user.UserDtos.UserRef;
@@ -30,15 +33,17 @@ public class CollectionRequestService {
     private final CollectionRequestRepository repository;
     private final UserRepository users;
     private final RouteStopRepository stops;
+    private final CollectionRouteRepository routes;
     private final TokenBucketRateLimiter limiter;
     private final AppProperties props;
     private final Clock clock;
 
     public CollectionRequestService(CollectionRequestRepository repository, UserRepository users, RouteStopRepository stops,
-                                    TokenBucketRateLimiter limiter, AppProperties props, Clock clock) {
+                                    CollectionRouteRepository routes, TokenBucketRateLimiter limiter, AppProperties props, Clock clock) {
         this.repository = repository;
         this.users = users;
         this.stops = stops;
+        this.routes = routes;
         this.limiter = limiter;
         this.props = props;
         this.clock = clock;
@@ -85,7 +90,13 @@ public class CollectionRequestService {
             throw ApiException.business("Não é possível cancelar uma coleta que já está em rota ou foi concluída.");
         }
         if (request.getRoute() != null) {
-            stops.findByRequestId(request.getId()).ifPresent(stop -> stop.getRoute().removeStop(stop));
+            // trava a rota: cancelamentos simultâneos não sobrescrevem as métricas recalculadas um do outro
+            CollectionRoute route = routes.findByIdForUpdate(request.getRoute().getId())
+                    .orElseThrow(() -> ApiException.notFound("Rota não encontrada."));
+            if (route.getStatus() != RouteStatus.PLANNED) {
+                throw ApiException.business("Não é possível cancelar uma coleta que já está em rota ou foi concluída.");
+            }
+            stops.findByRequestId(request.getId()).ifPresent(route::removeStop);
         }
         request.cancel();
         return toDto(request, false);

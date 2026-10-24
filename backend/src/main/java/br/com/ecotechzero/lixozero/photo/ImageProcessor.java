@@ -23,6 +23,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Iterator;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Validação e sanitização de imagens enviadas pelos usuários.
@@ -43,8 +45,27 @@ public class ImageProcessor {
     static final int OUTPUT_MAX_SIDE = 1600;
     static final int AI_MAX_SIDE = 800;
 
+    /**
+     * No máximo 2 decodificações ao mesmo tempo: cada imagem grande ocupa dezenas de MB de memória
+     * enquanto é decodificada; sem esse limite, muitos uploads simultâneos poderiam esgotar a memória (DoS).
+     */
+    private static final Semaphore DECODE_SLOTS = new Semaphore(2, true);
+    private static final long DECODE_WAIT_SECONDS = 15;
+
     static {
         ImageIO.setUseCache(false); // processa em memória, sem arquivos temporários
+    }
+
+    private static void acquireDecodeSlot() {
+        try {
+            if (DECODE_SLOTS.tryAcquire(DECODE_WAIT_SECONDS, TimeUnit.SECONDS)) {
+                return;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        throw new ApiException(ErrorCode.RATE_LIMITED, ErrorCode.RATE_LIMITED.status(),
+                "O servidor está processando muitas fotos agora. Tente novamente em instantes.", null, 5L);
     }
 
     /** Resultado: JPEG limpo, versão reduzida para a IA, dimensões e hashes. */
@@ -61,8 +82,13 @@ public class ImageProcessor {
             throw invalid("A imagem deve ter no máximo 5 MB.");
         }
         Format format = detectFormat(bytes);
-        BufferedImage decoded = decodeSafely(bytes, format);
-        BufferedImage output = resizeToRgb(decoded, OUTPUT_MAX_SIDE);
+        acquireDecodeSlot();
+        BufferedImage output;
+        try {
+            output = resizeToRgb(decodeSafely(bytes, format), OUTPUT_MAX_SIDE);
+        } finally {
+            DECODE_SLOTS.release();
+        }
         byte[] jpeg = encodeJpeg(output, 0.85f);
         byte[] aiJpeg = Math.max(output.getWidth(), output.getHeight()) > AI_MAX_SIDE
                 ? encodeJpeg(resizeToRgb(output, AI_MAX_SIDE), 0.8f)

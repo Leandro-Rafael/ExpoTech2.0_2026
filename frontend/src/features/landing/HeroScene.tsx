@@ -197,7 +197,7 @@ export default function HeroScene({ onReady, onFail }: Props) {
     world.add(ringGroup);
 
     // ---------- anel (pontos finos) + halo (poucos pontos grandes e tênues = "bloom" barato)
-    const N = isSmall ? 1500 : lowEnd ? 2600 : 4500;
+    const N = isSmall ? 1500 : lowEnd ? 3000 : 4500;
     const H = isSmall ? 160 : 260;
     const buildRing = (count: number, halo: boolean) => {
       const scatter = new Float32Array(count * 3);
@@ -238,7 +238,7 @@ export default function HeroScene({ onReady, onFail }: Props) {
     ringPoints.frustumCulled = false;
     ringGroup.add(ringPoints);
     const haloGeo = buildRing(H, true);
-    const haloAlpha = isSmall ? 0.05 : 0.075;
+    const haloAlpha = isSmall ? 0.05 : 0.095;
     const haloMat = makeRingMat(isSmall ? 3.0 : 3.4, haloAlpha);
     const halo = new Points(haloGeo, haloMat);
     halo.frustumCulled = false;

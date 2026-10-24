@@ -63,6 +63,10 @@ export const qk = {
     users: (p: AdminUsersParams) => ['admin', 'users', p] as const,
     disposals: (p: AdminDisposalsParams) => ['admin', 'disposals', p] as const,
     challenges: ['admin', 'challenges'] as const,
+    /** Sob ['rewards'] para ser invalidada junto com a lista pública. */
+    rewards: ['rewards', 'admin-all'] as const,
+    /** Sob ['collection-points'] para ser invalidada pelas mutações de ecoponto. */
+    collectionPoints: ['collection-points', 'admin-all'] as const,
     organizations: ['admin', 'organizations'] as const,
     goals: ['admin', 'goals'] as const,
     collectionRequests: (status?: CollectionRequestStatus) => ['admin', 'collection-requests', status ?? 'ALL'] as const,
@@ -181,8 +185,9 @@ export function useCancelCollectionRequest() {
 // ------------------------------------------------------------------ residência / lixeiras
 
 export const useHousehold = () => useQuery({ queryKey: qk.household, queryFn: householdApi.get });
-export const useHouseholdBins = (enabled = true) =>
-  useQuery({ queryKey: qk.bins, queryFn: householdApi.bins, enabled, refetchInterval: 30_000 });
+/** Lixeiras da casa. Atualiza a cada `refetchInterval` ms (pausa com a aba oculta). */
+export const useHouseholdBins = (enabled = true, refetchInterval: number | false = 20_000) =>
+  useQuery({ queryKey: qk.bins, queryFn: householdApi.bins, enabled, refetchInterval, refetchIntervalInBackground: false });
 
 function useHouseholdMutation<TVars, TData>(fn: (v: TVars) => Promise<TData>) {
   const qc = useQueryClient();
@@ -244,6 +249,8 @@ export const useAdminUsers = (p: AdminUsersParams = {}) =>
   useQuery({ queryKey: qk.admin.users(p), queryFn: () => adminApi.users(p), placeholderData: keepPreviousData });
 export const useAdminDisposals = (p: AdminDisposalsParams = {}) =>
   useQuery({ queryKey: qk.admin.disposals(p), queryFn: () => adminApi.disposals(p), placeholderData: keepPreviousData });
+export const useAdminRewards = () => useQuery({ queryKey: qk.admin.rewards, queryFn: adminApi.rewards });
+export const useAdminCollectionPoints = () => useQuery({ queryKey: qk.admin.collectionPoints, queryFn: adminApi.collectionPoints });
 export const useAdminChallenges = () => useQuery({ queryKey: qk.admin.challenges, queryFn: adminApi.challenges });
 export const useAdminOrganizations = () => useQuery({ queryKey: qk.admin.organizations, queryFn: adminApi.organizations });
 export const useAdminGoals = () => useQuery({ queryKey: qk.admin.goals, queryFn: adminApi.goals });

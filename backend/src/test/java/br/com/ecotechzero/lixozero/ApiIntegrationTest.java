@@ -240,6 +240,82 @@ class ApiIntegrationTest {
         assertThat(body(sim).path("years").size()).isGreaterThan(20);
     }
 
+    @Test
+    void routeCancellationCollectorIsolationAndHardening() throws Exception {
+        createUser("admin.rotas@exemplo.com", "Admin-Rotas-2050", Role.ADMIN);
+        createUser("coletor.a@exemplo.com", "Coletor-A-2050x", Role.COLLECTOR);
+        createUser("coletor.b@exemplo.com", "Coletor-B-2050x", Role.COLLECTOR);
+        createUser("morador.rotas@exemplo.com", "Morador-Rotas-2050", Role.USER);
+        String collectorA = users.findByEmail("coletor.a@exemplo.com").orElseThrow().getId().toString();
+
+        Client resident = new Client();
+        resident.login("morador.rotas@exemplo.com", "Morador-Rotas-2050");
+        var near = resident.postJson("/api/collection-requests", Map.of("address", "Rua Perto, 10", "latitude", -23.605,
+                "longitude", -46.755, "categoryCodes", java.util.List.of("PLASTICO"), "estimatedKg", 5));
+        assertThat(near.getStatus()).as(near.getContentAsString()).isEqualTo(201);
+        var far = resident.postJson("/api/collection-requests", Map.of("address", "Rua Longe, 99", "latitude", -23.700,
+                "longitude", -46.900, "categoryCodes", java.util.List.of("PAPEL"), "estimatedKg", 7));
+        String nearId = body(near).path("id").asString();
+        String farId = body(far).path("id").asString();
+
+        Client admin = new Client();
+        admin.login("admin.rotas@exemplo.com", "Admin-Rotas-2050");
+        String today = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).toString();
+        var created = admin.postJson("/api/admin/routes", Map.of("name", "Rota de teste", "collectorId", collectorA,
+                "plannedDate", today, "requestIds", java.util.List.of(nearId, farId)));
+        assertThat(created.getStatus()).as(created.getContentAsString()).isEqualTo(201);
+        JsonNode route = body(created).get(0);
+        String routeId = route.path("id").asString();
+        double before = route.path("totalDistanceKm").asDouble();
+
+        // coletor B não enxerga nem inicia a rota do coletor A (404)
+        Client collectorB = new Client();
+        collectorB.login("coletor.b@exemplo.com", "Coletor-B-2050x");
+        assertThat(collectorB.postJson("/api/collector/routes/" + routeId + "/start", Map.of()).getStatus()).isEqualTo(404);
+        assertThat(collectorB.send(get("/api/collector/routes")).getContentAsString()).doesNotContain(routeId);
+        // morador não acessa a área do coletor
+        assertThat(resident.send(get("/api/collector/routes")).getStatus()).isEqualTo(403);
+
+        // morador cancela a parada distante: a rota recalcula distância e carga
+        var cancel = resident.postJson("/api/collection-requests/" + farId + "/cancel", Map.of());
+        assertThat(cancel.getStatus()).as(cancel.getContentAsString()).isEqualTo(200);
+        assertThat(body(cancel).path("status").asString()).isEqualTo("CANCELLED");
+        JsonNode updated = null;
+        for (JsonNode r : body(admin.send(get("/api/admin/routes")))) {
+            if (r.path("id").asString().equals(routeId)) updated = r;
+        }
+        assertThat(updated).isNotNull();
+        assertThat(updated.path("stops").size()).isEqualTo(1);
+        assertThat(updated.path("totalDistanceKm").asDouble()).isLessThan(before);
+        assertThat(updated.path("loadKg").asDouble()).isEqualTo(5.0);
+
+        Client collector = new Client();
+        collector.login("coletor.a@exemplo.com", "Coletor-A-2050x");
+        var start = collector.postJson("/api/collector/routes/" + routeId + "/start", Map.of());
+        assertThat(start.getStatus()).as(start.getContentAsString()).isEqualTo(200);
+        assertThat(body(start).path("status").asString()).isEqualTo("IN_PROGRESS");
+        // já em rota: não pode mais ser cancelada
+        assertThat(resident.postJson("/api/collection-requests/" + nearId + "/cancel", Map.of()).getStatus()).isEqualTo(422);
+
+        // cabeçalhos de segurança na API
+        var me = resident.send(get("/api/auth/me"));
+        assertThat(me.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        assertThat(me.getHeader("Content-Security-Policy")).contains("frame-ancestors 'none'");
+        assertThat(me.getHeader("X-Frame-Options")).isEqualTo("DENY");
+        assertThat(me.getHeader("Cross-Origin-Resource-Policy")).isEqualTo("same-origin");
+
+        // IoT: sem CSRF, mas exige credenciais do dispositivo (401, não 403)
+        var iot = mvc.perform(post("/api/iot/readings").header("X-Device-Id", UUID.randomUUID().toString())
+                .header("X-Device-Key", "chave-errada").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"fillLevel\":50,\"batteryLevel\":90}")).andReturn().getResponse();
+        assertThat(iot.getStatus()).isEqualTo(401);
+
+        // corpo JSON gigante é recusado antes de chegar ao Jackson
+        var huge = resident.send(post("/api/disposals").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"notes\":\"" + "x".repeat(200_000) + "\"}"));
+        assertThat(huge.getStatus()).isEqualTo(413);
+    }
+
     private void createUser(String email, String password, Role role) {
         if (users.findByEmail(email).isEmpty()) {
             users.save(new User("Usuário " + role.name().toLowerCase(), email, encoder.encode(password), role));

@@ -1,7 +1,11 @@
 import { api } from './client';
 import type { Household, SmartBin, SmartBinCreated, UUID } from './types';
 
-export interface CreateHouseholdInput { name: string; neighborhood: string; city: string }
+export interface CreateHouseholdInput {
+  name: string; neighborhood: string; city: string;
+  /** Opcionais: usados nas coletas automáticas das lixeiras inteligentes. */
+  address?: string | null; latitude?: number | null; longitude?: number | null;
+}
 export interface CreateBinInput { name: string; categoryId: UUID; capacityLiters: number; autoRequestThreshold: number }
 
 /** Residência (Smart Home) e lixeiras inteligentes. */

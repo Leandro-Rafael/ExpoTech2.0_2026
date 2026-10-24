@@ -2,6 +2,8 @@ package br.com.ecotechzero.lixozero.route;
 
 import br.com.ecotechzero.lixozero.collection.CollectionRequest;
 import br.com.ecotechzero.lixozero.common.BaseEntity;
+import br.com.ecotechzero.lixozero.common.GeoPoint;
+import br.com.ecotechzero.lixozero.common.Numbers;
 import br.com.ecotechzero.lixozero.user.User;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -18,6 +20,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /** Rota de coleta planejada para um coletor (uma viagem do caminhão). */
@@ -91,13 +94,30 @@ public class CollectionRoute extends BaseEntity {
         return stop;
     }
 
-    /** Remove uma parada (solicitação cancelada) e renumera as demais. */
+    /**
+     * Remove uma parada (solicitação cancelada), renumera as demais e RECALCULA as métricas:
+     * a ordem otimizada das paradas restantes é mantida (pular uma parada nunca deixa o percurso maior,
+     * pela desigualdade triangular) e a distância, o tempo e a carga passam a refletir o novo trajeto.
+     */
     public void removeStop(RouteStop stop) {
         stops.remove(stop);
         for (int i = 0; i < stops.size(); i++) {
             stops.get(i).setSequence(i + 1);
         }
-        this.loadKg = Math.max(0, loadKg - stop.getRequest().getEstimatedKg());
+        GeoPoint depot = new GeoPoint(depotLatitude, depotLongitude);
+        List<GeoPoint> optimizedOrder = stops.stream().map(s -> pointOf(s.getRequest())).toList();
+        List<GeoPoint> creationOrder = stops.stream()
+                .sorted(Comparator.comparing((RouteStop s) -> s.getRequest().getCreatedAt(), Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(s -> pointOf(s.getRequest()))
+                .toList();
+        this.totalDistanceKm = Numbers.round2(RouteOptimizer.closedTourKm(depot, optimizedOrder));
+        this.naiveDistanceKm = Math.max(totalDistanceKm, Numbers.round2(RouteOptimizer.closedTourKm(depot, creationOrder)));
+        this.estimatedMinutes = RouteOptimizer.estimateMinutes(totalDistanceKm, stops.size());
+        this.loadKg = Numbers.round2(stops.stream().mapToDouble(s -> s.getRequest().getEstimatedKg()).sum());
+    }
+
+    private static GeoPoint pointOf(CollectionRequest request) {
+        return new GeoPoint(request.getLatitude(), request.getLongitude());
     }
 
     public boolean allStopsDone() {

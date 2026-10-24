@@ -4,19 +4,29 @@
  * e, se precisar de menu, adicione em src/app/navigation.ts.
  */
 import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
-import { createBrowserRouter, Outlet } from 'react-router';
+import { createBrowserRouter, Outlet, useLocation } from 'react-router';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole } from '@/auth/guards';
 import { AppShell } from '@/components/layout/AppShell';
 import { RouteErrorPage } from '@/components/layout/ErrorBoundary';
-import { FullscreenLoader } from '@/components/layout/FullscreenLoader';
+import { AuthSkeleton } from '@/features/auth/AuthSkeleton';
 
 type Loader = () => Promise<{ default: ComponentType }>;
 const page = (loader: Loader): LazyExoticComponent<ComponentType> => lazy(loader);
 
 // Públicas
-const LandingPage = page(() => import('@/pages/public/LandingPage'));
-const LoginPage = page(() => import('@/pages/public/LoginPage'));
-const RegisterPage = page(() => import('@/pages/public/RegisterPage'));
+// Landing importada de imediato: primeira pintura sem loader (three/gsap/lenis e as seções
+// abaixo da dobra continuam lazy dentro dela).
+import LandingPage from '@/pages/public/LandingPage';
+
+const loadLogin = () => import('@/pages/public/LoginPage');
+const loadRegister = () => import('@/pages/public/RegisterPage');
+// Pré-carrega a página pública da URL atual em paralelo ao boot (sem pesar no bundle inicial).
+if (typeof window !== 'undefined') {
+  if (window.location.pathname.startsWith('/entrar')) void loadLogin();
+  else if (window.location.pathname.startsWith('/cadastro')) void loadRegister();
+}
+const LoginPage = page(loadLogin);
+const RegisterPage = page(loadRegister);
 const NotFoundPage = page(() => import('@/pages/public/NotFoundPage'));
 
 // Morador
@@ -46,8 +56,10 @@ const AdminAuditPage = page(() => import('@/pages/admin/AdminAuditPage'));
 
 /** Layout das páginas públicas (sem shell). */
 function PublicLayout() {
+  const { pathname } = useLocation();
+  const auth = pathname.startsWith('/entrar') || pathname.startsWith('/cadastro');
   return (
-    <Suspense fallback={<FullscreenLoader />}>
+    <Suspense fallback={auth ? <AuthSkeleton /> : <div className="min-h-dvh bg-bg" />}>
       <Outlet />
     </Suspense>
   );

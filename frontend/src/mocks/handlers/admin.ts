@@ -378,6 +378,9 @@ export function registerAdminRoutes() {
   }, A);
 
   // ---------- recompensas
+  route('GET', '/admin/rewards', () =>
+    ok<Reward[]>(db().rewards.slice().sort((a, b) => a.costPoints - b.costPoints).map((r) => ({ ...r }))), A);
+
   route('POST', '/admin/rewards', ({ me, body }) => {
     const d = db();
     const r: Reward = { id: crypto.randomUUID(), ...rewardInput(body) };

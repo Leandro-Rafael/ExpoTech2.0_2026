@@ -31,6 +31,10 @@ export const adminApi = {
   updateCollectionPoint: (id: UUID, body: CollectionPointInput) => api.put<CollectionPoint>(`/admin/collection-points/${id}`, body),
   deleteCollectionPoint: (id: UUID) => api.delete(`/admin/collection-points/${id}`),
 
+  /** Todas as recompensas, inclusive inativas. */
+  rewards: () => api.get<Reward[]>('/admin/rewards'),
+  /** Todos os ecopontos, inclusive inativos (`?all=true` só vale para ADMIN). */
+  collectionPoints: () => api.get<CollectionPoint[]>('/collection-points', { query: { all: true } }),
   createReward: (body: RewardInput) => api.post<Reward>('/admin/rewards', body),
   updateReward: (id: UUID, body: RewardInput) => api.put<Reward>(`/admin/rewards/${id}`, body),
 

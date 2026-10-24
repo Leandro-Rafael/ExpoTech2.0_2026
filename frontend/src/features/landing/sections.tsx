@@ -5,13 +5,12 @@
  *  - acento lima só no CTA primário e na única ênfase do hero
  *  - divisórias em vez de caixas; um visual por seção
  */
-import { useEffect, useLayoutEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ArrowRight, ArrowUpRight, BatteryMedium, Menu, Recycle, Sparkles, X, type LucideIcon } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, BatteryMedium } from 'lucide-react';
 import type { PublicStats } from '@/api/types';
 import { usePublicStats } from '@/api/queries';
-import { useAuth } from '@/auth/AuthProvider';
-import { ButtonLink, buttonClasses } from '@/components/ui';
+import { ButtonLink } from '@/components/ui';
 import { Logo } from '@/components/layout/Logo';
 import { useCountUpText } from '@/hooks/useCountUp';
 import { useInView } from '@/hooks/useInView';
@@ -19,9 +18,8 @@ import { prefersReducedMotion } from '@/hooks/useReducedMotion';
 import { formatCompact, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { VisualAI, VisualApproval, VisualPoints, VisualRegister, VisualRoute } from './StepVisuals';
-import { gsap, ScrollTrigger } from './useSmoothScroll';
-
-type ScrollTo = (target: string) => void;
+import { gsap, ScrollTrigger } from './gsap';
+import { LINKS } from './hero';
 
 // ------------------------------------------------------------------ primitivas
 
@@ -37,7 +35,7 @@ export function SectionLabel({ index, children }: { index: string; children: Rea
 
 function Section({ id, className, children, ...rest }: { id?: string; className?: string; children: ReactNode } & Record<`data-${string}`, string | boolean>) {
   return (
-    <section id={id} className={cn('relative py-24 lg:py-[120px]', className)} {...rest}>
+    <section id={id} className={cn('relative py-20 lg:py-24', className)} {...rest}>
       <div className="container-app">{children}</div>
     </section>
   );
@@ -49,133 +47,6 @@ const H2 = ({ children, className }: { children: ReactNode; className?: string }
 const Lead = ({ children, className }: { children: ReactNode; className?: string }) => (
   <p data-reveal className={cn('mt-6 max-w-[54ch] text-[17px] leading-[1.6] text-muted', className)}>{children}</p>
 );
-
-// ------------------------------------------------------------------ navegação
-
-const LINKS = [
-  { href: '#como-funciona', label: 'Como funciona' },
-  { href: '#casa', label: 'Casa conectada' },
-  { href: '#impacto', label: 'Impacto' },
-  { href: '#recursos', label: 'Recursos' },
-  { href: '#2050', label: '2050' },
-];
-
-export function LandingNav({ scrollTo }: { scrollTo: ScrollTo }) {
-  const { status } = useAuth();
-  const [open, setOpen] = useState(false);
-  // Estado local: rolar a página não re-renderiza as demais seções.
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-  const go = (href: string) => (e: MouseEvent) => { e.preventDefault(); setOpen(false); scrollTo(href); };
-  return (
-    <header className={cn(
-      'fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color] duration-300 [will-change:transform]',
-      scrolled || open ? 'border-line bg-bg' : 'border-transparent bg-transparent',
-    )}>
-      <div className="container-app flex h-16 items-center justify-between gap-6">
-        <a href="#topo" onClick={go('#topo')} aria-label="Lixo Zero 2050 — topo"><Logo size={30} /></a>
-        <nav aria-label="Seções" className="hidden items-center gap-7 lg:flex">
-          {LINKS.map((l) => (
-            <a key={l.href} href={l.href} onClick={go(l.href)} className="text-[14px] text-muted transition-colors hover:text-fg">{l.label}</a>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          {status === 'authenticated' ? (
-            <ButtonLink to="/app" size="sm" rightIcon={ArrowRight}>Abrir painel</ButtonLink>
-          ) : (
-            <>
-              <Link to="/entrar" className={buttonClasses({ variant: 'ghost', size: 'sm', className: 'max-sm:hidden' })}>Entrar</Link>
-              <ButtonLink to="/cadastro" size="sm">Criar conta</ButtonLink>
-            </>
-          )}
-          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="menu-mobile" aria-label={open ? 'Fechar menu' : 'Abrir menu'}
-            className="inline-flex size-9 items-center justify-center rounded-lg text-fg-soft hover:bg-white/5 lg:hidden">
-            {open ? <X className="size-5" /> : <Menu className="size-5" />}
-          </button>
-        </div>
-      </div>
-      {open && (
-        <nav id="menu-mobile" aria-label="Seções" className="container-app border-t border-line pt-2 pb-4 lg:hidden">
-          {LINKS.map((l) => (
-            <a key={l.href} href={l.href} onClick={go(l.href)} className="block border-b border-line py-3.5 text-[15px] text-fg-soft last:border-0">{l.label}</a>
-          ))}
-          {status !== 'authenticated' && <Link to="/entrar" className="block py-3.5 text-[15px] text-fg">Entrar</Link>}
-        </nav>
-      )}
-    </header>
-  );
-}
-
-// ------------------------------------------------------------------ hero
-
-const TICKER: { icon: LucideIcon; label: string; value: string }[] = [
-  { icon: Recycle, label: 'IA identificou plástico PET', value: '96%' },
-  { icon: Sparkles, label: 'Descarte aprovado em Vila Mariana', value: '+48 pts' },
-  { icon: BatteryMedium, label: 'Lixeira orgânica pediu coleta', value: '91%' },
-];
-
-/** Único elemento flutuante do hero: um letreiro "ao vivo" discreto. */
-function LiveTicker() {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    if (prefersReducedMotion()) return;
-    const t = window.setInterval(() => setI((n) => (n + 1) % TICKER.length), 3200);
-    return () => clearInterval(t);
-  }, []);
-  const item = TICKER[i];
-  return (
-    <div data-hero="ticker" className="surface-raised w-[300px] rounded-xl px-4 py-3.5" aria-live="off">
-      <p className="label-mono mb-2.5 flex items-center gap-2 text-[11px]">
-        <span className="relative flex size-1.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-300 opacity-60" /><span className="relative size-1.5 rounded-full bg-brand-300" /></span>
-        Agora na plataforma
-      </p>
-      <div key={i} className="flex animate-fade-up items-center gap-3">
-        <item.icon className="size-4 shrink-0 text-fg-soft" aria-hidden />
-        <span className="flex-1 text-[13.5px] text-fg-soft">{item.label}</span>
-        <span className="font-mono text-[13px] text-fg tabular">{item.value}</span>
-      </div>
-    </div>
-  );
-}
-
-export function Hero({ scrollTo }: { scrollTo: ScrollTo }) {
-  return (
-    <section id="topo" className="relative flex min-h-[100svh] items-end pt-28 pb-16 sm:items-center sm:pb-24">
-      <div className="container-app relative w-full">
-        <div className="grid lg:grid-cols-12">
-          <div className="pt-[30vh] sm:pt-0 lg:col-span-7">
-            <p data-hero="label" className="label-mono mb-8">Lixo Zero 2050 <span className="mx-2 text-line-strong">/</span> ExpoTech 2026</p>
-            <h1 className="text-display text-fg">
-              {['Lixo', 'zero', 'até', '2050'].map((w) => (
-                <span key={w} data-hero="word" className="inline-block">{w}&nbsp;</span>
-              ))}
-              <span data-hero="word" className="inline-block">começa&nbsp;</span>
-              <span data-hero="word" className="inline-block italic text-accent" style={{ fontVariationSettings: '"opsz" 144' }}>em&nbsp;casa.</span>
-            </h1>
-            <p data-hero="sub" className="mt-8 max-w-[46ch] text-[17px] leading-[1.6] text-muted sm:text-lg">
-              Fotografe o resíduo e a IA identifica o material. Cada descarte aprovado vira pontos, e a coleta do bairro
-              passa a seguir rotas otimizadas.
-            </p>
-            <div data-hero="cta" className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink to="/cadastro" size="lg" rightIcon={ArrowRight}>Criar conta grátis</ButtonLink>
-              <a href="#como-funciona" onClick={(e) => { e.preventDefault(); scrollTo('#como-funciona'); }} className={buttonClasses({ variant: 'secondary', size: 'lg' })}>
-                Ver como funciona
-              </a>
-            </div>
-          </div>
-        </div>
-        <div className="pointer-events-none absolute right-8 bottom-0 hidden xl:block">
-          <LiveTicker />
-        </div>
-      </div>
-    </section>
-  );
-}
 
 // ------------------------------------------------------------------ 01 como funciona
 
@@ -261,10 +132,11 @@ export function HowItWorks() {
 // ------------------------------------------------------------------ 02 casa conectada
 
 const THRESHOLD = 85; // limite de coleta automática configurado pela família
+// Cores das categorias dessaturadas (~60–70%) para conviver com a base neutra.
 const BINS = [
-  { name: 'Plástico', color: '#d65c5c', fill: 72, battery: 88 },
-  { name: 'Papel', color: '#5b8fd9', fill: 38, battery: 64 },
-  { name: 'Orgânico', color: '#9aae4f', fill: 91, battery: 52 },
+  { name: 'Plástico', color: '#c06a62', fill: 72, battery: 88 },
+  { name: 'Papel', color: '#6587bd', fill: 38, battery: 64 },
+  { name: 'Orgânico', color: '#8c9b58', fill: 91, battery: 52 },
 ];
 
 export function SmartHome() {
@@ -302,14 +174,17 @@ export function SmartHome() {
           <div className="grid grid-cols-3 divide-x divide-line">
             {BINS.map((b, i) => (
               <div key={b.name} className="px-4 py-6 sm:px-6">
-                <div className="flex items-end justify-center gap-3">
-                  {/* medidor: trilho escuro, preenchimento em gradiente da cor da categoria, realce no topo, marca do limite */}
-                  <div className="relative h-36 w-10 overflow-hidden rounded-md bg-[#0c110e] shadow-[inset_0_0_0_1px_rgb(236_239_234/0.08)] sm:h-44 sm:w-12">
-                    <div className="absolute inset-x-0 bottom-0 origin-bottom transition-transform duration-[1200ms] ease-[var(--ease-out-expo)]"
-                      style={{ height: `${b.fill}%`, transform: `scaleY(${inView ? 1 : 0.04})`, transitionDelay: `${i * 120}ms`, background: `linear-gradient(180deg, ${b.color}d9 0%, ${b.color}73 100%)` }}>
-                      <div className="absolute inset-x-0 top-0 h-px bg-white/45" />
+                <div className="flex justify-center">
+                  {/* medidor: trilho escuro; preenchimento dessaturado, mais escuro na base; realce no topo; marca do limite */}
+                  <div className="relative">
+                    <div className="relative h-32 w-7 overflow-hidden rounded-[5px] bg-[#0c110e] shadow-[inset_0_0_0_1px_rgb(236_239_234/0.08)] sm:h-44 sm:w-11">
+                      <div className="absolute inset-x-0 bottom-0 origin-bottom transition-transform duration-[1200ms] ease-[var(--ease-out-expo)]"
+                        style={{ height: `${b.fill}%`, transform: `scaleY(${inView ? 1 : 0.04})`, transitionDelay: `${i * 120}ms`, background: `linear-gradient(180deg, ${b.color}e6 0%, ${b.color}a6 55%, ${b.color}59 100%)` }}>
+                        <div className="absolute inset-x-0 top-0 h-px bg-white/40" />
+                      </div>
                     </div>
-                    <div className="absolute inset-x-0 h-px bg-fg/60" style={{ bottom: `${THRESHOLD}%` }} />
+                    {/* marca do limite: atravessa o medidor e sai 4px para cada lado */}
+                    <div aria-hidden className="absolute -inset-x-1 h-[1.5px] rounded-full bg-fg/85" style={{ bottom: `${THRESHOLD}%` }} />
                   </div>
                 </div>
                 <p className="mt-4 text-center text-[14px] text-fg">{b.name}</p>
@@ -446,8 +321,8 @@ export function Timeline() {
 
 export function FinalCta() {
   return (
-    <Section className="pb-32 lg:pb-44">
-      <div className="border-t border-line pt-20 lg:pt-28">
+    <Section className="pb-28 lg:pb-32">
+      <div className="border-t border-line pt-16 lg:pt-20">
         <div className="grid gap-10 lg:grid-cols-12 lg:items-end lg:gap-8">
           <div className="lg:col-span-7">
             <h2 data-reveal className="text-headline max-w-[16ch] text-fg">Comece pelo próximo descarte.</h2>

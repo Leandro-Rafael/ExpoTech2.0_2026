@@ -6,6 +6,7 @@ import br.com.ecotechzero.lixozero.common.ApiException;
 import br.com.ecotechzero.lixozero.config.AppProperties;
 import br.com.ecotechzero.lixozero.disposal.Disposal;
 import br.com.ecotechzero.lixozero.disposal.DisposalRepository;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,13 +19,14 @@ import java.util.Locale;
 
 /**
  * Relatório CSV de descartes (separador ";" e BOM UTF-8 para abrir corretamente no Excel em português).
- * Proteção contra CSV/Formula Injection: células que começam com = + - @ (ou tab/CR) recebem um apóstrofo
+ * Proteção contra CSV/Formula Injection: células que começam com = + - @ | (mesmo após espaços, ou tab/CR) recebem um apóstrofo
  * na frente, para que planilhas não as interpretem como fórmulas.
  */
 @Service
 public class CsvReportService {
 
     private static final int MAX_DAYS = 366;
+    static final int MAX_ROWS = 50_000;
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final DisposalRepository disposals;
@@ -50,7 +52,12 @@ public class CsvReportService {
         if (start.plusDays(MAX_DAYS).isBefore(end)) {
             throw ApiException.field("to", "o período máximo é de " + MAX_DAYS + " dias");
         }
-        List<Disposal> rows = disposals.findForReport(start.atStartOfDay(zone).toInstant(), end.plusDays(1).atStartOfDay(zone).toInstant());
+        List<Disposal> rows = disposals.findForReport(start.atStartOfDay(zone).toInstant(), end.plusDays(1).atStartOfDay(zone).toInstant(),
+                Limit.of(MAX_ROWS + 1));
+        if (rows.size() > MAX_ROWS) {
+            // tamanho limitado: o relatório é montado em memória
+            throw ApiException.business("O período tem mais de " + MAX_ROWS + " descartes. Escolha um intervalo menor.");
+        }
         StringBuilder csv = new StringBuilder("﻿");
         csv.append("id;data;usuario;email;categoria;kg;status;pontos;risco_fraude;sinalizado;revisado_em;motivo_recusa\n");
         for (Disposal d : rows) {
@@ -86,8 +93,11 @@ public class CsvReportService {
             return "";
         }
         String v = value;
-        char first = v.charAt(0);
-        if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r') {
+        // olha o primeiro caractere visível: " =1+1" também é interpretado como fórmula por algumas planilhas
+        String visible = v.stripLeading();
+        char first = visible.isEmpty() ? v.charAt(0) : visible.charAt(0);
+        if (first == '=' || first == '+' || first == '-' || first == '@' || first == '|'
+                || v.charAt(0) == '\t' || v.charAt(0) == '\r') {
             v = "'" + v;
         }
         if (v.contains(";") || v.contains("\"") || v.contains("\n") || v.contains("\r")) {

@@ -22,6 +22,7 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -78,7 +79,8 @@ public class HouseholdService {
     public HouseholdDto join(AuthUser me, String inviteCode) {
         limiter.check(TokenBucketRateLimiter.Policy.HOUSEHOLD_JOIN_USER, me.id().toString());
         User user = requireUser(me);
-        Household household = households.findByInviteCode(inviteCode.strip().toUpperCase())
+        Household household = households.findByInviteCode(inviteCode.strip().toUpperCase(Locale.ROOT))
+                .flatMap(h -> households.findByIdForUpdate(h.getId()))
                 .orElseThrow(() -> ApiException.field("inviteCode", "código de convite não encontrado"));
         if (user.getHousehold() != null) {
             if (user.getHousehold().getId().equals(household.getId())) {

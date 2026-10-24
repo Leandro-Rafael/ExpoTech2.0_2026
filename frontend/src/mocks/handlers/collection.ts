@@ -28,7 +28,8 @@ export function validateCategoryCodes(v: Validator, field: string, value: unknow
 }
 
 export function registerCollectionRoutes() {
-  route('GET', '/collection-points', ({ query }) => {
+  route('GET', '/collection-points', ({ query, me }) => {
+    const includeInactive = query.get('all') === 'true' && me?.role === 'ADMIN';
     const lat = floatParam(query, 'lat', -90, 90);
     const lon = floatParam(query, 'lon', -180, 180);
     if ((lat === null) !== (lon === null)) throw fail.field('lat', 'informe lat e lon juntos');
@@ -37,7 +38,7 @@ export function registerCollectionRoutes() {
     if (category && !CATEGORY_CODES.includes(category as CategoryCode)) throw fail.field('category', 'categoria inválida');
     const from = lat !== null && lon !== null ? { latitude: lat, longitude: lon } : null;
     let list = db().collectionPoints
-      .filter((p) => p.active && (!category || p.categories.includes(category as CategoryCode)))
+      .filter((p) => (includeInactive || p.active) && (!category || p.categories.includes(category as CategoryCode)))
       .map((p) => toCollectionPoint(p, from));
     if (from) {
       if (radius !== null) list = list.filter((p) => (p.distanceKm ?? 0) <= radius);

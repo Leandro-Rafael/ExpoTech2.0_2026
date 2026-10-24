@@ -59,6 +59,7 @@ public class SmartBinService {
             CategoryCode.REJEITO, 0.15);
 
     private final SmartBinRepository bins;
+    private final HouseholdRepository households;
     private final BinReadingRepository readings;
     private final CollectionRequestRepository requests;
     private final UserRepository users;
@@ -67,9 +68,10 @@ public class SmartBinService {
     private final AppProperties props;
     private final Clock clock;
 
-    public SmartBinService(SmartBinRepository bins, BinReadingRepository readings, CollectionRequestRepository requests,
+    public SmartBinService(SmartBinRepository bins, HouseholdRepository households, BinReadingRepository readings, CollectionRequestRepository requests,
                            UserRepository users, CategoryService categories, AuditService audit, AppProperties props, Clock clock) {
         this.bins = bins;
+        this.households = households;
         this.readings = readings;
         this.requests = requests;
         this.users = users;
@@ -99,6 +101,7 @@ public class SmartBinService {
         if (household == null) {
             throw ApiException.business("Crie ou entre em uma residência antes de cadastrar lixeiras.");
         }
+        households.findByIdForUpdate(household.getId()); // serializa cadastros simultâneos (limite por residência)
         if (bins.countByHouseholdId(household.getId()) >= MAX_BINS_PER_HOUSEHOLD) {
             throw ApiException.business("Limite de " + MAX_BINS_PER_HOUSEHOLD + " lixeiras por residência atingido.");
         }

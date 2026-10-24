@@ -13,7 +13,7 @@ export default function DisposalsPage() {
       emptyTitle="Nenhum descarte por aqui ainda"
       emptyDescription="Quando você registrar resíduos, eles aparecem aqui com o status pendente, aprovado ou recusado."
       features={["Filtro por status", "Pontos estimados e creditados", "Detalhes com foto e motivo de recusa", "Paginação"]}
-      action={<ButtonLink to="/app/descartar" leftIcon={ScanLine}>Registrar descarte</ButtonLink>}
+      action={<ButtonLink to="/app/descartar" variant="secondary" leftIcon={ScanLine}>Registrar descarte</ButtonLink>}
     />
   );
 }

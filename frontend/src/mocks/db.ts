@@ -152,6 +152,7 @@ export interface HouseholdRec {
   city: string;
   inviteCode: string;
   ownerId: UUID;
+  address: string | null;
   latitude: number;
   longitude: number;
   createdAt: string;

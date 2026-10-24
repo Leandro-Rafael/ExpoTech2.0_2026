@@ -66,6 +66,7 @@ const RING_FRAG = /* glsl */ `
 uniform vec3 uC1;
 uniform vec3 uC2;
 uniform vec3 uC3;
+uniform float uAlphaMul;
 varying float vGrad;
 varying float vAlpha;
 varying float vHead;
@@ -77,7 +78,7 @@ void main() {
   a *= a;
   vec3 col = vGrad < 0.55 ? mix(uC1, uC2, vGrad / 0.55) : mix(uC2, uC3, (vGrad - 0.55) / 0.45);
   col = mix(col, vec3(0.93, 1.0, 0.8), vHead * 0.55);
-  gl_FragColor = vec4(col, min(1.0, a * vAlpha * (0.95 + vHead * 1.2)));
+  gl_FragColor = vec4(col, min(1.0, a * vAlpha * uAlphaMul * (0.95 + vHead * 1.2)));
 }
 `;
 
@@ -192,40 +193,52 @@ export default function HeroScene({ onReady, onFail }: Props) {
     ringGroup.rotation.set(-1.02, 0.18, 0.35);
     world.add(ringGroup);
 
-    // ---------- anel
-    const N = isSmall ? 1200 : lowEnd ? 1800 : 3500;
-    const scatter = new Float32Array(N * 3);
-    const ring = new Float32Array(N * 4);
-    const meta = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) {
-      const r = rand(4.5, 11), th = Math.random() * Math.PI * 2, ph = Math.acos(rand(-1, 1));
-      scatter[i * 3] = r * Math.sin(ph) * Math.cos(th);
-      scatter[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th) * 0.7;
-      scatter[i * 3 + 2] = r * Math.cos(ph) * 0.6;
-      ring[i * 4] = Math.random() * Math.PI * 2;
-      ring[i * 4 + 1] = Math.random() * Math.PI * 2;
-      ring[i * 4 + 2] = Math.pow(Math.random(), 0.7);
-      ring[i * 4 + 3] = rand(0.08, 0.2);
-      meta[i * 3] = Math.random() < 0.07 ? rand(2.2, 3.0) : rand(0.8, 1.6);
-      meta[i * 3 + 1] = Math.random();
-      meta[i * 3 + 2] = Math.random();
-    }
-    const ringGeo = new BufferGeometry();
-    ringGeo.setAttribute('position', new BufferAttribute(new Float32Array(N * 3), 3));
-    ringGeo.setAttribute('aScatter', new BufferAttribute(scatter, 3));
-    ringGeo.setAttribute('aRing', new BufferAttribute(ring, 4));
-    ringGeo.setAttribute('aMeta', new BufferAttribute(meta, 3));
-    const ringMat = new ShaderMaterial({
+    // ---------- anel (pontos finos) + halo (poucos pontos grandes e tênues = "bloom" barato)
+    const N = isSmall ? 1500 : lowEnd ? 2600 : 4500;
+    const H = isSmall ? 160 : 260;
+    const buildRing = (count: number, halo: boolean) => {
+      const scatter = new Float32Array(count * 3);
+      const ring = new Float32Array(count * 4);
+      const meta = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        const r = rand(4.5, 11), th = Math.random() * Math.PI * 2, ph = Math.acos(rand(-1, 1));
+        scatter[i * 3] = r * Math.sin(ph) * Math.cos(th);
+        scatter[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th) * 0.7;
+        scatter[i * 3 + 2] = r * Math.cos(ph) * 0.6;
+        ring[i * 4] = halo ? (i / count) * Math.PI * 2 + rand(-0.02, 0.02) : Math.random() * Math.PI * 2;
+        ring[i * 4 + 1] = Math.random() * Math.PI * 2;
+        ring[i * 4 + 2] = halo ? rand(0, 0.35) : Math.pow(Math.random(), 0.7);
+        ring[i * 4 + 3] = halo ? 0.12 : rand(0.08, 0.2);
+        meta[i * 3] = halo ? rand(9, 13) : Math.random() < 0.07 ? rand(2.2, 3.0) : rand(0.85, 1.7);
+        meta[i * 3 + 1] = halo ? 0.6 + Math.random() * 0.4 : Math.random();
+        meta[i * 3 + 2] = Math.random();
+      }
+      const geo = new BufferGeometry();
+      geo.setAttribute('position', new BufferAttribute(new Float32Array(count * 3), 3));
+      geo.setAttribute('aScatter', new BufferAttribute(scatter, 3));
+      geo.setAttribute('aRing', new BufferAttribute(ring, 4));
+      geo.setAttribute('aMeta', new BufferAttribute(meta, 3));
+      return geo;
+    };
+    const makeRingMat = (size: number, alphaMul: number) => new ShaderMaterial({
       vertexShader: RING_VERT, fragmentShader: RING_FRAG, transparent: true, depthWrite: false, depthTest: false, blending: AdditiveBlending,
       uniforms: {
         uTime: { value: 0 }, uProgress: { value: 0 }, uScroll: { value: 0 }, uPixelRatio: { value: baseDpr },
-        uSize: { value: isSmall ? 3.0 : 3.4 },
+        uSize: { value: size }, uAlphaMul: { value: alphaMul },
         uC1: { value: new Color('#059669') }, uC2: { value: new Color('#22c55e') }, uC3: { value: new Color('#bef264') },
       },
     });
+    const ringGeo = buildRing(N, false);
+    const ringMat = makeRingMat(isSmall ? 3.0 : 3.4, 1);
     const ringPoints = new Points(ringGeo, ringMat);
     ringPoints.frustumCulled = false;
     ringGroup.add(ringPoints);
+    const haloGeo = buildRing(H, true);
+    const haloMat = makeRingMat(isSmall ? 3.0 : 3.4, isSmall ? 0.09 : 0.075);
+    const halo = new Points(haloGeo, haloMat);
+    halo.frustumCulled = false;
+    ringGroup.add(halo);
+    const ringMats = [ringMat, haloMat];
 
     // ---------- planeta (esfera de Fibonacci + máscara de continentes pré-calculada)
     const G = isSmall || lowEnd ? 900 : 1500;
@@ -295,7 +308,7 @@ export default function HeroScene({ onReady, onFail }: Props) {
       const pr = Math.min(dpr, 1600 / w); // buffer interno ≤ 1600 px de largura
       renderer.setPixelRatio(pr);
       renderer.setSize(w, h, false);
-      ringMat.uniforms.uPixelRatio.value = pr;
+      for (const m of ringMats) m.uniforms.uPixelRatio.value = pr;
       globeMat.uniforms.uPixelRatio.value = pr;
       dustMat.uniforms.uPixelRatio.value = pr;
       camera.aspect = w / h;
@@ -319,9 +332,11 @@ export default function HeroScene({ onReady, onFail }: Props) {
       mouse.x += (mouse.tx - mouse.x) * 0.05;
       mouse.y += (mouse.ty - mouse.y) * 0.05;
 
-      ringMat.uniforms.uTime.value = elapsed;
-      ringMat.uniforms.uProgress.value = introEased;
-      ringMat.uniforms.uScroll.value = scrollS;
+      for (const m of ringMats) {
+        m.uniforms.uTime.value = elapsed;
+        m.uniforms.uProgress.value = introEased;
+        m.uniforms.uScroll.value = scrollS;
+      }
       globeMat.uniforms.uProgress.value = introEased;
       globeMat.uniforms.uOpacity.value = introEased * (1 - scrollS * 0.6);
       dustMat.uniforms.uTime.value = elapsed;
@@ -424,11 +439,18 @@ export default function HeroScene({ onReady, onFail }: Props) {
     applySize();
     const ro = new ResizeObserver(() => applySize());
     ro.observe(host);
-    update(0);
-    renderOnce();
-    start();
+    let disposed = false;
+    // Compila os shaders de forma assíncrona (KHR_parallel_shader_compile quando disponível)
+    // para não travar o thread principal no primeiro quadro.
+    renderer.compileAsync(scene, camera).catch(() => undefined).then(() => {
+      if (disposed || failed) return;
+      update(0);
+      renderOnce();
+      start();
+    });
 
     return () => {
+      disposed = true;
       stop();
       ro.disconnect();
       window.removeEventListener('pointermove', onPointer);
@@ -437,6 +459,7 @@ export default function HeroScene({ onReady, onFail }: Props) {
       document.removeEventListener('visibilitychange', onVisibility);
       canvas.removeEventListener('webglcontextlost', onLost);
       ringGeo.dispose(); ringMat.dispose();
+      haloGeo.dispose(); haloMat.dispose();
       globeGeo.dispose(); globeMat.dispose();
       dustGeo.dispose(); dustMat.dispose();
       renderer.dispose();

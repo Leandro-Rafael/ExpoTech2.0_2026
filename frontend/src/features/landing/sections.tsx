@@ -1,4 +1,4 @@
-import { useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
   ArrowRight, BarChart3, Battery, BrainCircuit, Building2, Camera, ChevronDown, Crown, Fingerprint, Gift, Home,
@@ -15,6 +15,8 @@ import { useInView } from '@/hooks/useInView';
 import { formatCompact, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { VisualAI, VisualApproval, VisualPoints, VisualRegister, VisualRoute } from './StepVisuals';
+import { gsap, ScrollTrigger } from './useSmoothScroll';
+import { prefersReducedMotion } from '@/hooks/useReducedMotion';
 
 type ScrollTo = (target: string) => void;
 
@@ -37,12 +39,20 @@ const LINKS = [
   { href: '#2050', label: 'Rumo a 2050' },
 ];
 
-export function LandingNav({ scrolled, scrollTo }: { scrolled: boolean; scrollTo: ScrollTo }) {
+export function LandingNav({ scrollTo }: { scrollTo: ScrollTo }) {
   const { status } = useAuth();
   const [open, setOpen] = useState(false);
+  // Estado local: rolar a página não re-renderiza as demais seções.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const go = (href: string) => (e: MouseEvent) => { e.preventDefault(); setOpen(false); scrollTo(href); };
   return (
-    <header className={cn('fixed inset-x-0 top-0 z-50 transition-all duration-500', scrolled ? 'py-2' : 'py-4')}>
+    <header className={cn('fixed inset-x-0 top-0 z-50 transition-[padding] duration-500 [will-change:transform]', scrolled ? 'py-2' : 'py-4')}>
       <div className={cn(
         'container-app flex h-14 items-center justify-between rounded-2xl transition-all duration-500',
         scrolled && 'glass-strong max-w-[1180px] px-4! sm:px-5!',
@@ -154,7 +164,28 @@ export const STEPS: { icon: LucideIcon; title: string; kicker: string; text: str
   { icon: Truck, kicker: '05', title: 'Coleta otimizada', text: 'As solicitações viram rotas otimizadas para os coletores — menos quilômetros, menos emissões.', visual: VisualRoute },
 ];
 
-export function HowItWorks({ active }: { active: number }) {
+export function HowItWorks() {
+  // O passo ativo vive aqui: a troca de passo re-renderiza só esta seção.
+  const [active, setActive] = useState(0);
+  useLayoutEffect(() => {
+    if (prefersReducedMotion()) return;
+    const mm = gsap.matchMedia();
+    mm.add('(min-width: 1024px)', () => {
+      let last = -1;
+      ScrollTrigger.create({
+        trigger: '[data-pin="how"]',
+        start: 'top top',
+        end: () => `+=${window.innerHeight * (STEPS.length - 0.4)}`,
+        pin: true,
+        anticipatePin: 1,
+        onUpdate: (self) => {
+          const idx = Math.min(STEPS.length - 1, Math.floor(self.progress * STEPS.length));
+          if (idx !== last) { last = idx; setActive(idx); }
+        },
+      });
+    });
+    return () => mm.revert();
+  }, []);
   return (
     <section id="como-funciona" data-pin="how" className="relative py-24 lg:flex lg:min-h-[100svh] lg:items-center lg:py-0">
       <div className="container-app">

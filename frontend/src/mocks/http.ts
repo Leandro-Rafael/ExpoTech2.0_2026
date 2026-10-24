@@ -79,8 +79,10 @@ export interface MockRequest {
 }
 
 export interface MockContext extends MockRequest {
-  /** Usuário autenticado (presente em rotas que exigem login). */
+  /** Usuário autenticado (garantido em rotas que exigem login). */
   me: UserRec;
+  /** Usuário logado, se houver (útil em rotas públicas). */
+  user: UserRec | null;
 }
 
 // ---------------------------------------------------------------- validação

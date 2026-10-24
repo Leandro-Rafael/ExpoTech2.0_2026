@@ -37,6 +37,7 @@ public class EmbeddedPostgresConfig {
                 .setDataDirectory(dir)
                 .setCleanDataDirectory(props.embeddedDb().clean())
                 .setPort(props.embeddedDb().port())
+                .setPGStartupWait(java.time.Duration.ofMinutes(3)) // máquinas lentas demoram para o initdb/arranque
                 .setServerConfig("max_connections", "40")
                 .setServerConfig("shared_buffers", "64MB")
                 .start();

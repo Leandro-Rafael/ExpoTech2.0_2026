@@ -67,7 +67,7 @@ export function LandingBackground() {
 
   const showScene = mount && !failed && !reduced;
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-0 bg-bg">
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-0 bg-bg [contain:strict] [will-change:transform]">
       <AmbientGlow />
       <StaticBackdrop className={cn('transition-opacity duration-[1500ms]', ready && showScene && !fading ? 'opacity-0' : 'opacity-100')} />
       {showScene && (

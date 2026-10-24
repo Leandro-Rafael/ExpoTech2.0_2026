@@ -6,12 +6,12 @@ import { Gift, Pencil, Plus } from 'lucide-react';
 import { applyServerErrors } from '@/api/forms';
 import { useAdminRewards, useSaveReward } from '@/api/queries';
 import type { Reward } from '@/api/types';
-import { Badge, Button, EmptyState, Field, FormError, IconButton, Input, Modal, NumberInput, Switch, Textarea, toast } from '@/components/ui';
+import { Badge, Button, EmptyState, Field, FormError, IconButton, Input, Modal, Switch, Textarea, toast } from '@/components/ui';
 import { iconByName } from '@/components/icons';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 import { AdminTable, type AdminColumn } from '../ui';
-import { IconPicker } from '../formControls';
+import { IconPicker, FormNumber } from '../formControls';
 
 export function RewardsTab() {
   const q = useAdminRewards();
@@ -95,10 +95,10 @@ function RewardForm({ reward, onClose }: { reward: Reward | null; onClose: () =>
         <Field label="Descrição" optional error={errors.description}><Textarea {...form.register('description')} maxLength={500} rows={2} /></Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Custo" required error={errors.costPoints}>
-            <Controller control={form.control} name="costPoints" render={({ field }) => <NumberInput {...field} decimals={0} min={1} max={1_000_000} unit="pts" />} />
+            <FormNumber control={form.control} name="costPoints" decimals={0} min={1} max={1_000_000} unit="pts" />
           </Field>
           <Field label="Estoque" required error={errors.stock} hint="0 = esgotado">
-            <Controller control={form.control} name="stock" render={({ field }) => <NumberInput {...field} decimals={0} min={0} max={1_000_000} stepper />} />
+            <FormNumber control={form.control} name="stock" decimals={0} min={0} max={1_000_000} stepper />
           </Field>
         </div>
         <Field label="Ícone" required error={errors.icon}>

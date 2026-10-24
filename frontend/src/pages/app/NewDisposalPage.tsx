@@ -138,7 +138,7 @@ export default function NewDisposalPage() {
     setUploaded(up);
 
     if (up.ai.available && up.ai.categoryCode) {
-      applySuggestion({ code: up.ai.categoryCode, confidence: up.ai.confidence ?? 0.5, reasoning: up.ai.reasoning, source: up.ai.source ?? 'CLAUDE' });
+      applySuggestion({ code: up.ai.categoryCode, confidence: up.ai.confidence ?? 0.5, reasoning: up.ai.reasoning, source: up.ai.source ?? 'CLAUDE', verified: up.ai.verified === true });
       setPhase('done');
       goTo(1);
       return;
@@ -154,7 +154,7 @@ export default function NewDisposalPage() {
       if (mod.isModelLoaded()) setPhase('classifying');
       const guess = await guessPromise;
       if (id !== runId.current) return;
-      applySuggestion({ code: guess.code, confidence: guess.confidence, reasoning: guess.reasoning, source: 'LOCAL', labels: guess.labels });
+      applySuggestion({ code: guess.code, confidence: guess.confidence, reasoning: guess.reasoning, source: 'LOCAL', verified: false, labels: guess.labels });
     } catch {
       if (id !== runId.current) return;
       setSuggestion(null); // segue com escolha manual
@@ -423,7 +423,7 @@ function Summary({ photo, category, quantityKg, estimated, suggestion }: {
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted">Identificação</dt>
-              <dd className="text-fg-soft">{suggestion ? (suggestion.source === 'LOCAL' ? 'IA no navegador' : 'IA no servidor') : 'Manual'}</dd>
+              <dd className="text-fg-soft">{suggestion ? (suggestion.verified ? 'Confirmado pela IA (+10%)' : suggestion.source === 'LOCAL' ? 'Sugestão do navegador' : 'IA no servidor') : 'Manual'}</dd>
             </div>
           </dl>
           <div className="mt-5 border-t border-line pt-5">

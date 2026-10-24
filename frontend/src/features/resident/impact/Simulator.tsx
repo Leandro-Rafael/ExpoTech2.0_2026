@@ -96,7 +96,7 @@ export function Simulator() {
       <div className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-12">
         <form className="space-y-6" noValidate onSubmit={(e) => e.preventDefault()}>
           <SimField control={control} name="population" label="População" unit="hab." decimals={0} min={1} max={50_000_000} step={1000}
-            slider={{ min: 1000, max: 12_000_000, step: 1000 }} error={errors.population?.message} hint="Pessoas atendidas pela coleta" onTouched={() => setPreset(null)} />
+            slider={{ min: 1000, max: 12_000_000, step: 1000 }} error={errors.population?.message} hint={values.population ? `${formatCompact(values.population)} pessoas atendidas pela coleta` : 'Pessoas atendidas pela coleta'} onTouched={() => setPreset(null)} />
           <SimField control={control} name="kgPerCapitaDay" label="Lixo por pessoa" unit="kg/dia" decimals={2} min={0.1} max={5} step={0.05}
             slider={{ min: 0.1, max: 3, step: 0.05 }} error={errors.kgPerCapitaDay?.message} hint="Média brasileira ≈ 1,04 kg/dia" onTouched={() => setPreset(null)} />
           <div className="grid grid-cols-2 gap-4">

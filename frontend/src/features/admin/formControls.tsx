@@ -6,10 +6,11 @@
  *   ListEditor           lista de textos (orientações) com adicionar/remover/reordenar
  */
 import { useState } from 'react';
+import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import { ArrowDown, ArrowUp, Check, Plus, Trash2 } from 'lucide-react';
 import type { CategoryCode } from '@/api/types';
 import { ICONS } from '@/components/icons';
-import { IconButton } from '@/components/ui';
+import { IconButton, NumberInput, type NumberInputProps } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { hexAlpha } from '@/lib/category';
 import { CATEGORY_CODES, categoryFallback } from '@/lib/labels';
@@ -154,5 +155,22 @@ export function ListEditor({ value, onChange, max = 12, maxLength = 300, placeho
       </div>
       <p className="text-xs text-subtle">{value.length}/{max} orientações · Enter adiciona</p>
     </div>
+  );
+}
+
+/**
+ * NumberInput ligado ao react-hook-form que ACEITA as props de acessibilidade injetadas pelo <Field>
+ * (id, aria-invalid, aria-describedby) — com <Controller> direto, o rótulo não se ligaria ao campo.
+ *   <Field label="Custo"><FormNumber control={form.control} name="costPoints" decimals={0} /></Field>
+ */
+export function FormNumber<T extends FieldValues>({ control, name, ...props }: {
+  control: Control<T>; name: Path<T>;
+} & Omit<NumberInputProps, 'value' | 'onChange' | 'name'>) {
+  return (
+    <Controller control={control} name={name}
+      render={({ field, fieldState }) => (
+        <NumberInput {...props} name={field.name} ref={field.ref} value={field.value as number | null | undefined}
+          onChange={field.onChange} onBlur={field.onBlur} invalid={!!fieldState.error || props.invalid} />
+      )} />
   );
 }

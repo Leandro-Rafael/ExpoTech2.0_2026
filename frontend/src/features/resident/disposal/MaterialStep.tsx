@@ -11,6 +11,8 @@ export interface Suggestion {
   confidence: number;
   reasoning: string | null;
   source: AiSource;
+  /** true só quando a IA do servidor classificou (vale o bônus de +10%). */
+  verified?: boolean;
   labels?: { className: string; probability: number }[];
 }
 
@@ -49,11 +51,11 @@ export function SuggestionPanel({ suggestion, category }: { suggestion: Suggesti
           </ul>
         </details>
       )}
-      {suggestion.source === 'CLAUDE' ? (
-        <p className="mt-4 flex items-start gap-2 text-sm text-success"><CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden />Bônus IA verificada: mantendo a categoria identificada no servidor, o descarte pode render pontos extras na aprovação.</p>
-      ) : suggestion.source === 'LOCAL' ? (
-        <p className="mt-4 text-xs text-subtle">Sugestão feita no seu aparelho (sem bônus de IA verificada). A análise humana confirma a categoria.</p>
-      ) : null}
+      {suggestion.verified ? (
+        <p className="mt-4 flex items-start gap-2 text-sm text-success"><CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden />Confirmado pela IA (+10%): mantendo esta categoria, o descarte rende 10% a mais de pontos na aprovação.</p>
+      ) : (
+        <p className="mt-4 text-xs text-subtle">Sugestão do navegador — apenas informativa. A análise confirma a categoria.</p>
+      )}
       {word === 'baixa' && (
         <p className="mt-4 flex items-start gap-2 text-sm text-warning"><Info className="mt-0.5 size-4 shrink-0" aria-hidden />Confiança baixa: confira a categoria abaixo antes de continuar.</p>
       )}

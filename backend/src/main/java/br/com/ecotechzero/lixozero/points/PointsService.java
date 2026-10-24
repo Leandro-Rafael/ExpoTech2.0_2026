@@ -67,6 +67,8 @@ public class PointsService {
         }
         User user = lockUser(userId);
         user.earn(amount);
+        // append() faz flush: um 2º crédito na mesma transação (ex.: dois bônus de desafio) relê o saldo JÁ
+        // atualizado no lockUser(); antes, o refresh descartava o crédito anterior ainda não gravado
         return ledger.append(userId, type.name(), amount, user.getPoints(), description,
                 disposal == null ? null : disposal.getId(), challenge == null ? null : challenge.getId(), null, at);
     }

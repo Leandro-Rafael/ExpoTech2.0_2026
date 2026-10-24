@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { FormNumber } from '@/features/admin/formControls';
 import { Check, CheckCircle2, Clock, Crosshair, Navigation, Play, Truck } from 'lucide-react';
 import { applyServerErrors } from '@/api/forms';
 import { errorMessage } from '@/api/client';
 import { useCollectorRoutes, useCompleteStop, useStartRoute } from '@/api/queries';
 import type { Route, RouteStop } from '@/api/types';
-import { Button, Drawer, buttonClasses, EmptyState, ErrorState, Field, FormError, NumberInput, PageHeader, ProgressBar, Skeleton, StatusPill, toast } from '@/components/ui';
+import { Button, Drawer, buttonClasses, EmptyState, ErrorState, Field, FormError, PageHeader, ProgressBar, Skeleton, StatusPill, toast } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatDate, formatDateShort, formatDistanceKm, formatKg, formatMinutes, formatNumber, todayISODate } from '@/lib/format';
 import { routeStatus } from '@/lib/labels';
@@ -221,8 +222,7 @@ function CompleteStopDrawer({ route, stop, onClose }: { route: Route; stop: Rout
       })}>
         <FormError error={errors.root?.server} />
         <Field label="Peso coletado" required error={errors.collectedKg} hint={stop ? `Estimado: ${formatKg(stop.estimatedKg)}` : undefined}>
-          <Controller control={form.control} name="collectedKg"
-            render={({ field }) => <NumberInput {...field} unit="kg" decimals={2} min={0} max={5000} step={0.5} stepper inputSize="lg" data-autofocus />} />
+          <FormNumber control={form.control} name="collectedKg" unit="kg" decimals={2} min={0} max={5000} step={0.5} stepper inputSize="lg" data-autofocus />
         </Field>
         <div className="grid grid-cols-2 gap-2 pb-1">
           <Button variant="ghost" size="lg" onClick={onClose}>Cancelar</Button>

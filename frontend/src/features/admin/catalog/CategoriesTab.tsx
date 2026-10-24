@@ -6,13 +6,13 @@ import { Pencil, Plus, Shapes } from 'lucide-react';
 import { applyServerErrors } from '@/api/forms';
 import { useCategories, useSaveCategory } from '@/api/queries';
 import type { Category, CategoryCode } from '@/api/types';
-import { Badge, Button, EmptyState, Field, FormError, IconButton, Input, Modal, NumberInput, Select, Switch, Textarea, Tooltip, toast } from '@/components/ui';
+import { Badge, Button, EmptyState, Field, FormError, IconButton, Input, Modal, Select, Switch, Textarea, Tooltip, toast } from '@/components/ui';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/cn';
 import { formatNumber } from '@/lib/format';
 import { CATEGORY_CODES, categoryFallback } from '@/lib/labels';
 import { AdminTable, type AdminColumn } from '../ui';
-import { ColorPicker, IconPicker, ListEditor } from '../formControls';
+import { ColorPicker, IconPicker, ListEditor, FormNumber } from '../formControls';
 
 export function CategoriesTab() {
   const q = useCategories({ all: true });
@@ -115,13 +115,13 @@ function CategoryForm({ category, freeCodes, onClose }: { category: Category | n
           <Field label="Descrição" optional error={errors.description}><Textarea {...form.register('description')} maxLength={500} rows={2} /></Field>
           <div className="grid grid-cols-3 gap-3">
             <Field label="Pontos por kg" required error={errors.pointsPerKg}>
-              <Controller control={form.control} name="pointsPerKg" render={({ field }) => <NumberInput {...field} decimals={0} min={0} max={1000} />} />
+              <FormNumber control={form.control} name="pointsPerKg" decimals={0} min={0} max={1000} />
             </Field>
             <Field label="CO₂ evitado/kg" required error={errors.co2FactorKg}>
-              <Controller control={form.control} name="co2FactorKg" render={({ field }) => <NumberInput {...field} decimals={2} min={0} max={50} unit="kg" />} />
+              <FormNumber control={form.control} name="co2FactorKg" decimals={2} min={0} max={50} unit="kg" />
             </Field>
             <Field label="Máx. por descarte" required error={errors.maxKgPerDisposal}>
-              <Controller control={form.control} name="maxKgPerDisposal" render={({ field }) => <NumberInput {...field} decimals={1} min={0.1} max={1000} unit="kg" />} />
+              <FormNumber control={form.control} name="maxKgPerDisposal" decimals={1} min={0.1} max={1000} unit="kg" />
             </Field>
           </div>
           <div className="flex flex-wrap gap-6">

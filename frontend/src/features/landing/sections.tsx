@@ -5,7 +5,7 @@
  *  - acento lima só no CTA primário e na única ênfase do hero
  *  - divisórias em vez de caixas; um visual por seção
  */
-import { useLayoutEffect, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ArrowRight, ArrowUpRight, BatteryMedium } from 'lucide-react';
 import type { PublicStats } from '@/api/types';
@@ -17,7 +17,7 @@ import { useInView } from '@/hooks/useInView';
 import { prefersReducedMotion } from '@/hooks/useReducedMotion';
 import { formatCompact, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import { VisualAI, VisualApproval, VisualPoints, VisualRegister, VisualRoute } from './StepVisuals';
+import { StoryCard } from './StepVisuals';
 import { gsap, ScrollTrigger } from './gsap';
 import { LINKS } from './hero';
 
@@ -50,19 +50,23 @@ const Lead = ({ children, className }: { children: ReactNode; className?: string
 
 // ------------------------------------------------------------------ 01 como funciona
 
-export const STEPS: { title: string; text: string; visual: () => ReactNode }[] = [
-  { title: 'Registre', text: 'Foto, quantidade e local. Leva menos de 20 segundos.', visual: VisualRegister },
-  { title: 'A IA identifica', text: 'Ela sugere a categoria e explica o descarte correto. Você pode corrigir.', visual: VisualAI },
-  { title: 'Validação', text: 'O antifraude barra fotos repetidas e exageros antes da aprovação.', visual: VisualApproval },
-  { title: 'Pontos', text: 'Cada descarte aprovado pontua uma única vez. Troque por recompensas.', visual: VisualPoints },
-  { title: 'Coleta otimizada', text: 'Os pedidos viram rotas mais curtas para os coletores.', visual: VisualRoute },
+export const STEPS: { title: string; text: string }[] = [
+  { title: 'Registre', text: 'Foto, quantidade e local. Leva menos de 20 segundos.' },
+  { title: 'A IA identifica', text: 'Ela sugere a categoria e explica o descarte correto. Você pode corrigir.' },
+  { title: 'Validação', text: 'O antifraude barra fotos repetidas e exageros antes da aprovação.' },
+  { title: 'Pontos', text: 'Cada descarte aprovado pontua uma única vez. Troque por recompensas.' },
+  { title: 'Coleta otimizada', text: 'Os pedidos viram rotas mais curtas para os coletores.' },
 ];
 
 export function HowItWorks() {
-  // O passo ativo vive aqui: a troca de passo re-renderiza só esta seção.
+  // Passo ativo (lista à esquerda) muda 5 vezes; o cartão recebe o progresso contínuo
+  // direto no DOM via `progress.current(p)` — sem re-render por quadro.
   const [active, setActive] = useState(0);
+  const [pinned] = useState(() => !prefersReducedMotion());
+  const progress = useRef<((p: number) => void) | null>(null);
+
   useLayoutEffect(() => {
-    if (prefersReducedMotion()) return;
+    if (!pinned) return;
     const mm = gsap.matchMedia();
     mm.add('(min-width: 1024px)', () => {
       let last = -1;
@@ -73,53 +77,53 @@ export function HowItWorks() {
         pin: true,
         anticipatePin: 1,
         onUpdate: (self) => {
-          const idx = Math.min(STEPS.length - 1, Math.floor(self.progress * STEPS.length));
+          const p = self.progress * STEPS.length;
+          progress.current?.(p);
+          const idx = Math.min(STEPS.length - 1, Math.floor(p));
           if (idx !== last) { last = idx; setActive(idx); }
         },
       });
     });
     return () => mm.revert();
-  }, []);
+  }, [pinned]);
 
   return (
-    <section id="como-funciona" data-pin="how" className="relative py-24 lg:flex lg:min-h-[100svh] lg:items-center lg:py-0">
-      <div className="container-app w-full lg:pt-16">
+    <section id="como-funciona" data-pin="how" className={cn('relative py-24', pinned && 'lg:flex lg:min-h-[100svh] lg:items-center lg:py-0')}>
+      <div className={cn('container-app w-full', pinned && 'lg:pt-16')}>
         <SectionLabel index="01">Como funciona</SectionLabel>
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-8">
-          <div className="lg:col-span-5">
+          <div className={cn(pinned ? 'lg:col-span-5' : 'lg:col-span-12')}>
             <h2 className="text-headline text-fg" data-reveal>Do descarte aos pontos, em cinco passos.</h2>
-            {/* Desktop: lista com hairlines; o passo ativo segue o scroll */}
-            <ol className="mt-10 hidden border-t border-line lg:block">
-              {STEPS.map((s, i) => (
-                <li key={s.title} className="grid grid-cols-[3rem_1fr] border-b border-line py-3.5">
-                  <span className={cn('font-mono text-[13px] tabular transition-colors duration-500', i === active ? 'text-accent' : 'text-subtle')}>{String(i + 1).padStart(2, '0')}</span>
-                  <div>
-                    <h3 className={cn('text-[17px] font-medium transition-colors duration-500', i === active ? 'text-fg' : 'text-muted')}>{s.title}</h3>
-                    <p className={cn('mt-0.5 text-[14px] leading-relaxed transition-colors duration-500', i === active ? 'text-fg-soft' : 'text-subtle')}>{s.text}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            {pinned && (
+              /* Desktop: lista com hairlines; o passo ativo segue o scroll */
+              <ol className="mt-10 hidden border-t border-line lg:block">
+                {STEPS.map((s, i) => (
+                  <li key={s.title} className="grid grid-cols-[3rem_1fr] border-b border-line py-3.5">
+                    <span className={cn('font-mono text-[13px] tabular transition-colors duration-500', i === active ? 'text-accent' : 'text-subtle')}>{String(i + 1).padStart(2, '0')}</span>
+                    <div>
+                      <h3 className={cn('text-[17px] font-medium transition-colors duration-500', i === active ? 'text-fg' : 'text-muted')}>{s.title}</h3>
+                      <p className={cn('mt-0.5 text-[14px] leading-relaxed transition-colors duration-500', i === active ? 'text-fg-soft' : 'text-subtle')}>{s.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
-          <div className="relative hidden items-center lg:col-span-6 lg:col-start-7 lg:flex">
-            {STEPS.map((s, i) => (
-              <div key={s.title} aria-hidden={i !== active}
-                className={cn('absolute inset-x-0 transition-[opacity,transform] duration-600 ease-[var(--ease-out-expo)]',
-                  i === active ? 'translate-y-0 opacity-100' : i < active ? '-translate-y-3 opacity-0' : 'translate-y-3 opacity-0')}>
-                <s.visual />
-              </div>
-            ))}
-            <div className="invisible w-full" aria-hidden><VisualAI /></div>
-          </div>
+          {pinned && (
+            <div className="hidden items-center lg:col-span-6 lg:col-start-7 lg:flex">
+              {/* um só cartão contínuo: a mesma garrafa atravessa os 5 passos */}
+              <StoryCard mode="scroll" progressRef={progress} />
+            </div>
+          )}
 
-          {/* Celular/tablet: passos empilhados */}
-          <ol className="grid gap-14 md:grid-cols-2 lg:hidden">
+          {/* Celular/tablet e movimento reduzido: passos empilhados, cada um no estado final */}
+          <ol className={cn('grid gap-14 md:grid-cols-2 lg:col-span-12', pinned && 'lg:hidden')}>
             {STEPS.map((s, i) => (
               <li key={s.title} data-reveal>
                 <p className="font-mono text-[13px] text-subtle">{String(i + 1).padStart(2, '0')}</p>
                 <h3 className="mt-2 text-[19px] font-medium text-fg">{s.title}</h3>
                 <p className="mt-1 mb-6 text-[15px] leading-relaxed text-muted">{s.text}</p>
-                <s.visual />
+                <StoryCard mode="static" step={i} />
               </li>
             ))}
           </ol>

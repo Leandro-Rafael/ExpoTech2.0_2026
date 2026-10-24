@@ -11,6 +11,7 @@ import { formatDate, formatDateShort, formatKg, formatNumber, formatPercent, for
 import { Segmented } from '@/features/admin/ui';
 import { auditMeta } from '@/features/admin/auditLabels';
 import { ReportDialog } from '@/features/admin/overview/ReportDialog';
+import { IntegrityCard } from '@/features/admin/overview/IntegrityCard';
 
 type Metric = 'count' | 'kg';
 
@@ -36,6 +37,7 @@ export default function AdminOverviewPage() {
             <DisposalsChart d={d} />
             <RecentAudit d={d} />
           </div>
+          <IntegrityCard />
         </div>
       )}
 

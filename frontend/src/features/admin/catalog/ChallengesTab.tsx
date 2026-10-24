@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { FormNumber } from '../formControls';
 import { Pencil, Plus, Target } from 'lucide-react';
 import { applyServerErrors } from '@/api/forms';
 import { useAdminChallenges, useSaveChallenge } from '@/api/queries';
 import type { Challenge, ChallengeMetric } from '@/api/types';
-import { Badge, Button, EmptyState, Field, FormError, IconButton, Input, Modal, NumberInput, Select, Switch, Textarea, toast } from '@/components/ui';
+import { Badge, Button, EmptyState, Field, FormError, IconButton, Input, Modal, Select, Switch, Textarea, toast } from '@/components/ui';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/cn';
 import { formatDateShort, formatNumber, todayISODate } from '@/lib/format';
@@ -109,11 +110,10 @@ function ChallengeForm({ challenge, onClose }: { challenge: Challenge | null; on
             <Select {...form.register('metric')} options={[{ value: 'KG', label: 'Quilos reciclados' }, { value: 'COUNT', label: 'Número de descartes' }]} />
           </Field>
           <Field label="Meta" required error={errors.target}>
-            <Controller control={form.control} name="target"
-              render={({ field }) => <NumberInput {...field} decimals={metric === 'KG' ? 1 : 0} min={0.1} max={100_000} unit={metric === 'KG' ? 'kg' : 'desc.'} />} />
+            <FormNumber control={form.control} name="target" decimals={metric === 'KG' ? 1 : 0} min={0.1} max={100_000} unit={metric === 'KG' ? 'kg' : 'desc.'} />
           </Field>
           <Field label="Bônus" required error={errors.bonusPoints}>
-            <Controller control={form.control} name="bonusPoints" render={({ field }) => <NumberInput {...field} decimals={0} min={0} max={100_000} unit="pts" />} />
+            <FormNumber control={form.control} name="bonusPoints" decimals={0} min={0} max={100_000} unit="pts" />
           </Field>
           <Field label="Início" required error={errors.startsAt}><Input type="date" {...form.register('startsAt')} className="[color-scheme:dark]" /></Field>
           <Field label="Fim" required error={errors.endsAt}><Input type="date" {...form.register('endsAt')} min={form.watch('startsAt') || undefined} className="[color-scheme:dark]" /></Field>

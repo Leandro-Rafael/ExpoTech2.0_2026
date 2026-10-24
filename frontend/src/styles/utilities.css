@@ -118,3 +118,11 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(var(--scan-distance, 120px)); }
 }
+
+/* "+pts" subindo e sumindo (só transform/opacity). */
+@keyframes pts-rise {
+  0% { opacity: 0; transform: translateY(8px); }
+  20% { opacity: 1; }
+  70% { opacity: 0.8; }
+  100% { opacity: 0; transform: translateY(-34px); }
+}

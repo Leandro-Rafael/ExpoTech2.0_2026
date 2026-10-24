@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { FormNumber } from '@/features/admin/formControls';
 import {
   AlertTriangle, Bot, Check, ChevronDown, ImageOff, MapPin, Maximize2, ShieldAlert, ShieldCheck, Sparkles, X,
 } from 'lucide-react';
 import type { Category, CategoryCode, Disposal } from '@/api/types';
-import { Avatar, Button, Field, Modal, NumberInput, Select, StatusPill, Tooltip } from '@/components/ui';
+import { Avatar, Button, Field, Modal, Select, StatusPill, Tooltip } from '@/components/ui';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { cn } from '@/lib/cn';
 import { formatDateTime, formatKg, formatNumber, formatPercent, formatRelative } from '@/lib/format';
@@ -172,10 +173,21 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
                   <p className="mt-1 text-xs text-muted">
                     <span className="font-mono tabular">{formatPercent(d.ai.confidence ?? 0)}</span> de confiança
                     {d.ai.source && <> · {aiSource[d.ai.source].label}</>}
-                    {d.ai.verified ? <span className="ml-1 text-success">· verificada</span> : <span className="ml-1 text-subtle">· só informativa</span>}
+
                   </p>
                 </>
               ) : <p className="mt-1.5 text-[13px] text-subtle">Sem sugestão</p>}
+              {d.ai?.suggestedCode && (
+                <Tooltip content={d.ai.verified
+                  ? 'Classificada pela IA do servidor. Só a IA verificada conta para o bônus de +10% quando bate com a categoria declarada.'
+                  : 'Palpite do modelo que roda no navegador do morador: serve de referência, mas não conta para o bônus de +10%.'}>
+                  <span tabIndex={0} className={cn('mt-2 inline-flex items-center gap-1 rounded-md border px-1.5 py-px text-[11px]',
+                    d.ai.verified ? 'border-success/30 text-success' : 'border-line-strong text-muted')}>
+                    {d.ai.verified ? <ShieldCheck className="size-3" aria-hidden /> : <Bot className="size-3" aria-hidden />}
+                    {d.ai.verified ? 'IA verificada' : 'Palpite do navegador'}
+                  </span>
+                </Tooltip>
+              )}
             </div>
           </div>
           {mismatch && pending && (
@@ -240,8 +252,7 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
                   <Select inputSize="sm" {...form.register('categoryId')} options={activeCats.map((c) => ({ value: c.id, label: c.name }))} />
                 </Field>
                 <Field label="Quantidade" error={form.formState.errors.quantityKg} hint={chosen ? `Máx. ${formatNumber(chosen.maxKgPerDisposal, 2)} kg` : undefined}>
-                  <Controller control={form.control} name="quantityKg"
-                    render={({ field }) => <NumberInput {...field} inputSize="sm" unit="kg" decimals={3} min={0.01} max={chosen?.maxKgPerDisposal ?? 1000} />} />
+                  <FormNumber control={form.control} name="quantityKg" inputSize="sm" unit="kg" decimals={3} min={0.01} max={chosen?.maxKgPerDisposal ?? 1000} />
                 </Field>
                 <p className="text-xs text-muted sm:col-span-2">
                   Pontos com a correção: <span className="font-mono text-fg-soft tabular">≈ {formatNumber(previewPoints)} pts</span>

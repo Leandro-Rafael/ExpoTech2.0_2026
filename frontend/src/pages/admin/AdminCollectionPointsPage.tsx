@@ -7,12 +7,12 @@ import { applyServerErrors } from '@/api/forms';
 import { errorMessage } from '@/api/client';
 import { useAdminCollectionPoints, useCategories, useDeleteCollectionPoint, useSaveCollectionPoint } from '@/api/queries';
 import type { CategoryCode, CollectionPoint } from '@/api/types';
-import { Button, ConfirmDialog, EmptyState, ErrorState, Field, FormError, IconButton, Input, Modal, NumberInput, PageHeader, Skeleton, Switch, toast } from '@/components/ui';
+import { Button, ConfirmDialog, EmptyState, ErrorState, Field, FormError, IconButton, Input, Modal, PageHeader, Skeleton, Switch, toast } from '@/components/ui';
 import { DotMarker, LocationPicker, MapView, type LatLngTuple } from '@/components/map';
 import { cn } from '@/lib/cn';
 import { categoryFallback } from '@/lib/labels';
 import { SearchField, Segmented } from '@/features/admin/ui';
-import { CategoryCodesPicker } from '@/features/admin/formControls';
+import { CategoryCodesPicker, FormNumber } from '@/features/admin/formControls';
 
 type ActiveFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 const HOURS_PRESETS = ['Seg a sex, 8h às 17h', 'Seg a sáb, 8h às 18h', 'Todos os dias, 24 horas', 'Seg a sex, 7h às 19h; sáb, 8h às 12h'];
@@ -209,12 +209,10 @@ function PointForm({ point, onClose, colors, context }: {
           />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Latitude" required error={errors.latitude}>
-              <Controller control={form.control} name="latitude"
-                render={({ field }) => <NumberInput {...field} decimals={6} min={-90} max={90} step={0.001} allowNegative inputSize="sm" />} />
+              <FormNumber control={form.control} name="latitude" decimals={6} min={-90} max={90} step={0.001} allowNegative inputSize="sm" />
             </Field>
             <Field label="Longitude" required error={errors.longitude}>
-              <Controller control={form.control} name="longitude"
-                render={({ field }) => <NumberInput {...field} decimals={6} min={-180} max={180} step={0.001} allowNegative inputSize="sm" />} />
+              <FormNumber control={form.control} name="longitude" decimals={6} min={-180} max={180} step={0.001} allowNegative inputSize="sm" />
             </Field>
           </div>
         </div>

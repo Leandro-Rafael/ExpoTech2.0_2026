@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Lock, ShieldCheck, UserCheck, UserX, Users } from 'lucide-react';
+import { Lock, LockOpen, ShieldCheck, UserCheck, UserX, Users } from 'lucide-react';
 import { errorMessage } from '@/api/client';
 import { useAdminUsers, useUpdateAdminUser } from '@/api/queries';
+import { useUnlockUser } from '@/api/security';
 import type { AdminUser, Role } from '@/api/types';
 import { useUser } from '@/auth/AuthProvider';
 import { Avatar, Badge, Button, ConfirmDialog, EmptyState, Field, IconButton, Modal, PageHeader, Pagination, Select, StatusPill, toast } from '@/components/ui';
@@ -26,6 +27,8 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(0);
   const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null);
   const [toggleTarget, setToggleTarget] = useState<AdminUser | null>(null);
+  const [unlockTarget, setUnlockTarget] = useState<AdminUser | null>(null);
+  const unlock = useUnlockUser();
   const update = useUpdateAdminUser();
 
   useEffect(() => { setPage(0); }, [q, roleFilter]);
@@ -50,19 +53,7 @@ export default function AdminUsersPage() {
     { key: 'role', header: 'Perfil', mobile: 'aside', sort: (u) => u.role, cell: (u) => <StatusPill map={roleLabels} value={u.role} /> },
     {
       key: 'status', header: 'Status', sort: (u) => (u.enabled ? (u.locked ? 1 : 0) : 2),
-      cell: (u) => !u.enabled ? <Badge tone="danger" dot>Desativado</Badge>
-        : u.locked ? (
-          <span title={u.lockedUntil ? `Até ${formatDateTime(u.lockedUntil)}` : undefined}>
-            <Badge tone="warning" icon={Lock}>{u.lockReason === 'INSPECTION' ? 'Bloqueado · inspeção' : 'Bloqueado · senha'}</Badge>
-            {u.lockedUntil && <span className="mt-0.5 block text-[11px] text-subtle">até {formatDateTime(u.lockedUntil)}</span>}
-          </span>
-        )
-          : (u.securityWarnings ?? 0) > 0 ? (
-            <span className="inline-flex items-center gap-1.5 text-[13px] text-fg-soft" title="Avisos de inspeção do navegador (no 3º o acesso é bloqueado)">
-              <span className="size-1.5 rounded-full bg-warning" aria-hidden />Ativo <span className="font-mono text-[11px] text-warning tabular">{u.securityWarnings}/3 avisos</span>
-            </span>
-          )
-          : <span className="inline-flex items-center gap-1.5 text-[13px] text-fg-soft"><span className="size-1.5 rounded-full bg-success" aria-hidden />Ativo</span>,
+      cell: (u) => <UserStatus u={u} />,
     },
     {
       key: 'points', header: 'Pontos', align: 'right', sort: (u) => u.points,
@@ -81,7 +72,7 @@ export default function AdminUsersPage() {
     { key: 'created', header: 'Cadastro', className: 'max-xl:hidden', mobile: 'hidden', sort: (u) => Date.parse(u.createdAt), cell: (u) => <span className="font-mono text-[12.5px] whitespace-nowrap tabular">{new Date(u.createdAt).toLocaleDateString('pt-BR')}</span> },
     {
       key: 'actions', header: <span className="sr-only">Ações</span>, align: 'right', mobile: 'row',
-      cell: (u) => <UserActions u={u} self={u.id === me.id} onRole={() => setRoleTarget(u)} onToggle={() => setToggleTarget(u)} />,
+      cell: (u) => <UserActions u={u} self={u.id === me.id} onRole={() => setRoleTarget(u)} onToggle={() => setToggleTarget(u)} onUnlock={() => setUnlockTarget(u)} />,
     },
   ], [me.id]);
 
@@ -120,6 +111,19 @@ export default function AdminUsersPage() {
       <RoleDialog user={roleTarget} onClose={() => setRoleTarget(null)} />
 
       <ConfirmDialog
+        open={!!unlockTarget}
+        onClose={() => setUnlockTarget(null)}
+        loading={unlock.isPending}
+        title="Desbloquear conta?"
+        confirmLabel="Desbloquear"
+        description={unlockTarget ? `Libera o acesso de ${unlockTarget.name} imediatamente e zera os avisos de inspeção${unlockTarget.securityWarnings ? ` (${unlockTarget.securityWarnings}/3)` : ''}. A ação fica registrada na auditoria.` : undefined}
+        onConfirm={() => unlock.mutate(unlockTarget!.id, {
+          onSuccess: (r) => { toast.success(`${r.name} foi desbloqueado.`); setUnlockTarget(null); },
+          onError: (e) => toast.error(errorMessage(e)),
+        })}
+      />
+
+      <ConfirmDialog
         open={!!toggleTarget}
         onClose={() => setToggleTarget(null)}
         onConfirm={confirmToggle}
@@ -135,13 +139,45 @@ export default function AdminUsersPage() {
   );
 }
 
-function UserActions({ u, self, onRole, onToggle }: { u: AdminUser; self: boolean; onRole: () => void; onToggle: () => void }) {
+function UserActions({ u, self, onRole, onToggle, onUnlock }: { u: AdminUser; self: boolean; onRole: () => void; onToggle: () => void; onUnlock: () => void }) {
   if (self) return <span className="text-xs text-subtle">—</span>;
+  const canUnlock = u.locked || (u.securityWarnings ?? 0) > 0;
   return (
     <span className="inline-flex items-center gap-0.5">
+      {canUnlock && <IconButton icon={LockOpen} size="sm" label={`Desbloquear ${u.name}`} onClick={onUnlock} className="text-warning hover:text-warning" />}
       <IconButton icon={ShieldCheck} size="sm" label={`Alterar perfil de ${u.name}`} onClick={onRole} />
       <IconButton icon={u.enabled ? UserX : UserCheck} size="sm" variant={u.enabled ? 'danger' : 'ghost'}
         label={u.enabled ? `Desativar ${u.name}` : `Reativar ${u.name}`} onClick={onToggle} />
+    </span>
+  );
+}
+
+const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+function UserStatus({ u }: { u: AdminUser }) {
+  const warnings = u.securityWarnings ?? 0;
+  const chip = warnings > 0 && (
+    <span title="Avisos por tentar inspecionar o código no navegador. No 3º, o acesso é bloqueado por 30 minutos."
+      className="inline-flex h-5 items-center rounded-md border border-warning/30 px-1.5 font-mono text-[11px] text-warning tabular">
+      Avisos {warnings}/3
+    </span>
+  );
+  if (!u.enabled) return <Badge tone="danger" dot>Desativado</Badge>;
+  if (u.locked) {
+    return (
+      <span className="flex flex-col items-start gap-1">
+        <Badge tone="warning" icon={Lock}>{u.lockReason === 'INSPECTION' ? 'Bloqueado por inspeção' : 'Bloqueado por senha'}</Badge>
+        <span className="flex items-center gap-1.5">
+          {u.lockedUntil && <span className="font-mono text-[11px] text-subtle tabular" title={formatDateTime(u.lockedUntil)}>até {hhmm(u.lockedUntil)}</span>}
+          {chip}
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <span className="inline-flex items-center gap-1.5 text-[13px] text-fg-soft"><span className="size-1.5 rounded-full bg-success" aria-hidden />Ativo</span>
+      {chip}
     </span>
   );
 }

@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { FormNumber } from '../formControls';
 import { Building2, Flag, Pencil, Plus } from 'lucide-react';
 import { applyServerErrors } from '@/api/forms';
 import { useAdminGoals, useAdminOrganizations, useCreateOrganization, useSaveGoal } from '@/api/queries';
 import type { Goal, Organization, OrganizationType } from '@/api/types';
-import { Button, EmptyState, Field, FormError, IconButton, Input, Modal, NumberInput, Select, StatusPill, toast } from '@/components/ui';
+import { Button, EmptyState, Field, FormError, IconButton, Input, Modal, Select, StatusPill, toast } from '@/components/ui';
 import { formatKg, formatPercent } from '@/lib/format';
 import { organizationType } from '@/lib/labels';
 import { AdminTable, Meter, type AdminColumn } from '../ui';
@@ -130,16 +131,16 @@ function GoalForm({ goal, onClose }: { goal: Goal | null; onClose: () => void })
         <FormError error={errors.root?.server} />
         <div className="grid grid-cols-[120px_1fr] gap-3">
           <Field label="Ano" required error={errors.year}>
-            <Controller control={form.control} name="year" render={({ field }) => <NumberInput {...field} decimals={0} min={2024} max={2100} />} />
+            <FormNumber control={form.control} name="year" decimals={0} min={2024} max={2100} />
           </Field>
           <Field label="Título" required error={errors.title}><Input {...form.register('title')} maxLength={120} placeholder="Reciclar metade do lixo" /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Taxa de reciclagem" required error={errors.ratePct}>
-            <Controller control={form.control} name="ratePct" render={({ field }) => <NumberInput {...field} decimals={1} min={0} max={100} unit="%" />} />
+            <FormNumber control={form.control} name="ratePct" decimals={1} min={0} max={100} unit="%" />
           </Field>
           <Field label="Volume reciclado" required error={errors.targetKg}>
-            <Controller control={form.control} name="targetKg" render={({ field }) => <NumberInput {...field} decimals={0} min={0} max={1_000_000_000} unit="kg" />} />
+            <FormNumber control={form.control} name="targetKg" decimals={0} min={0} max={1_000_000_000} unit="kg" />
           </Field>
         </div>
       </form>

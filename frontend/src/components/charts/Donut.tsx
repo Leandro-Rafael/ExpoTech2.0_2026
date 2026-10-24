@@ -28,7 +28,8 @@ export function Donut({ data, size = 200, thickness = 18, valueFormat = (v) => S
   const total = data.reduce((s, d) => s + d.value, 0);
   const sorted = [...data].sort((a, b) => b.value - a.value);
   return (
-    <div className={cn('flex flex-col items-center gap-6 sm:flex-row sm:items-center', className)}>
+    <div className={cn('@container', className)}>
+    <div className="flex flex-col items-center gap-6 @md:flex-row @md:items-center">
       <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={ariaLabel}>
         <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: size, height: size }}>
           <PieChart>
@@ -73,6 +74,7 @@ export function Donut({ data, size = 200, thickness = 18, valueFormat = (v) => S
           ))}
         </ul>
       )}
+    </div>
     </div>
   );
 }

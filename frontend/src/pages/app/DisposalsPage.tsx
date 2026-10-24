@@ -124,7 +124,11 @@ function DisposalDetail({ initial }: { initial: Disposal }) {
           </span>
         </Row>
         <Row label="Identificação">
-          {d.ai?.source ? (
+          {d.ai?.verified ? (
+            <span className="inline-flex items-center gap-1.5 text-success"><BrainCircuit className="size-3.5" aria-hidden />Confirmado pela IA (+10%)</span>
+          ) : d.ai?.source === 'LOCAL' ? (
+            <span className="inline-flex items-center gap-1.5 text-fg-soft"><BrainCircuit className="size-3.5" aria-hidden />Sugestão do navegador</span>
+          ) : d.ai?.source ? (
             <span className="inline-flex items-center gap-1.5 text-fg-soft"><BrainCircuit className="size-3.5" aria-hidden />{aiSource[d.ai.source].label}</span>
           ) : <span className="text-fg-soft">Manual</span>}
         </Row>

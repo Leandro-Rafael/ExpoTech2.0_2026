@@ -40,7 +40,7 @@ export default function ImpactPage() {
 
 function Kpi({ label, value, unit, hint, lead }: { label: string; value: string; unit?: string; hint: string; lead?: boolean }) {
   return (
-    <div className="bg-bg px-0 py-5 sm:px-5 sm:first:pl-0">
+    <div className="bg-bg py-5 pr-3 pl-3 sm:px-5 max-lg:[&:nth-child(odd)]:pl-0 lg:[&:nth-child(4n+1)]:pl-0">
       <dt className="text-xs text-muted">{label}</dt>
       <dd className={cn('mt-2 font-mono leading-none font-medium tracking-[-0.03em] text-fg', lead ? 'text-[34px]' : 'text-[26px]')}>
         {value}{unit && <span className="ml-1 text-sm font-normal tracking-normal text-muted">{unit}</span>}
@@ -57,8 +57,8 @@ function Overview({ s }: { s: ImpactSummary }) {
 
   return (
     <>
-      <dl className="grid grid-cols-1 gap-px border-y border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi lead label="Resíduos registrados" value={formatKg(s.totalKg)} hint={`${formatNumber(s.disposalsCount)} descartes aprovados de ${who}.`} />
+      <dl className="grid grid-cols-2 gap-px border-y border-line bg-line lg:grid-cols-4">
+        <Kpi label="Resíduos registrados" value={formatKg(s.totalKg)} hint={`${formatNumber(s.disposalsCount)} descartes aprovados de ${who}.`} />
         <Kpi label="Encaminhado à reciclagem" value={formatKg(s.recycledKg)} hint="Parte que volta para a indústria em vez de ir ao aterro." />
         <Kpi label="Taxa de reciclagem" value={formatPercent(s.recyclingRate, 1)} hint="Reciclado ÷ total. A média do Brasil fica perto de 4%." />
         <Kpi label="CO₂ evitado" value={formatKg(s.co2AvoidedKg)} hint="Emissões que deixam de ocorrer ao reciclar em vez de produzir do zero." />

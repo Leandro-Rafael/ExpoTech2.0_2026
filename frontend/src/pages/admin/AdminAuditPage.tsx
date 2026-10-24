@@ -55,7 +55,7 @@ export default function AdminAuditPage() {
         );
       },
     },
-    { key: 'actor', header: 'Autor', sort: (e) => e.actor ?? '', cell: (e) => e.actor ?? <span className="text-subtle">sistema</span> },
+    { key: 'actor', header: 'Autor', sort: (e) => e.actor ?? '', cell: (e) => <Actor actor={e.actor} /> },
     { key: 'details', header: 'Detalhes', className: 'max-w-[360px]', cell: (e) => e.details ? <span className="line-clamp-2 text-[13px]" title={e.details}>{e.details}</span> : <span className="text-subtle">—</span> },
     { key: 'entity', header: 'Entidade', className: 'max-xl:hidden', mobile: 'hidden', cell: (e) => e.entity ? <span className="font-mono text-[11.5px] text-muted" title={e.entityId ?? undefined}>{e.entity}{e.entityId ? ` · ${e.entityId.slice(0, 8)}` : ''}</span> : <span className="text-subtle">—</span> },
     { key: 'ip', header: 'IP', sort: (e) => e.ip ?? '', cell: (e) => <span className="font-mono text-[12px] text-muted tabular">{e.ip ?? '—'}</span> },
@@ -100,5 +100,18 @@ export default function AdminAuditPage() {
         ) : undefined}
       />
     </>
+  );
+}
+
+/** "Nome <email>" → nome em destaque e e-mail menor. */
+function Actor({ actor }: { actor: string | null }) {
+  if (!actor) return <span className="text-subtle">sistema</span>;
+  const m = actor.match(/^(.*?)\s*<([^>]+)>$/);
+  if (!m) return <span className="break-all">{actor}</span>;
+  return (
+    <span className="block min-w-0">
+      <span className="block truncate text-fg-soft">{m[1]}</span>
+      <span className="block truncate text-[11.5px] text-subtle">{m[2]}</span>
+    </span>
   );
 }

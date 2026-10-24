@@ -1,0 +1,107 @@
+erDiagram
+    users ||--o{ disposals : "registra"
+    users |o--o{ disposals : "revisa (reviewed_by)"
+    categories ||--o{ disposals : "classifica"
+    photos |o--o| disposals : "comprova (UNIQUE)"
+    users ||--o{ photos : "envia"
+    collection_points |o--o{ disposals : "local"
+    collection_points ||--o{ collection_point_categories : "aceita"
+    users ||--o{ point_transactions : "extrato"
+    disposals |o--o| point_transactions : "EARN (1 vez)"
+    challenges |o--o{ point_transactions : "BONUS"
+    redemptions |o--o| point_transactions : "REDEEM"
+    users ||--o{ redemptions : "resgata"
+    rewards ||--o{ redemptions : "item"
+    users ||--o{ challenge_completions : "conclui"
+    challenges ||--o{ challenge_completions : "concluído por"
+    users ||--o{ user_badges : "medalhas"
+
+    categories {
+        uuid id PK
+        varchar code UK "PLASTICO..REJEITO"
+        int points_per_kg
+        numeric co2_factor_kg
+        numeric max_kg_per_disposal
+        boolean recyclable
+    }
+    photos {
+        uuid id PK
+        uuid owner_id FK
+        bytea data "JPEG reencodado"
+        bigint dhash "hash perceptual"
+        varchar sha256
+        varchar ai_code "IA do servidor"
+        numeric ai_confidence
+        varchar ai_source
+    }
+    disposals {
+        uuid id PK
+        uuid user_id FK
+        uuid category_id FK
+        uuid photo_id FK,UK
+        uuid collection_point_id FK
+        uuid reviewed_by FK
+        numeric quantity_kg
+        varchar status "PENDING|APPROVED|REJECTED"
+        int points_awarded
+        int fraud_score "0..100"
+        boolean flagged
+        boolean ai_verified
+        varchar idempotency_key
+    }
+    collection_points {
+        uuid id PK
+        varchar name
+        double latitude
+        double longitude
+        boolean active
+    }
+    collection_point_categories {
+        uuid collection_point_id PK,FK
+        varchar category_code PK
+    }
+    point_transactions {
+        uuid id PK
+        uuid user_id FK
+        varchar type "EARN|BONUS|REDEEM|ADJUST"
+        int amount
+        bigint balance_after
+        uuid disposal_id FK
+        uuid challenge_id FK
+        uuid redemption_id FK
+        bigint seq "por usuário"
+        varchar prev_hash
+        varchar hash
+    }
+    rewards {
+        uuid id PK
+        varchar name
+        int cost_points
+        int stock ">= 0"
+    }
+    redemptions {
+        uuid id PK
+        uuid user_id FK
+        uuid reward_id FK
+        int cost
+        varchar code UK "voucher"
+        varchar status "ISSUED|USED|CANCELLED"
+    }
+    challenges {
+        uuid id PK
+        varchar metric "KG|COUNT"
+        numeric target
+        int bonus_points
+        date starts_at
+        date ends_at
+    }
+    challenge_completions {
+        uuid id PK
+        uuid user_id FK
+        uuid challenge_id FK
+    }
+    user_badges {
+        uuid id PK
+        uuid user_id FK
+        varchar badge_code
+    }

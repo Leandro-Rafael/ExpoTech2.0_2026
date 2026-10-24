@@ -1,0 +1,22 @@
+flowchart TD
+    I0(["Usuário logado aperta F12, Ctrl+Shift+I/J/C, Ctrl+U<br/>ou o DevTools é detectado aberto"]):::term --> I1["Front bloqueia o atalho e avisa a API<br/>POST /api/security/inspection-events"]:::proc
+    I1 --> I2["Servidor trava a linha do usuário;<br/>zera avisos de bloqueio já vencido"]:::proc
+    I2 --> I3{"Já está bloqueado?"}:::dec
+    I3 -- "Sim" --> I9
+    I3 -- "Não" --> I4{"Último aviso há<br/>menos de 5 s?"}:::dec
+    I4 -- "Sim" --> I5(["Mesmo gesto: não conta de novo"]):::term
+    I4 -- "Não" --> I6["Avisos + 1; auditoria SECURITY_INSPECTION_WARNING"]:::proc
+    I6 --> I7{"Chegou a 3 avisos?"}:::dec
+    I7 -- "Não" --> I8(["Front mostra 'Não tente novamente' (aviso N de 3)"]):::term
+    I7 -- "Sim" --> I10["security_locked_until = agora + 30 min;<br/>revoga TODAS as sessões;<br/>auditoria SECURITY_INSPECTION_LOCK"]:::proc
+    I10 --> I9["Tela de bloqueio; login, refresh e<br/>qualquer requisição recebem 423"]:::err
+    I9 --> I11{"Admin desbloqueou?<br/>POST /api/admin/users/{id}/unlock"}:::dec
+    I11 -- "Sim" --> I12["Zera avisos, bloqueio por inspeção<br/>e por senha; auditoria USER_UNLOCKED"]:::proc --> IF(["Usuário pode entrar de novo"]):::term
+    I11 -- "Não" --> I13{"Passaram 30 min?"}:::dec
+    I13 -- "Sim" --> IF
+    I13 -- "Não" --> I9
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

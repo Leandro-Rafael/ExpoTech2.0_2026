@@ -1,0 +1,40 @@
+erDiagram
+    organizations |o--o{ users : "agrupa"
+    households |o--o{ users : "mora em"
+    users |o--o{ households : "é dono de"
+    users ||--o{ refresh_tokens : "sessões"
+    users |o..o{ audit_log : "ator (sem FK)"
+
+    users ||--o{ photos : "envia"
+    users ||--o{ disposals : "registra"
+    users |o--o{ disposals : "revisa"
+    categories ||--o{ disposals : "classifica"
+    photos |o--o| disposals : "comprova"
+    collection_points |o--o{ disposals : "recebe"
+    collection_points ||--o{ collection_point_categories : "aceita"
+
+    users ||--o{ point_transactions : "extrato"
+    disposals |o--o| point_transactions : "gera EARN"
+    challenges |o--o{ point_transactions : "gera BONUS"
+    redemptions |o--o| point_transactions : "gera REDEEM"
+    users ||--o{ redemptions : "resgata"
+    rewards ||--o{ redemptions : "é resgatada"
+    users ||--o{ challenge_completions : "conclui"
+    challenges ||--o{ challenge_completions : "é concluído"
+    users ||--o{ user_badges : "conquista"
+
+    households ||--o{ smart_bins : "possui"
+    categories ||--o{ smart_bins : "tipo"
+    smart_bins ||--o{ bin_readings : "leituras"
+    smart_bins |o--o{ collection_requests : "pede coleta"
+    users |o--o{ collection_requests : "solicita"
+    collection_requests ||--o{ collection_request_categories : "materiais"
+    routes |o--o{ collection_requests : "agenda"
+    routes ||--o{ route_stops : "paradas"
+    collection_requests ||--o| route_stops : "vira parada"
+    users |o--o{ routes : "coletor"
+
+    goals {
+        uuid id PK
+        int year
+    }

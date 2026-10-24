@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    actor U as Usuário
+    participant F as Front (React)
+    participant A as API (Spring Boot)
+    participant D as PostgreSQL
+
+    U->>F: abre o site
+    F->>A: GET /api/auth/csrf
+    A-->>F: 204 + cookie XSRF-TOKEN
+    U->>F: e-mail e senha
+    F->>A: POST /api/auth/login (X-XSRF-TOKEN)
+    A->>A: rate limit (IP, e-mail) e bloqueio
+    A->>D: SELECT usuário por e-mail
+    D-->>A: usuário + password_hash
+    A->>A: Argon2id.matches(senha, hash)
+    A->>D: INSERT refresh_tokens (SHA-256, nova família)
+    A->>D: INSERT audit_log LOGIN_SUCCESS (encadeado)
+    A-->>F: 200 UserMe + cookies HttpOnly (JWT 15 min, refresh 7 dias)
+    F-->>U: abre /app conforme o perfil
+
+    Note over F,A: 15 minutos depois o JWT vence
+    F->>A: GET /api/... (JWT vencido)
+    A-->>F: 401
+    F->>A: POST /api/auth/refresh (cookie refresh)
+    A->>D: SELECT ... FOR UPDATE pelo hash do token
+    alt token válido e não usado
+        A->>D: revoga (ROTATED) e INSERT novo token da mesma família
+        A-->>F: 200 + novos cookies
+        F->>A: repete GET /api/...
+        A-->>F: 200 dados
+    else token já rotacionado reaparece (cópia)
+        A->>D: revoga a família inteira (REUSE_DETECTED)
+        A->>D: INSERT audit_log REFRESH_TOKEN_REUSE
+        A-->>F: 401 + limpa cookies
+        F-->>U: volta para /entrar
+    end

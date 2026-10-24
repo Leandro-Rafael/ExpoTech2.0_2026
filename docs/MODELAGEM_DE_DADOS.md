@@ -83,7 +83,7 @@ erDiagram
     users ||--o{ redemptions : "resgata"
     rewards ||--o{ redemptions : "é resgatada"
     users ||--o{ challenge_completions : "conclui"
-    challenges ||--o{ challenge_completions : "é concluído"
+    challenges ||--o{ challenge_completions : "de"
     users ||--o{ user_badges : "conquista"
 
     households ||--o{ smart_bins : "possui"
@@ -193,7 +193,7 @@ erDiagram
     users ||--o{ redemptions : "resgata"
     rewards ||--o{ redemptions : "item"
     users ||--o{ challenge_completions : "conclui"
-    challenges ||--o{ challenge_completions : "concluído por"
+    challenges ||--o{ challenge_completions : "de"
     users ||--o{ user_badges : "medalhas"
 
     categories {

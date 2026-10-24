@@ -1,0 +1,24 @@
+flowchart TD
+    INI(["Morador abre 'Recompensas'"]):::term --> CAT[/"Catálogo: custo, estoque e saldo atual"/]:::io
+    CAT --> CLI["Clica em 'Resgatar'<br/>POST /api/rewards/{id}/redeem"]:::proc
+    CLI --> RL{"Dentro do limite de<br/>resgates por usuário?"}:::dec
+    RL -- "Não" --> E429["429"]:::err
+    RL -- "Sim" --> L1["1º lock: linha do USUÁRIO"]:::proc --> L2["2º lock: linha da RECOMPENSA<br/>(ordem fixa evita deadlock)"]:::proc
+    L2 --> ATV{"Recompensa existe<br/>e está ativa?"}:::dec
+    ATV -- "Não" --> E404["404"]:::err
+    ATV -- "Sim" --> EST{"Estoque > 0?"}:::dec
+    EST -- "Não" --> EOUT["409 OUT_OF_STOCK — esgotada"]:::err
+    EST -- "Sim" --> SAL{"Saldo ≥ custo?"}:::dec
+    SAL -- "Não" --> EPTS["422 INSUFFICIENT_POINTS"]:::err
+    SAL -- "Sim" --> DEC["Estoque − 1"]:::proc
+    DEC --> VOU["Gera voucher LZ50-XXXX-XXXX (SecureRandom)<br/>grava o resgate (ISSUED)"]:::proc
+    VOU --> DEB["Saldo − custo; lançamento REDEEM (valor negativo)<br/>no extrato encadeado"]:::proc
+    DEB --> DB[("rewards · redemptions · point_transactions<br/>CHECK stock ≥ 0 e saldo ≥ 0")]:::db
+    DEB --> AUD["Auditoria REWARD_REDEEMED"]:::proc --> FIM(["Mostra o voucher ao morador"]):::term
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

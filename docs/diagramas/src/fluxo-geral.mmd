@@ -1,0 +1,52 @@
+flowchart TD
+    INI(["Visitante abre o site"]):::term --> LAND["Landing page '/'<br/>indicadores públicos (GET /api/public/stats)"]:::proc
+    LAND --> TEM{"Já tem conta?"}:::dec
+    TEM -- "Não" --> CAD[/"Cadastro '/cadastro'<br/>nome, e-mail, senha"/]:::io
+    TEM -- "Sim" --> LOG[/"Login '/entrar'<br/>e-mail e senha"/]:::io
+    CAD --> VAL{"Dados válidos?<br/>(senha forte, e-mail único)"}:::dec
+    VAL -- "Não" --> CADERR["Mostra erros no campo"]:::err --> CAD
+    VAL -- "Sim" --> NOVO["Cria usuário com perfil Morador (USER)<br/>e já inicia a sessão"]:::proc
+    LOG --> AUTH[["Autenticação (diagrama 2)"]]:::sub
+    AUTH -- "falhou / bloqueado" --> LOG
+    AUTH -- "ok" --> APP
+    NOVO --> APP["Área logada '/app'<br/>Painel inicial"]:::proc
+    APP --> PERFIL{"Perfil do usuário?"}:::dec
+
+    PERFIL -- "Morador" --> M
+    PERFIL -- "Coletor" --> C
+    PERFIL -- "Administrador" --> A
+
+    subgraph M ["Área do Morador (todos os perfis têm)"]
+        M1["Registrar descarte '/app/descartar'"]:::proc
+        M2["Meus descartes e status"]:::proc
+        M3["Minha casa (Smart Home)<br/>residência e lixeiras inteligentes"]:::proc
+        M4["Mapa de ecopontos<br/>e solicitação de coleta"]:::proc
+        M5["Recompensas, conquistas e ranking"]:::proc
+        M6["Impacto ambiental e simulador 2050"]:::proc
+        M7["Perfil: dados, organização, senha"]:::proc
+    end
+
+    subgraph C ["Área do Coletor '/app/coletor'"]
+        C1["Minhas rotas do dia"]:::proc
+        C2["Iniciar rota e concluir paradas"]:::proc
+    end
+
+    subgraph A ["Área do Administrador '/app/admin'"]
+        A1["Visão geral e indicadores"]:::proc
+        A2["Moderação de descartes"]:::proc
+        A3["Usuários: perfil, ativar, desbloquear"]:::proc
+        A4["Coletas e rotas otimizadas"]:::proc
+        A5["Ecopontos, catálogo, lixeiras"]:::proc
+        A6["Auditoria, integridade e relatório CSV"]:::proc
+    end
+
+    C -.-> M
+    A -.-> M
+    M7 --> SAIR(["Sair (logout)"]):::term
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef sub fill:#f1f5f9,stroke:#334155,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

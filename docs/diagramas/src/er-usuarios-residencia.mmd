@@ -1,0 +1,59 @@
+erDiagram
+    organizations |o--o{ users : "agrupa (turma, empresa...)"
+    households |o--o{ users : "moradores"
+    users |o--o{ households : "dono (owner_id)"
+    users ||--o{ refresh_tokens : "sessões"
+    users |o..o{ audit_log : "ator (sem FK)"
+
+    organizations {
+        uuid id PK
+        varchar name UK
+        varchar type "TURMA|EMPRESA|CONDOMINIO|ESCOLA"
+    }
+    households {
+        uuid id PK
+        varchar name
+        varchar neighborhood
+        varchar city
+        varchar address "opcional"
+        double latitude "opcional"
+        double longitude "opcional"
+        varchar invite_code UK "código de convite"
+        uuid owner_id FK "users.id"
+    }
+    users {
+        uuid id PK
+        varchar name
+        varchar email UK
+        varchar password_hash "Argon2id"
+        varchar role "USER|COLLECTOR|ADMIN"
+        boolean enabled
+        bigint points "saldo (>= 0)"
+        bigint total_earned "total ganho"
+        uuid household_id FK
+        uuid organization_id FK
+        int failed_login_attempts
+        timestamptz locked_until "bloqueio por senha"
+        int token_version "invalida JWT"
+        int security_warnings "0..3"
+        timestamptz security_locked_until "bloqueio inspeção"
+    }
+    refresh_tokens {
+        uuid id PK
+        uuid user_id FK
+        uuid family_id "família de rotação"
+        varchar token_hash UK "SHA-256"
+        timestamptz expires_at
+        timestamptz revoked_at
+        varchar revoked_reason
+    }
+    audit_log {
+        uuid id PK
+        uuid actor_id "sem FK"
+        varchar action
+        varchar entity
+        varchar entity_id
+        bigint seq UK "cadeia global"
+        varchar prev_hash
+        varchar hash "HMAC-SHA256"
+    }

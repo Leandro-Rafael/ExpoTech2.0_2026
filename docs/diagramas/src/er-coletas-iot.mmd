@@ -1,0 +1,66 @@
+erDiagram
+    households ||--o{ smart_bins : "possui"
+    categories ||--o{ smart_bins : "material"
+    smart_bins ||--o{ bin_readings : "histórico"
+    smart_bins |o--o{ collection_requests : "pedido automático"
+    users |o--o{ collection_requests : "solicitante"
+    collection_requests ||--o{ collection_request_categories : "materiais"
+    routes |o--o{ collection_requests : "agendada em"
+    routes ||--o{ route_stops : "paradas"
+    collection_requests ||--o| route_stops : "parada (UNIQUE)"
+    users |o--o{ routes : "coletor"
+
+    smart_bins {
+        uuid id PK
+        uuid household_id FK
+        uuid category_id FK
+        varchar name
+        int capacity_liters
+        int fill_level "0..100"
+        int battery_level "0..100"
+        int auto_request_threshold "50..100"
+        uuid device_id UK
+        varchar device_key_hash "SHA-256"
+        boolean simulated
+    }
+    bin_readings {
+        uuid id PK
+        uuid bin_id FK
+        int fill_level
+        int battery_level
+        timestamptz recorded_at
+    }
+    collection_requests {
+        uuid id PK
+        uuid requester_id FK
+        uuid smart_bin_id FK
+        uuid route_id FK
+        varchar address
+        double latitude
+        double longitude
+        numeric estimated_kg
+        numeric collected_kg
+        varchar status "REQUESTED..CANCELLED"
+        varchar source "USER|SMART_BIN"
+    }
+    collection_request_categories {
+        uuid collection_request_id PK,FK
+        varchar category_code PK
+    }
+    routes {
+        uuid id PK
+        uuid collector_id FK
+        varchar status "PLANNED|IN_PROGRESS|DONE"
+        date planned_date
+        numeric total_distance_km
+        numeric naive_distance_km
+        int estimated_minutes
+        numeric load_kg
+    }
+    route_stops {
+        uuid id PK
+        uuid route_id FK
+        uuid request_id FK,UK
+        int sequence "UNIQUE por rota"
+        varchar status "PENDING|DONE"
+    }

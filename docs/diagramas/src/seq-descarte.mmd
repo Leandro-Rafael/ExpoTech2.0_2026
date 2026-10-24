@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    actor M as Morador
+    participant F as Front (React)
+    participant A as API (Spring Boot)
+    participant IA as IA (Claude Vision)
+    participant D as PostgreSQL
+
+    M->>F: escolhe a foto
+    F->>A: POST /api/photos (multipart)
+    A->>A: valida assinatura e tamanho, reencoda, SHA-256 e dHash
+    opt ANTHROPIC_API_KEY configurada
+        A->>IA: classifica a imagem (fora da transação)
+        IA-->>A: categoria + confiança
+    end
+    A->>D: INSERT photos (com classificação verificada)
+    A-->>F: 201 PhotoUpload (sugestão, verified, suspeita de duplicata)
+    alt servidor não sugeriu
+        F->>F: MobileNet local (TensorFlow.js) sugere a categoria
+    end
+    M->>F: confirma ou corrige categoria, kg, local
+    F->>A: POST /api/disposals (Idempotency-Key, X-XSRF-TOKEN)
+    A->>D: já existe descarte com essa chave?
+    A->>A: valida categoria, kg, data, coordenadas, foto e ecoponto
+    A->>D: consultas das regras antifraude (histórico, hashes)
+    A->>A: FraudEngine soma o risco (0–100)
+    A->>D: INSERT disposals (PENDING, risco, pontos estimados)
+    alt risco ≥ 50
+        A->>D: INSERT audit_log DISPOSAL_FLAGGED
+    else aprovação automática ligada e baixo risco
+        A->>D: aprova, credita EARN no extrato encadeado
+    end
+    A-->>F: 201 Disposal (status, pontos estimados)
+    F-->>M: "Descarte enviado para análise"

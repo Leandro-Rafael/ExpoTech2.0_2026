@@ -143,4 +143,48 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            Produção / feira: embute o front-end compilado (../frontend/dist) no jar, em static/.
+            O SPA passa a ser servido pelo próprio back-end (mesma origem, CSP do SecurityConfig).
+            Copia direto para target/classes/static (nada é gravado em src/, que segue limpo no Git).
+            Uso: cd frontend && npm run build ; cd ../backend && mvnw -Pspa -DskipTests package
+            (ou simplesmente iniciar.bat / iniciar.sh na raiz do repositório).
+        -->
+        <profile>
+            <id>spa</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-spa</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${project.basedir}/../frontend/dist</directory>
+                                            <filtering>false</filtering>
+                                        </resource>
+                                    </resources>
+                                    <nonFilteredFileExtensions>
+                                        <nonFilteredFileExtension>bin</nonFilteredFileExtension>
+                                        <nonFilteredFileExtension>woff2</nonFilteredFileExtension>
+                                        <nonFilteredFileExtension>webp</nonFilteredFileExtension>
+                                    </nonFilteredFileExtensions>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

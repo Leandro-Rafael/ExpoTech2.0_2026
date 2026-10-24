@@ -1,0 +1,29 @@
+flowchart TD
+    INI(["Front chama a API<br/>(cookie de acesso vai junto)"]):::term --> JWT{"JWT válido?<br/>assinatura HS256, emissor,<br/>expiração"}:::dec
+    JWT -- "Sim" --> USR{"Usuário existe, está ativo<br/>e token_version confere?"}:::dec
+    USR -- "Sim" --> INSP{"Bloqueado por inspeção?"}:::dec
+    INSP -- "Sim" --> E423["423 — bloqueado"]:::err
+    INSP -- "Não" --> ROLE{"Perfil permite a rota?"}:::dec
+    ROLE -- "Não" --> E403["403"]:::err
+    ROLE -- "Sim" --> OK(["Executa e responde"]):::term
+    JWT -- "Não (ex.: venceu)" --> R401["401"]:::proc
+    USR -- "Não" --> R401
+    R401 --> REF[/"Front: POST /api/auth/refresh<br/>(uma única vez, promessa compartilhada)"/]:::io
+    REF --> FIND{"Hash SHA-256 do token<br/>existe no banco?"}:::dec
+    FIND -- "Não" --> SAIR["401 — limpa cookies;<br/>Front manda para '/entrar'"]:::err
+    FIND -- "Sim" --> REV{"Token já revogado?"}:::dec
+    REV -- "Sim, por rotação" --> GRACE{"Dentro da tolerância<br/>APP_REFRESH_GRACE_SECONDS?<br/>(padrão 0 = estrita)"}:::dec
+    GRACE -- "Sim" --> NOVO
+    GRACE -- "Não" --> REUSO["REUSO DETECTADO: alguém copiou o token.<br/>Revoga a FAMÍLIA inteira<br/>auditoria REFRESH_TOKEN_REUSE"]:::err --> SAIR
+    REV -- "Sim, outro motivo" --> SAIR
+    REV -- "Não" --> VAL{"Vencido, conta desativada<br/>ou bloqueada?"}:::dec
+    VAL -- "Sim" --> SAIR
+    VAL -- "Não" --> ROT["Revoga o token atual (ROTATED)"]:::proc
+    ROT --> NOVO["Emite novo refresh da MESMA família<br/>+ novo JWT de 15 min (novos cookies)"]:::proc
+    NOVO --> RETRY(["Front repete a requisição original"]):::term
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

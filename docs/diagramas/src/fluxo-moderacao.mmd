@@ -1,0 +1,33 @@
+flowchart TD
+    INI(["Admin abre 'Moderação'"]):::term --> FILA[/"Fila de PENDENTES<br/>(filtro 'só suspeitos'), foto, risco e motivos"/]:::io
+    FILA --> DEC{"Decisão do admin"}:::dec
+    DEC -- "Recusar" --> MOT{"Motivo com<br/>3+ caracteres?"}:::dec
+    MOT -- "Não" --> EMOT["400 — informe o motivo"]:::err --> DEC
+    MOT -- "Sim" --> LOCKR["Trava a linha do descarte<br/>(SELECT ... FOR UPDATE)"]:::proc
+    LOCKR --> STR{"Status atual?"}:::dec
+    STR -- "RECUSADO" --> IDR(["Devolve como está (idempotente)"]):::term
+    STR -- "APROVADO" --> E409R["409 — já aprovado"]:::err
+    STR -- "PENDENTE" --> REJ["Status RECUSADO + motivo + revisor<br/>auditoria DISPOSAL_REJECTED"]:::proc --> FIMR(["Morador vê o motivo"]):::term
+
+    DEC -- "Aprovar<br/>(pode corrigir categoria/kg)" --> LOCKA["Trava a linha do descarte"]:::proc
+    LOCKA --> STA{"Status atual?"}:::dec
+    STA -- "APROVADO" --> IDA(["Devolve sem pontuar de novo<br/>(idempotente)"]):::term
+    STA -- "RECUSADO" --> E409A["409 — já recusado"]:::err
+    STA -- "PENDENTE" --> PROP{"Descarte é do<br/>próprio admin?"}:::dec
+    PROP -- "Sim" --> E422["422 — não pode aprovar o próprio"]:::err
+    PROP -- "Não" --> COR{"Admin corrigiu<br/>categoria ou kg?"}:::dec
+    COR -- "Sim" --> APLI["Aplica a correção<br/>(respeita o máximo da categoria)"]:::proc --> CALC
+    COR -- "Não" --> CALC["Calcula pontos = kg × pontos/kg (mín. 1)<br/>+10% se a IA do SERVIDOR confirma a categoria FINAL"]:::proc
+    CALC --> APROV["Status APROVADO, points_awarded, revisor"]:::proc
+    APROV --> CRED["Trava a linha do usuário;<br/>saldo += pontos"]:::proc
+    CRED --> LED["Lançamento EARN no extrato<br/>seq + 1, hash = HMAC(chave, anterior + campos)"]:::proc
+    LED --> DB[("point_transactions<br/>índice único: 1 EARN por descarte")]:::db
+    LED --> GAM["Gamificação: desafios concluídos geram BONUS;<br/>medalhas novas"]:::proc
+    GAM --> AUD["Auditoria DISPOSAL_APPROVED"]:::proc --> FIMA(["Morador vê os pontos no extrato"]):::term
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

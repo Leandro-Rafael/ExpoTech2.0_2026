@@ -1,0 +1,33 @@
+flowchart TD
+    INI(["Usuário envia e-mail e senha"]):::term --> CSRF{"Front tem o cookie<br/>XSRF-TOKEN?"}:::dec
+    CSRF -- "Não" --> GETCSRF["GET /api/auth/csrf<br/>servidor define o cookie XSRF-TOKEN"]:::proc --> POST
+    CSRF -- "Sim" --> POST[/"POST /api/auth/login<br/>header X-XSRF-TOKEN = valor do cookie"/]:::io
+    POST --> CHK{"Header CSRF confere<br/>com o cookie?"}:::dec
+    CHK -- "Não" --> E403["403 — requisição forjada"]:::err
+    CHK -- "Sim" --> RL{"Limite de tentativas<br/>por IP e por e-mail<br/>(Token Bucket) ok?"}:::dec
+    RL -- "Não" --> E429["429 — muitas requisições"]:::err
+    RL -- "Sim" --> LOCK{"Conta bloqueada por<br/>senha errada (15 min)?"}:::dec
+    LOCK -- "Sim" --> E423A["423 — tente em N minutos"]:::err
+    LOCK -- "Não" --> HASH["Compara a senha com o hash Argon2id<br/>(e-mail inexistente: compara com hash fictício,<br/>mesmo tempo de resposta)"]:::proc
+    HASH --> OK{"Senha correta?"}:::dec
+    OK -- "Não" --> FAIL["Conta a falha<br/>(memória + users.failed_login_attempts)<br/>auditoria LOGIN_FAILED"]:::proc
+    FAIL --> CINCO{"5ª falha seguida?"}:::dec
+    CINCO -- "Sim" --> BLOQ["users.locked_until = agora + 15 min<br/>auditoria ACCOUNT_LOCKED"]:::proc --> E423B["423 — conta bloqueada"]:::err
+    CINCO -- "Não" --> E401["401 — 'E-mail ou senha incorretos'<br/>(mensagem genérica)"]:::err
+    OK -- "Sim" --> ATIVA{"Conta ativa?"}:::dec
+    ATIVA -- "Não" --> E403B["403 — conta desativada"]:::err
+    ATIVA -- "Sim" --> INSP{"Bloqueada por inspeção<br/>(30 min)?"}:::dec
+    INSP -- "Sim" --> E423C["423 — acesso bloqueado"]:::err
+    INSP -- "Não" --> SUC["Zera falhas, grava last_login_at"]:::proc
+    SUC --> RT["Gera refresh token aleatório (256 bits)<br/>nova família; grava só o SHA-256"]:::proc
+    RT --> DB[("refresh_tokens")]:::db
+    RT --> JWT["Gera JWT de acesso HS256 (15 min)<br/>com id do usuário e token_version"]:::proc
+    JWT --> COOK[/"Cookies HttpOnly + SameSite:<br/>acesso (15 min) e refresh (7 dias, só /api/auth)"/]:::io
+    COOK --> AUD["Auditoria LOGIN_SUCCESS"]:::proc --> FIM(["200 — dados do usuário;<br/>Front abre '/app'"]):::term
+
+    classDef term fill:#0f5132,stroke:#0f5132,color:#ffffff
+    classDef proc fill:#ecfdf5,stroke:#059669,color:#0a0e0c
+    classDef dec fill:#fef9c3,stroke:#a16207,color:#0a0e0c
+    classDef io fill:#e0f2fe,stroke:#0369a1,color:#0a0e0c
+    classDef db fill:#ede9fe,stroke:#6d28d9,color:#0a0e0c
+    classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c

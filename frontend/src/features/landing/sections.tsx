@@ -60,14 +60,15 @@ export const STEPS: { title: string; text: string }[] = [
 ];
 
 /**
- * Pin: os passos 01–04 ocupam 1 unidade cada; o 05 (caminhão) ocupa 2, para a sequência
- * close → porta → garrafa entra → encolhe → rota não ficar corrida.
+ * Pin linear por trechos: os passos 01–04 ocupam 1 unidade cada; o 05 (caminhão) ocupa
+ * STEP5_SHARE unidades — um pouco mais de rolagem para a sequência traseira → portas → rota.
  */
-const PIN_UNITS = STEPS.length + 1;
-const unitsToP = (u: number) => (u < 4 ? u : 4 + (u - 4) / 2);
-const pToUnits = (p: number) => (p < 4 ? p : 4 + (p - 4) * 2);
+const STEP5_SHARE = 1.6;
+const PIN_UNITS = 4 + STEP5_SHARE;
+const unitsToP = (u: number) => (u < 4 ? u : 4 + (u - 4) / STEP5_SHARE);
+const pToUnits = (p: number) => (p < 4 ? p : 4 + (p - 4) * STEP5_SHARE);
 /** Onde cada passo fica "inteiro" ao navegar pelo clique (05 = início da sequência do caminhão). */
-const STEP_TARGET_P = [0.55, 1.6, 2.92, 3.6, 4.14];
+const STEP_TARGET_P = [0.55, 1.6, 2.92, 3.6, 4.22];
 
 export function HowItWorks() {
   // Passo ativo (lista à esquerda) muda 5 vezes; o cartão recebe o progresso contínuo

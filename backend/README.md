@@ -3,7 +3,18 @@
 API REST da plataforma **Lixo Zero 2050** (EcoTech Zero, ExpoTech 2026). Spring Boot 4.1 · Java 25 · PostgreSQL · Flyway.
 Contrato da API: [`../docs/API.md`](../docs/API.md) (tipos do front-end em `../frontend/src/api/types.ts`).
 
-## Como rodar
+## Como rodar (um comando — feira / produção)
+
+Na raiz do repositório: **`iniciar.bat`** (Windows) ou **`./iniciar.sh`** (Linux/macOS/Git Bash).
+Na 1ª vez compila o front-end (`npm ci` + `npm run build`) e empacota o back-end com o SPA embutido
+(`mvnw -Pspa -DskipTests package` → `backend/target/lixozero-api-1.0.0.jar`); depois só inicia.
+Abre **http://localhost:8080** (SPA + API na mesma origem, com a CSP estrita). `iniciar.bat --rebuild` recompila tudo
+após mudar o código; `LZ_NO_BROWSER=1` não abre o navegador. Para parar: **Ctrl+C** (o PostgreSQL embarcado desliga
+junto). Requisitos: JDK 25 (`JAVA_HOME`, `java` no PATH ou `%USERPROFILE%\.jdks\jdk-25*`) e Node.js 20+ para compilar.
+O perfil Maven `spa` copia `../frontend/dist` para `target/classes/static` (nada é gravado em `src/`); `/assets/**`
+(nomes com hash) vai com cache de 1 ano e `/models/**` com 7 dias; o `index.html` e a API, sem cache.
+
+## Como rodar (desenvolvimento)
 
 Pré-requisito: JDK 25. Nada mais: se `DB_URL` não for informado, um **PostgreSQL real embarcado** é iniciado
 sozinho, com os dados guardados em `backend/data/pg` (a primeira inicialização pode levar alguns minutos).

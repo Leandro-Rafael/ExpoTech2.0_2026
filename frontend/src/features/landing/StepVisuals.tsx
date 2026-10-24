@@ -213,6 +213,12 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
   useLayoutEffect(() => {
     const e = els.current;
     const op = (k: string, v: number) => { const el = e[k]; if (el) el.style.opacity = String(Math.round(v * 1000) / 1000); };
+    /** Como `op`, mas também tira a camada da pintura (visibility) quando some — usado no caminhão. */
+    const show = (k: string, v: number) => {
+      op(k, v);
+      const el = e[k];
+      if (el) el.style.visibility = v > 0.001 ? 'visible' : 'hidden';
+    };
     const last: Record<string, string> = {};
     const attr = (k: string, name: string, v: string) => {
       const key = k + name;
@@ -239,12 +245,12 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       if (i === 2) pose = poseLerp(P_PHOTO, P_CHECK, easeOut(clamp(t / 0.2)));
       else if (i === 3) pose = poseLerp(P_CHECK, P_POINTS, easeOut(clamp(t / 0.2)));
       else if (i === 4) {
-        // A: sobe para "pairar" à esquerda · B (.2–.38): arco até o centro da abertura ·
-        // C (.38–.47): cai para dentro — some ao passar a soleira (clip na abertura)
+        // A (0–.1): vai "pairar" à esquerda · caminhão surge (.1–.2) · portas abrem (.2–.3) ·
+        // B (.3–.44): arco até o centro da abertura · C (.44–.52): cai para dentro (clip na abertura)
         const hoverPose: Pose = { cx: HOVER.x, top: HOVER.y - 67 * HOVER.s, s: HOVER.s };
-        if (t < 0.2) pose = poseLerp(P_POINTS, hoverPose, easeInOut(clamp(t / 0.16)));
-        else if (t < 0.38) {
-          const a = easeInOut(clamp((t - 0.2) / 0.18));
+        if (t < 0.3) pose = poseLerp(P_POINTS, hoverPose, easeInOut(clamp(t / 0.1)));
+        else if (t < 0.44) {
+          const a = easeInOut(clamp((t - 0.3) / 0.14));
           const c = { x: REAR.x - 110, y: REAR.y - 150 };
           const e = { x: REAR.x, y: REAR.y - 58 };
           const bx = (1 - a) * (1 - a) * HOVER.x + 2 * (1 - a) * a * c.x + a * a * e.x;
@@ -252,20 +258,20 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
           const bs = lerp(HOVER.s, 0.48, a);
           pose = { cx: bx, top: by - 67 * bs, s: bs };
         } else {
-          const d = clamp((t - 0.38) / 0.09);
+          const d = clamp((t - 0.44) / 0.08);
           const bs = lerp(0.48, 0.38, d);
           const by = lerp(REAR.y - 58, REAR.y + 92, d * d);
           pose = { cx: REAR.x, top: by - 67 * bs, s: bs };
         }
-        bottleO = t > 0.48 ? 0 : 1;
+        bottleO = t > 0.53 ? 0 : 1;
       }
-      attr('bottleClip', 'clip-path', i === 4 && t >= 0.38 ? 'url(#sc-open)' : 'none');
+      attr('bottleClip', 'clip-path', i === 4 && t >= 0.44 ? 'url(#sc-open)' : 'none');
       attr('bottle', 'transform', `translate(${(pose.cx - 26 * pose.s).toFixed(2)} ${pose.top.toFixed(2)}) scale(${pose.s.toFixed(4)})`);
       op('bottle', bottleO);
       op('shadow', i === 4 ? 1 - clamp(t / 0.1) : 1);
 
-      // "câmera": traseira → vista de cima, enquanto encolhe até o depósito (.58–.76)
-      const cam = i === 4 ? easeInOut(clamp((t - 0.58) / 0.18)) : 0;
+      // "câmera": traseira → vista de cima, enquanto encolhe até o depósito (.63–.79)
+      const cam = i === 4 ? easeInOut(clamp((t - 0.63) / 0.16)) : 0;
       const mapO = i === 4 ? clamp((cam - 0.15) / 0.6) : 0;
       op('photo', 1 - mapO);
       op('map', mapO);
@@ -295,17 +301,17 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       op('particles', vis(3) * (i === 3 ? clamp((t - 0.12) / 0.1) : 1));
 
       // coleta: traseira em close → portas abrem → garrafa entra → portas fecham → câmera inclina → rota
-      const drive = i === 4 ? clamp((t - 0.78) / 0.2) : 0;
+      const drive = i === 4 ? clamp((t - 0.8) / 0.18) : 0;
       const pt = along(drive * ROUTE_LEN);
       const start = along(0);
-      const appear = i === 4 ? easeOut(clamp((t - 0.02) / 0.12)) : 0;
-      const settle = i === 4 ? Math.sin(Math.PI * clamp((t - 0.53) / 0.06)) * 2.5 : 0;
+      const appear = i === 4 ? easeOut(clamp((t - 0.1) / 0.1)) : 0;
+      const settle = i === 4 ? Math.sin(Math.PI * clamp((t - 0.59) / 0.06)) * 2.5 : 0;
       // traseira: entra subindo, depois "achata" (inclinação) e encolhe rumo ao depósito
       const rx = lerp(REAR.x, start.x, cam);
       const ry = lerp(REAR.y + (1 - appear) * 16 + settle, start.y, cam);
       const rs = lerp(1, 0.24, cam);
       attr('truckRear', 'transform', `translate(${rx.toFixed(1)} ${ry.toFixed(1)}) scale(${rs.toFixed(4)} ${(rs * lerp(1, 0.12, cam)).toFixed(4)})`);
-      op('truckRear', appear * (1 - clamp((cam - 0.35) / 0.3)));
+      show('truckRear', appear * (1 - clamp((cam - 0.35) / 0.3)));
       // vista de cima: nasce "achatada" no comprimento e abre até a planta; depois percorre a rota
       let tx = rx;
       let ty = ry;
@@ -314,10 +320,10 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       let sWid = lerp(0.62, TOP_S, cam);
       if (drive > 0) { tx = pt.x; ty = pt.y; deg = pt.deg; sLen = TOP_S; sWid = TOP_S; }
       attr('truckTop', 'transform', `translate(${tx.toFixed(1)} ${ty.toFixed(1)}) rotate(${deg.toFixed(1)}) scale(${sLen.toFixed(4)} ${sWid.toFixed(4)})`);
-      op('truckTop', i === 4 ? clamp((cam - 0.35) / 0.3) : 0);
-      // portas (duas folhas): abrem .12–.24, fecham .46–.55 com leve acomodação
-      const open = i === 4 ? easeInOut(clamp((t - 0.12) / 0.12)) - easeInOut(clamp((t - 0.46) / 0.09)) : 0;
-      const wobble = i === 4 ? Math.sin(Math.PI * clamp((t - 0.55) / 0.04)) * 0.04 : 0;
+      show('truckTop', i === 4 ? clamp((cam - 0.35) / 0.3) : 0);
+      // portas (duas folhas): abrem .2–.3, fecham .52–.6 com leve acomodação
+      const open = i === 4 ? easeInOut(clamp((t - 0.2) / 0.1)) - easeInOut(clamp((t - 0.52) / 0.08)) : 0;
+      const wobble = i === 4 ? Math.sin(Math.PI * clamp((t - 0.6) / 0.04)) * 0.04 : 0;
       const dsx = lerp(1, -0.32, clamp(open)) - wobble;
       attr('doorL', 'transform', `translate(-90 0) scale(${dsx.toFixed(3)} 1) translate(90 0)`);
       attr('doorR', 'transform', `translate(90 0) scale(${dsx.toFixed(3)} 1) translate(-90 0)`);
@@ -381,8 +387,8 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
               ))}
             </g>
             {/* caminhão: traseira (close) e vista de cima (rota) — mesmo desenho, mesmo estilo */}
-            <g ref={ref('truckRear')} style={{ opacity: 0 }}><TruckRear r={ref} /></g>
-            <g ref={ref('truckTop')} style={{ opacity: 0 }}><TruckTop /></g>
+            <g ref={ref('truckRear')} style={{ opacity: 0, visibility: 'hidden' }}><TruckRear r={ref} /></g>
+            <g ref={ref('truckTop')} style={{ opacity: 0, visibility: 'hidden' }}><TruckTop /></g>
             <clipPath id="sc-open" clipPathUnits="userSpaceOnUse">
               <rect x={OPEN.x0} y={OPEN.y0} width={OPEN.x1 - OPEN.x0} height={OPEN.y1 - OPEN.y0} />
             </clipPath>

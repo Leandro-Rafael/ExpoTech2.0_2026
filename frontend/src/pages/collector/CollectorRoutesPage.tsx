@@ -98,7 +98,7 @@ function RouteView({ route }: { route: Route }) {
   });
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] [&>*]:min-w-0">
       <div className="space-y-4 lg:order-2">
         {/* Resumo */}
         <section aria-label="Resumo da rota" className="surface rounded-2xl p-4 sm:p-5">

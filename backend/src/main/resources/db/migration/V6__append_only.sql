@@ -21,7 +21,7 @@ create or replace function lz_forbid_change() returns trigger
 $$
 begin
     raise exception 'Tabela % é somente inserção (append-only): % não é permitido', tg_table_name, tg_op
-        using errcode = 'insufficient_privilege';
+        using errcode = 'restrict_violation';
 end;
 $$;
 

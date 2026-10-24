@@ -63,12 +63,15 @@ export interface MapViewProps {
   children?: ReactNode;
 }
 
+/** className já posiciona o contêiner (sem prefixo responsivo)? Então não forçamos `relative`. */
+const POSITIONED = /(^|\s)(absolute|fixed|sticky)(\s|$)/;
+
 export function MapView({
   center = DEFAULT_CENTER, zoom = 13, bounds, fitPadding = 48, maxFitZoom = 16, onMapClick, picking,
   scrollWheelZoom = false, zoomControl = true, zoomPosition = 'bottomright', ariaLabel = 'Mapa', className, children,
 }: MapViewProps) {
   return (
-    <div role="region" aria-label={ariaLabel} className={cn('relative isolate overflow-hidden', className)}>
+    <div role="region" aria-label={ariaLabel} className={cn(!POSITIONED.test(className ?? '') && 'relative', 'isolate overflow-hidden', className)}>
       <MapContainer
         center={center}
         zoom={zoom}

@@ -54,10 +54,10 @@ function Queues({ d }: { d: AdminOverview | undefined }) {
   return (
     <section aria-labelledby="q-title">
       <h2 id="q-title" className="label-mono mb-3 font-mono">Fila de trabalho</h2>
-      <div className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line shadow-card sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line shadow-card grid-cols-2 xl:grid-cols-4">
         {items.map((it) => (
           <Link key={it.label} to={it.to}
-            className="group relative flex flex-col gap-3 bg-surface p-5 transition-colors hover:bg-surface-2 focus-visible:outline-offset-[-2px]">
+            className="group relative flex flex-col gap-3 bg-surface p-4 sm:p-5 transition-colors hover:bg-surface-2 focus-visible:outline-offset-[-2px]">
             <span className="flex items-center justify-between gap-3">
               <span className="flex items-center gap-2 text-[13px] text-fg-soft">
                 <it.icon className={cn('size-4', it.danger && it.urgent ? 'text-danger' : 'text-subtle')} aria-hidden /> {it.label}
@@ -86,7 +86,7 @@ function Kpis({ d }: { d: AdminOverview | undefined }) {
   const tiles = [
     { label: 'Usuários', value: d?.users, hint: 'cadastrados' },
     { label: 'Ativos 30 dias', value: d?.activeUsers30d, hint: activeShare != null ? `${formatPercent(activeShare)} da base` : undefined },
-    { label: 'Resíduos aprovados', value: d?.totalKg, format: (v: number) => formatKg(v), hint: 'total registrado' },
+    { label: 'Resíduos', value: d?.totalKg, format: (v: number) => formatKg(v), hint: 'aprovados no total' },
     { label: 'Reciclados', value: d?.recycledKg, format: (v: number) => formatKg(v), hint: rate != null ? `taxa de ${formatPercent(rate, 1)}` : undefined },
     { label: 'Pontos emitidos', value: d?.pointsIssued, hint: 'ganhos + bônus' },
     { label: 'Resgates', value: d?.redemptions, hint: 'recompensas trocadas' },
@@ -121,12 +121,12 @@ function DisposalsChart({ d }: { d: AdminOverview | undefined }) {
         table={{ columns: ['Dia', 'Descartes', 'Kg'], rows: data.map((x) => [formatDate(x.date), x.count, formatKg(x.kg)]) }}
       >
         {d ? (
-          <BarChart data={data} xKey="date" height={260}
+          <BarChart data={data} xKey="date" height={340}
             series={[{ key: metric, label: metric === 'count' ? 'Descartes' : 'Kg', color: seriesColor.primary }]}
             xFormat={(v) => formatDateShort(String(v))} tooltipLabel={(v) => formatDate(String(v))}
             yFormat={fmt} yTickFormat={metric === 'kg' ? (v) => formatNumber(v) : undefined}
             ariaLabel={`Gráfico de ${metric === 'count' ? 'descartes' : 'quilos'} por dia nos últimos 14 dias`} />
-        ) : <Skeleton className="h-[260px]" />}
+        ) : <Skeleton className="h-[340px]" />}
       </ChartFrame>
     </section>
   );
@@ -155,7 +155,7 @@ function RecentAudit({ d }: { d: AdminOverview | undefined }) {
                 <span aria-hidden className={cn('mt-[7px] size-1.5 shrink-0 rounded-full', toneDot[m.tone])} />
                 <div className="min-w-0 flex-1">
                   <p className="text-[13.5px] text-fg">{m.label}</p>
-                  <p className="truncate text-xs text-muted">{e.actor ?? 'sistema'}{e.details ? ` · ${e.details}` : ''}</p>
+                  <p className="truncate text-xs text-muted">{e.actor?.replace(/\s*<[^>]*>$/, '') ?? 'sistema'}{e.details ? ` · ${e.details}` : ''}</p>
                 </div>
                 <time dateTime={e.createdAt} className="shrink-0 text-[11.5px] text-subtle">{formatRelative(e.createdAt)}</time>
               </li>

@@ -6,7 +6,7 @@ import { EmptyState, ErrorState, PageHeader, PageSkeleton, ProgressBar } from '@
 import { ChallengeRow, SectionHeading } from '@/features/resident/shared';
 import { cn } from '@/lib/cn';
 import { hexAlpha } from '@/lib/category';
-import { formatDate, formatNumber } from '@/lib/format';
+import { formatDateShort, formatNumber } from '@/lib/format';
 import { badgeTier } from '@/lib/labels';
 
 const TIER_ORDER = { DIAMANTE: 0, OURO: 1, PRATA: 2, BRONZE: 3 } as const;
@@ -142,7 +142,7 @@ function BadgeRow({ b }: { b: Badge }) {
           <span className="font-mono text-[10px] font-normal tracking-wider text-subtle uppercase">{tier.label}</span>
         </p>
         <p className="mt-0.5 text-xs leading-relaxed text-muted">{b.description}</p>
-        <p className="mt-1 font-mono text-[11px] text-subtle tabular">{b.earned ? `Conquistada em ${formatDate(b.awardedAt)}` : 'Bloqueada'}</p>
+        <p className="mt-1 font-mono text-[11px] text-subtle tabular">{b.earned ? `Conquistada em ${formatDateShort(b.awardedAt)}/${(b.awardedAt ?? '').slice(2, 4)}` : 'Bloqueada'}</p>
       </div>
     </li>
   );

@@ -67,7 +67,7 @@ export default function AdminUsersPage() {
     {
       key: 'points', header: 'Pontos', align: 'right', sort: (u) => u.points,
       cell: (u) => (
-        <span className="font-mono tabular">
+        <span className="font-mono whitespace-nowrap tabular">
           <span className="text-fg">{formatNumber(u.points)}</span>
           <span className="block text-[11px] text-subtle">{formatNumber(u.totalEarned)} ganhos</span>
         </span>
@@ -76,9 +76,9 @@ export default function AdminUsersPage() {
     { key: 'household', header: 'Residência', className: 'max-lg:hidden', mobile: 'hidden', sort: (u) => u.household, cell: (u) => u.household ?? <span className="text-subtle">—</span> },
     {
       key: 'login', header: 'Último acesso', sort: (u) => (u.lastLoginAt ? Date.parse(u.lastLoginAt) : 0),
-      cell: (u) => u.lastLoginAt ? <span title={formatDate(u.lastLoginAt)}>{formatRelative(u.lastLoginAt)}</span> : <span className="text-subtle">Nunca</span>,
+      cell: (u) => u.lastLoginAt ? <span className="whitespace-nowrap" title={formatDate(u.lastLoginAt)}>{formatRelative(u.lastLoginAt)}</span> : <span className="text-subtle">Nunca</span>,
     },
-    { key: 'created', header: 'Cadastro', className: 'max-xl:hidden', mobile: 'hidden', sort: (u) => Date.parse(u.createdAt), cell: (u) => <span className="font-mono text-[12.5px] tabular">{formatDate(u.createdAt)}</span> },
+    { key: 'created', header: 'Cadastro', className: 'max-xl:hidden', mobile: 'hidden', sort: (u) => Date.parse(u.createdAt), cell: (u) => <span className="font-mono text-[12.5px] whitespace-nowrap tabular">{new Date(u.createdAt).toLocaleDateString('pt-BR')}</span> },
     {
       key: 'actions', header: <span className="sr-only">Ações</span>, align: 'right', mobile: 'row',
       cell: (u) => <UserActions u={u} self={u.id === me.id} onRole={() => setRoleTarget(u)} onToggle={() => setToggleTarget(u)} />,

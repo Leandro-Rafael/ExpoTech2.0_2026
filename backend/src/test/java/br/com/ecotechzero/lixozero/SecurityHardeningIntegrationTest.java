@@ -233,11 +233,11 @@ class SecurityHardeningIntegrationTest {
         // append-only: UPDATE/DELETE/TRUNCATE recusados pelo próprio banco
         UUID userId = users.findByEmail("morador.int@exemplo.com").orElseThrow().getId();
         assertThatThrownBy(() -> jdbc.update("update point_transactions set amount = 9999 where user_id = ?", userId))
-                .hasMessageContaining("append-only");
+                .rootCause().hasMessageContaining("append-only");
         assertThatThrownBy(() -> jdbc.update("delete from point_transactions where user_id = ?", userId))
-                .hasMessageContaining("append-only");
-        assertThatThrownBy(() -> jdbc.update("delete from audit_log")).hasMessageContaining("append-only");
-        assertThatThrownBy(() -> jdbc.execute("truncate audit_log")).hasMessageContaining("append-only");
+                .rootCause().hasMessageContaining("append-only");
+        assertThatThrownBy(() -> jdbc.update("delete from audit_log")).rootCause().hasMessageContaining("append-only");
+        assertThatThrownBy(() -> jdbc.execute("truncate audit_log")).rootCause().hasMessageContaining("append-only");
 
         // adulteração "por fora" (desligando o trigger, como faria alguém com acesso ao banco) é detectada
         Map<String, Object> first = jdbc.queryForMap(

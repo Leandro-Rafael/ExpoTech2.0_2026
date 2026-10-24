@@ -89,6 +89,9 @@ export function HowItWorks() {
         end: () => `+=${window.innerHeight * (PIN_UNITS - 0.4)}`,
         pin: true,
         anticipatePin: 1,
+        // Bordas garantidas: com rolagem muito rápida (ou CPU lenta) o último onUpdate pode pular.
+        onLeaveBack: () => { progress.current?.(0); if (last !== 0) { last = 0; setActive(0); } },
+        onLeave: () => { progress.current?.(STEPS.length - 0.001); if (last !== STEPS.length - 1) { last = STEPS.length - 1; setActive(STEPS.length - 1); } },
         onUpdate: (self) => {
           const p = unitsToP(self.progress * PIN_UNITS);
           progress.current?.(p);

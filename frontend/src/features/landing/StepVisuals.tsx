@@ -17,6 +17,7 @@ import { useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from '
 import { Check, MapPin } from 'lucide-react';
 import { prefersReducedMotion } from '@/hooks/useReducedMotion';
 import { cn } from '@/lib/cn';
+import { gsap } from './gsap';
 
 // ------------------------------------------------------------------ geometria (palco 520×320)
 
@@ -227,11 +228,43 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       e[k]?.setAttribute(name, v);
     };
 
+    /**
+     * Passo 05: a mini-história do caminhão (surge → portas abrem → garrafa entra → portas
+     * fecham → câmera inclina) roda por TEMPO (~2,8 s) assim que o passo começa — sempre
+     * completa, mesmo com scroll rápido ou quadros perdidos. O scroll só dispara/zera a
+     * intro e depois controla o trajeto na rota.
+     */
+    const INTRO_END = 0.79; // fração do passo 05 coberta pela intro (fases já calibradas)
+    const intro = { v: 0 };
+    let introTween: gsap.core.Tween | null = null;
+    let lastP = 0;
+
     const apply = (pRaw: number) => {
       const isStatic = mode === 'static';
       const p = isStatic ? step + 0.999 : clamp(pRaw, 0, 4.999);
+      if (!isStatic) {
+        lastP = p;
+        if (p >= 4 && !introTween && intro.v < 1) {
+          introTween = gsap.to(intro, {
+            v: 1, duration: 2.8, ease: 'none', overwrite: true,
+            onUpdate: () => draw(lastP),
+            onComplete: () => { introTween = null; draw(lastP); },
+          });
+        } else if (p < 4 && (introTween || intro.v > 0)) {
+          introTween?.kill();
+          introTween = null;
+          intro.v = 0;
+        }
+      }
+      draw(p);
+    };
+
+    const draw = (p: number) => {
+      const isStatic = mode === 'static';
       const i = Math.min(4, Math.floor(p));
-      const t = p - i;
+      const t0 = p - i;
+      // No passo 05 as fases da intro usam o relógio da intro (ou o estado final, no modo estático).
+      const t = i === 4 && !isStatic ? intro.v * INTRO_END : t0;
       const vis = (k: number) => {
         if (isStatic) return k === step ? 1 : 0;
         const lo = k === 0 ? 1 : clamp((p - k) / 0.06);
@@ -301,7 +334,8 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       op('particles', vis(3) * (i === 3 ? clamp((t - 0.12) / 0.1) : 1));
 
       // coleta: traseira em close → portas abrem → garrafa entra → portas fecham → câmera inclina → rota
-      const drive = i === 4 ? clamp((t - 0.8) / 0.18) : 0;
+      // trajeto na rota: controlado pelo scroll, só depois da intro completa
+      const drive = i !== 4 ? 0 : isStatic ? clamp((t - 0.8) / 0.18) : intro.v >= 1 ? clamp((t0 - 0.25) / 0.7) : 0;
       const pt = along(drive * ROUTE_LEN);
       const start = along(0);
       const appear = i === 4 ? easeOut(clamp((t - 0.1) / 0.1)) : 0;
@@ -339,7 +373,10 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
 
     apply(0);
     if (progressRef) progressRef.current = apply;
-    return () => { if (progressRef) progressRef.current = null; };
+    return () => {
+      introTween?.kill();
+      if (progressRef) progressRef.current = null;
+    };
   }, [mode, step, progressRef]);
 
   const pct = (x: number, total: number) => `${(x / total) * 100}%`;

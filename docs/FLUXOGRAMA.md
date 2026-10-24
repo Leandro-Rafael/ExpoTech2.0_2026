@@ -110,7 +110,7 @@ flowchart TD
         A3["Usuários: perfil, ativar, desbloquear"]:::proc
         A4["Coletas e rotas otimizadas"]:::proc
         A5["Ecopontos, catálogo, lixeiras"]:::proc
-        A6["Auditoria, integridade e relatório CSV"]:::proc
+        A6["Auditoria (filtro por ação e texto),<br/>integridade e relatório CSV"]:::proc
     end
 
     C -.-> M
@@ -562,6 +562,8 @@ sequenceDiagram
     participant D as PostgreSQL
 
     U->>F: abre o site
+    F->>A: GET /api/auth/session
+    A-->>F: 204 (visitante: sem sessão)
     F->>A: GET /api/auth/csrf
     A-->>F: 204 + cookie XSRF-TOKEN
     U->>F: e-mail e senha

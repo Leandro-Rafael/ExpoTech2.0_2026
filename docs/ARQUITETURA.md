@@ -50,6 +50,7 @@ flowchart LR
 - **Monólito em camadas, organizado por funcionalidade**: cada pacote em `backend/src/main/java/br/com/ecotechzero/lixozero/` (ex.: `disposal/`, `route/`, `household/`) tem seu *controller → service → repository*. Entidades nunca saem da API; entram e saem **DTOs** (`*Dtos.java`, `record`s imutáveis).
 - **IA híbrida**: com `ANTHROPIC_API_KEY`, a foto é classificada **no servidor** no momento do upload e a classificação é gravada na própria foto (só ela vale para o bônus de +10 %). Sem a chave, ou se o servidor não sugerir nada, o navegador usa o **MobileNet local** (`frontend/src/features/resident/disposal/localClassifier.ts`) — a sugestão aparece, mas é só um palpite (não dá bônus e só pode aumentar o risco antifraude).
 - **IoT (Smart Home)**: cada lixeira tem `device_id` + chave secreta (o banco guarda só o hash). O endpoint `/api/iot/readings` é o único POST sem CSRF (é chamado por um dispositivo, não por um navegador). Para a demonstração, `iot/IotSimulator.java` gera leituras a cada 90 s.
+- **Execução**: em desenvolvimento, o Vite (porta 5173) encaminha `/api` para a API (8080). Na apresentação, `iniciar.bat` / `iniciar.sh` compilam o front e o embutem no jar pelo perfil Maven `spa` (`backend/pom.xml`), e o próprio Spring Boot serve a interface na mesma origem (`config/SpaFallbackFilter.java`).
 - **Banco**: PostgreSQL embarcado em desenvolvimento (`config/EmbeddedPostgresConfig.java`, sem instalar nada) ou externo via `DB_URL`; o esquema é sempre criado pelo Flyway.
 
 ## 2. Stack tecnológica

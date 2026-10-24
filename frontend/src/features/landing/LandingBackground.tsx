@@ -52,6 +52,9 @@ export function LandingBackground() {
   const [mount, setMount] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [fading, setFading] = useState(false);
+  // Falha/desempenho ruim: crossfade para o estático e só então desmonta a cena.
+  const handleFail = () => { setFading(true); window.setTimeout(() => setFailed(true), 1600); };
 
   useEffect(() => {
     if (reduced || !hasWebGL()) return;
@@ -66,11 +69,11 @@ export function LandingBackground() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-0 bg-bg">
       <AmbientGlow />
-      <StaticBackdrop className={cn('transition-opacity duration-[1500ms]', ready && showScene ? 'opacity-0' : 'opacity-100')} />
+      <StaticBackdrop className={cn('transition-opacity duration-[1500ms]', ready && showScene && !fading ? 'opacity-0' : 'opacity-100')} />
       {showScene && (
-        <div className={cn('absolute inset-0 transition-opacity duration-[1500ms]', ready ? 'opacity-100' : 'opacity-0')}>
+        <div className={cn('absolute inset-0 transition-opacity duration-[1500ms]', ready && !fading ? 'opacity-100' : 'opacity-0')}>
           <Suspense fallback={null}>
-            <HeroScene onReady={() => setReady(true)} onFail={() => setFailed(true)} />
+            <HeroScene onReady={() => setReady(true)} onFail={handleFail} />
           </Suspense>
         </div>
       )}

@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatNumber, formatPercent } from '@/lib/format';
-import { useCountUp } from '@/hooks/useCountUp';
+import { useCountUpText } from '@/hooks/useCountUp';
 import { useInView } from '@/hooks/useInView';
 import { Skeleton } from './Skeleton';
 
@@ -36,10 +36,10 @@ const accents = {
 /** KPI com contagem animada ao entrar na tela. `<StatTile label="CO₂ evitado" value={x} format={formatKg} icon={Leaf} />` */
 export function StatTile({ label, value, format = (v) => formatNumber(v), icon: Icon, delta, deltaLabel, hint, accent = 'brand', loading, highlight, className }: StatTileProps) {
   const [ref, inView] = useInView<HTMLDivElement>();
-  const animated = useCountUp(value ?? 0, { start: inView && value != null });
+  const numRef = useCountUpText<HTMLParagraphElement>(value ?? 0, format, { start: inView && value != null });
   return (
     <div ref={ref} className={cn('glass relative overflow-hidden rounded-2xl p-5', highlight && 'ring-gradient shadow-glow', className)}>
-      <div aria-hidden className="pointer-events-none absolute -top-16 -right-16 size-40 rounded-full bg-brand-500/10 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -top-20 -right-20 size-52 bg-[radial-gradient(closest-side,rgb(16_185_129/0.14),transparent)]" />
       <div className="flex items-start justify-between gap-3">
         <p className="text-[13px] font-medium text-muted">{label}</p>
         {Icon && (
@@ -52,9 +52,7 @@ export function StatTile({ label, value, format = (v) => formatNumber(v), icon: 
         {loading || value == null ? (
           loading ? <Skeleton className="h-9 w-32" /> : <p className="font-display text-3xl font-semibold text-subtle">—</p>
         ) : (
-          <p className="font-display text-[28px] leading-tight font-semibold tracking-tight text-fg tabular sm:text-3xl" aria-live="polite">
-            {format(animated)}
-          </p>
+          <p ref={numRef} className="font-display text-[28px] leading-tight font-semibold tracking-tight text-fg tabular sm:text-3xl" />
         )}
       </div>
       {(delta != null || hint) && (

@@ -18,24 +18,31 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
       <aside className="relative hidden overflow-hidden border-r border-line lg:flex lg:flex-col" aria-hidden>
         <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_0%_0%,rgb(16_185_129/0.22),transparent_55%),radial-gradient(90%_70%_at_100%_100%,rgb(190_242_100/0.12),transparent_60%)]" />
         <div className="absolute inset-0 grid-bg opacity-70" />
-        {/* Anel orbital decorativo */}
-        <div className="pointer-events-none absolute top-1/2 left-1/2 size-[640px] -translate-x-1/2 -translate-y-1/2">
-          <div className="absolute inset-0 animate-spin-slow rounded-full border border-dashed border-brand-300/15" />
-          <div className="absolute inset-16 rounded-full border border-lime-300/10" style={{ animation: 'spin 40s linear infinite reverse' }} />
-          <div className="absolute inset-32 rounded-full bg-[conic-gradient(from_200deg,transparent,rgb(52_211_153/0.25),rgb(190_242_100/0.35),transparent_70%)] blur-2xl" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <LogoMark size={168} className="drop-shadow-[0_0_60px_rgb(34_197_94/0.45)] animate-float" />
-          </div>
-        </div>
-
-        <div className="relative z-10 flex h-full flex-col justify-between p-10 xl:p-14">
+        <div className="relative z-10 flex h-full flex-col p-10 xl:p-14">
           <Link to="/" className="w-fit" tabIndex={-1}><Logo size={38} variant="full" /></Link>
-          <div className="max-w-md">
+
+          {/* Anel orbital decorativo */}
+          <div className="relative my-auto flex items-center justify-center py-8 [@media(max-height:820px)]:hidden">
+            <div className="relative size-[300px] xl:size-[340px]">
+              <div className="absolute inset-0 animate-spin-slow rounded-full border border-dashed border-brand-300/20" />
+              <div className="absolute inset-10 rounded-full border border-lime-300/10" style={{ animation: 'spin 40s linear infinite reverse' }} />
+              <div className="absolute inset-16 rounded-full bg-[radial-gradient(closest-side,rgb(52_211_153/0.28),rgb(190_242_100/0.08)_60%,transparent)]" />
+              {[0, 72, 144, 216, 288].map((deg) => (
+                <span key={deg} className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lime-300 shadow-[0_0_12px_#bef264]"
+                  style={{ transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-150px)` }} />
+              ))}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <LogoMark size={128} className="animate-float drop-shadow-[0_0_50px_rgb(34_197_94/0.5)]" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-auto max-w-md">
             <p className="mb-3 text-xs font-semibold tracking-[0.18em] text-brand-300 uppercase">Smart Home 2050</p>
-            <h2 className="font-display text-4xl leading-[1.1] font-semibold text-fg xl:text-[44px]">
+            <h2 className="font-display text-4xl leading-[1.1] font-semibold text-fg xl:text-[42px]">
               Cada descarte certo é um passo para o <span className="text-gradient">lixo zero</span>.
             </h2>
-            <ul className="mt-8 space-y-4">
+            <ul className="mt-7 space-y-4">
               {highlights.map((h) => (
                 <li key={h.title} className="flex gap-3.5">
                   <span className="glass inline-flex size-10 shrink-0 items-center justify-center rounded-xl text-brand-300"><h.icon className="size-5" /></span>
@@ -46,10 +53,10 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
                 </li>
               ))}
             </ul>
+            <p className="mt-8 flex items-center gap-2 text-xs text-subtle">
+              <ShieldCheck className="size-4 text-brand-400" /> Sessão protegida com cookies HttpOnly, CSRF e bloqueio por tentativas.
+            </p>
           </div>
-          <p className="flex items-center gap-2 text-xs text-subtle">
-            <ShieldCheck className="size-4 text-brand-400" /> Sessão protegida com cookies HttpOnly, CSRF e bloqueio por tentativas.
-          </p>
         </div>
       </aside>
 

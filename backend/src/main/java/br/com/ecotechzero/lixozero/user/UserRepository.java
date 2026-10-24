@@ -29,7 +29,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("""
             select u from User u
             where (:role is null or u.role = :role)
-              and (:q is null or lower(u.name) like :q or lower(u.email) like :q)
+              and (:q is null or lower(u.name) like :q escape '\\' or lower(u.email) like :q escape '\\')
             """)
     Page<User> search(@Param("q") String likePattern, @Param("role") Role role, Pageable pageable);
 

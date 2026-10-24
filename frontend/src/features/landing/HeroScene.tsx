@@ -1,16 +1,22 @@
 /**
- * Cena three.js da landing: milhares de partículas que saem do "caos" (resíduos
- * dispersos) e se organizam num anel de economia circular — o "0" do logo —
- * fluindo continuamente em volta de um planeta vivo de pontos.
+ * Cena three.js da landing: partículas que saem do "caos" (resíduos dispersos) e se
+ * organizam num anel de economia circular — o "0" do logo — fluindo em volta de um
+ * planeta de pontos.
  *
- * - Shaders próprios (GPU faz todo o movimento; CPU só atualiza uniforms).
- * - DPR limitado, pausa com aba oculta ou canvas fora da tela, dispose completo.
- * - Reage levemente ao mouse (parallax) e ao scroll (o anel se expande e dissolve).
- * - Se o WebGL falhar, chama onFail() e o pai mantém o fundo estático.
+ * Desempenho (pensado para GPUs integradas, ex.: Intel UHD 600):
+ * - Sem requestAnimationFrame próprio: roda no gsap.ticker (o mesmo do Lenis/ScrollTrigger).
+ * - Só renderiza enquanto o hero é relevante: para por completo quando a página já rolou
+ *   além do hero ou a aba fica oculta (visibilitychange), e retoma ao voltar.
+ * - 30 fps quando ociosa (intro concluída, sem mouse/scroll recentes).
+ * - Buffer de desenho limitado (DPR 1 em máquinas com ≤ 4 threads, largura interna ≤ 1600 px).
+ * - Máscara de "continentes" do planeta calculada UMA vez na CPU (atributo), não por quadro.
+ * - Governador adaptativo: mede o intervalo médio de quadros; se passar de ~20 ms reduz DPR
+ *   e partículas, depois limita a 30 fps e, em último caso, chama onFail() → fundo estático.
  */
 import { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
 import {
-  AdditiveBlending, BufferAttribute, BufferGeometry, Clock, Color, Group, PerspectiveCamera, Points, Scene,
+  AdditiveBlending, BufferAttribute, BufferGeometry, Color, Group, PerspectiveCamera, Points, Scene,
   ShaderMaterial, WebGLRenderer,
 } from 'three';
 
@@ -23,53 +29,36 @@ uniform float uScroll;
 uniform float uPixelRatio;
 uniform float uSize;
 attribute vec3 aScatter;
-attribute vec4 aRing;   // theta, phi, radius jitter, speed
-attribute vec3 aMeta;   // size, delay, seed
+attribute vec4 aRing;   // theta, phi, raio, velocidade
+attribute vec3 aMeta;   // tamanho, atraso, semente
 varying float vGrad;
 varying float vAlpha;
 varying float vHead;
-
 const float TAU = 6.2831853;
 const float R = 2.55;
 const float TUBE = 0.42;
-
 void main() {
   float t = uTime;
-  float speed = aRing.w;
-  float theta = aRing.x + t * speed;
-  float phi = aRing.y + t * speed * 2.3;
-  float tube = TUBE * (0.25 + aRing.z * 0.75) * (1.0 + 0.18 * sin(theta * 3.0 + t * 0.7));
-  vec3 ring = vec3((R + tube * cos(phi)) * cos(theta), (R + tube * cos(phi)) * sin(theta), tube * sin(phi) * 0.8);
+  float theta = aRing.x + t * aRing.w;
+  float phi = aRing.y + t * aRing.w * 2.3;
+  float tube = TUBE * (0.25 + aRing.z * 0.75);
+  float cp = cos(phi);
+  vec3 ring = vec3((R + tube * cp) * cos(theta), (R + tube * cp) * sin(theta), tube * sin(phi) * 0.8);
   ring *= 1.0 + uScroll * 0.28;
-
-  float delay = aMeta.y;
-  float p = smoothstep(delay * 0.55, delay * 0.55 + 0.45, uProgress);
-
-  float seed = aMeta.z;
-  vec3 scatter = aScatter + vec3(sin(t * 0.21 + seed * 6.28), cos(t * 0.17 + seed * 3.1), sin(t * 0.13 + seed * 1.7)) * 0.35;
-  vec3 pos = mix(scatter, ring, p);
-  pos += normalize(aScatter + 0.001) * uScroll * uScroll * (0.6 + seed * 2.6);
-
+  float p = smoothstep(aMeta.y * 0.55, aMeta.y * 0.55 + 0.45, uProgress);
+  vec3 pos = mix(aScatter, ring, p);
+  pos += aScatter * (uScroll * uScroll * (0.08 + aMeta.z * 0.3));
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
   gl_Position = projectionMatrix * mv;
-
   float ang = mod(theta, TAU);
   vGrad = ang / TAU;
-
-  // "cometa" que percorre o anel — sensação de ciclo contínuo
-  float head = mod(t * 0.55, TAU);
-  float d = abs(ang - head);
+  float d = abs(ang - mod(t * 0.55, TAU));
   d = min(d, TAU - d);
   vHead = exp(-d * d * 3.0) * p;
-
-  // fenda do logo (o anel quase fechado)
-  float gapCenter = 1.05;
-  float g = abs(ang - gapCenter);
+  float g = abs(ang - 1.05);
   g = min(g, TAU - g);
-  float gap = mix(1.0, smoothstep(0.06, 0.32, g), p);
-
-  vAlpha = mix(0.28, 1.0, p) * gap * (1.0 - uScroll * 0.45);
-  gl_PointSize = uSize * aMeta.x * (1.0 + vHead * 1.4) * uPixelRatio * (9.0 / -mv.z);
+  vAlpha = mix(0.3, 1.0, p) * mix(1.0, smoothstep(0.06, 0.32, g), p) * (1.0 - uScroll * 0.45);
+  gl_PointSize = uSize * aMeta.x * (1.0 + vHead * 1.2) * uPixelRatio * (9.0 / -mv.z);
 }
 `;
 
@@ -77,65 +66,45 @@ const RING_FRAG = /* glsl */ `
 uniform vec3 uC1;
 uniform vec3 uC2;
 uniform vec3 uC3;
-uniform float uOpacity;
 varying float vGrad;
 varying float vAlpha;
 varying float vHead;
 void main() {
   vec2 c = gl_PointCoord - 0.5;
-  float d = length(c);
-  if (d > 0.5) discard;
-  float a = smoothstep(0.5, 0.0, d);
-  a = pow(a, 1.6);
-  // gradiente esmeralda → verde → lima ao longo do anel (como no logo)
-  float g = vGrad;
-  vec3 col = g < 0.55 ? mix(uC1, uC2, g / 0.55) : mix(uC2, uC3, (g - 0.55) / 0.45);
+  float d2 = dot(c, c);
+  if (d2 > 0.25) discard;
+  float a = 1.0 - d2 * 4.0;
+  a *= a;
+  vec3 col = vGrad < 0.55 ? mix(uC1, uC2, vGrad / 0.55) : mix(uC2, uC3, (vGrad - 0.55) / 0.45);
   col = mix(col, vec3(0.93, 1.0, 0.8), vHead * 0.55);
-  gl_FragColor = vec4(col, min(1.0, a * vAlpha * uOpacity * (0.95 + vHead * 1.2)));
+  gl_FragColor = vec4(col, min(1.0, a * vAlpha * (0.95 + vHead * 1.2)));
 }
 `;
 
 const GLOBE_VERT = /* glsl */ `
-uniform float uTime;
 uniform float uProgress;
 uniform float uPixelRatio;
-attribute float aSeed;
+attribute float aLand;  // máscara de "continente" pré-calculada na CPU
 varying float vLand;
 varying float vFacing;
-
-// value noise 3D barato
-float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-float noise(vec3 x) {
-  vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
-             mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
-}
-
 void main() {
-  float n = noise(position * 1.6 + 3.0) * 0.65 + noise(position * 3.4) * 0.35;
-  vLand = smoothstep(0.48, 0.62, n);
-  float scale = mix(0.6, 1.0, smoothstep(0.0, 1.0, uProgress));
-  vec3 pos = position * scale * (1.0 + vLand * 0.025 * sin(uTime * 1.5 + aSeed * 6.28));
-  vec4 mv = modelViewMatrix * vec4(pos, 1.0);
-  vec3 nrm = normalize(normalMatrix * position);
-  vFacing = clamp(dot(nrm, vec3(0.0, 0.0, 1.0)) * 0.5 + 0.5, 0.0, 1.0);
+  vLand = aLand;
+  vec4 mv = modelViewMatrix * vec4(position * mix(0.6, 1.0, uProgress), 1.0);
+  vFacing = clamp(normalize(normalMatrix * position).z * 0.5 + 0.5, 0.0, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = (2.2 + vLand * 3.2) * uPixelRatio * (9.0 / -mv.z);
+  gl_PointSize = (2.0 + aLand * 2.6) * uPixelRatio * (9.0 / -mv.z);
 }
 `;
-
 const GLOBE_FRAG = /* glsl */ `
 uniform float uOpacity;
 varying float vLand;
 varying float vFacing;
 void main() {
-  float d = length(gl_PointCoord - 0.5);
-  if (d > 0.5) discard;
-  float a = smoothstep(0.5, 0.1, d);
-  vec3 sea = vec3(0.05, 0.62, 0.45);
-  vec3 land = vec3(0.72, 0.98, 0.45);
-  vec3 col = mix(sea, land, vLand);
-  gl_FragColor = vec4(col, a * uOpacity * mix(0.28, 1.0, vLand) * (0.3 + vFacing * 1.0));
+  vec2 c = gl_PointCoord - 0.5;
+  float d2 = dot(c, c);
+  if (d2 > 0.25) discard;
+  vec3 col = mix(vec3(0.05, 0.62, 0.45), vec3(0.72, 0.98, 0.45), vLand);
+  gl_FragColor = vec4(col, (1.0 - d2 * 4.0) * uOpacity * mix(0.28, 1.0, vLand) * (0.3 + vFacing));
 }
 `;
 
@@ -147,24 +116,42 @@ varying float vTw;
 void main() {
   vec3 p = position;
   p.y += mod(uTime * (0.05 + aSeed * 0.12) + aSeed * 20.0, 20.0) - 10.0;
-  p.x += sin(uTime * 0.2 + aSeed * 12.0) * 0.3;
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * mv;
   vTw = 0.5 + 0.5 * sin(uTime * (1.0 + aSeed * 2.0) + aSeed * 30.0);
-  gl_PointSize = (1.0 + aSeed * 1.8) * uPixelRatio * (9.0 / -mv.z);
+  gl_PointSize = (1.0 + aSeed * 1.6) * uPixelRatio * (9.0 / -mv.z);
 }
 `;
 const DUST_FRAG = /* glsl */ `
-uniform float uOpacity;
 varying float vTw;
 void main() {
-  float d = length(gl_PointCoord - 0.5);
-  if (d > 0.5) discard;
-  gl_FragColor = vec4(0.75, 0.95, 0.55, smoothstep(0.5, 0.0, d) * (0.15 + vTw * 0.35) * uOpacity);
+  vec2 c = gl_PointCoord - 0.5;
+  float d2 = dot(c, c);
+  if (d2 > 0.25) discard;
+  gl_FragColor = vec4(0.75, 0.95, 0.55, (1.0 - d2 * 4.0) * (0.15 + vTw * 0.35));
 }
 `;
 
-function rand(min: number, max: number) { return min + Math.random() * (max - min); }
+const rand = (min: number, max: number) => min + Math.random() * (max - min);
+
+// Ruído de valor 3D (CPU, executado uma vez na montagem).
+function hash3(x: number, y: number, z: number) {
+  const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+function valueNoise(x: number, y: number, z: number) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const fx = x - xi, fy = y - yi, fz = z - zi;
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  const c = (dx: number, dy: number, dz: number) => hash3(xi + dx, yi + dy, zi + dz);
+  return lerp(
+    lerp(lerp(c(0, 0, 0), c(1, 0, 0), u), lerp(c(0, 1, 0), c(1, 1, 0), u), v),
+    lerp(lerp(c(0, 0, 1), c(1, 0, 1), u), lerp(c(0, 1, 1), c(1, 1, 1), u), v),
+    w,
+  );
+}
+const smooth = (e0: number, e1: number, x: number) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
 
 export default function HeroScene({ onReady, onFail }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -177,7 +164,7 @@ export default function HeroScene({ onReady, onFail }: Props) {
 
     const isSmall = window.innerWidth < 768;
     const lowEnd = (navigator.hardwareConcurrency ?? 4) <= 4;
-    const dpr = Math.min(window.devicePixelRatio || 1, isSmall ? 1.25 : lowEnd ? 1.25 : 1.75);
+    const baseDpr = lowEnd ? 1 : Math.min(window.devicePixelRatio || 1, isSmall ? 1.25 : 1.5);
 
     let renderer: WebGLRenderer;
     try {
@@ -187,38 +174,31 @@ export default function HeroScene({ onReady, onFail }: Props) {
       cb.current.onFail?.();
       return;
     }
-    renderer.setPixelRatio(dpr);
     renderer.setClearColor(0x000000, 0);
     const canvas = renderer.domElement;
     canvas.setAttribute('aria-hidden', 'true');
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.display = 'block';
+    Object.assign(canvas.style, { width: '100%', height: '100%', display: 'block' });
     host.appendChild(canvas);
 
-    const onLost = (e: Event) => { e.preventDefault(); if (import.meta.env.DEV) console.warn('[HeroScene] contexto WebGL perdido'); cb.current.onFail?.(); };
-    canvas.addEventListener('webglcontextlost', onLost);
+    let failed = false;
+    let running = false;
 
     const scene = new Scene();
     const camera = new PerspectiveCamera(42, 1, 0.1, 100);
     camera.position.set(0, 0, 9.5);
-
     const world = new Group();
     scene.add(world);
     const ringGroup = new Group();
     ringGroup.rotation.set(-1.02, 0.18, 0.35);
     world.add(ringGroup);
 
-    // ---------- anel de partículas
-    const N = isSmall ? 3200 : lowEnd ? 5200 : 8000;
+    // ---------- anel
+    const N = isSmall ? 1200 : lowEnd ? 1800 : 3500;
     const scatter = new Float32Array(N * 3);
     const ring = new Float32Array(N * 4);
     const meta = new Float32Array(N * 3);
-    const zeros = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) {
-      const r = rand(4.5, 11);
-      const th = Math.random() * Math.PI * 2;
-      const ph = Math.acos(rand(-1, 1));
+      const r = rand(4.5, 11), th = Math.random() * Math.PI * 2, ph = Math.acos(rand(-1, 1));
       scatter[i * 3] = r * Math.sin(ph) * Math.cos(th);
       scatter[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th) * 0.7;
       scatter[i * 3 + 2] = r * Math.cos(ph) * 0.6;
@@ -226,25 +206,20 @@ export default function HeroScene({ onReady, onFail }: Props) {
       ring[i * 4 + 1] = Math.random() * Math.PI * 2;
       ring[i * 4 + 2] = Math.pow(Math.random(), 0.7);
       ring[i * 4 + 3] = rand(0.08, 0.2);
-      meta[i * 3] = Math.random() < 0.06 ? rand(2.2, 3.2) : rand(0.7, 1.6);
+      meta[i * 3] = Math.random() < 0.07 ? rand(2.2, 3.0) : rand(0.8, 1.6);
       meta[i * 3 + 1] = Math.random();
       meta[i * 3 + 2] = Math.random();
     }
     const ringGeo = new BufferGeometry();
-    ringGeo.setAttribute('position', new BufferAttribute(zeros, 3));
+    ringGeo.setAttribute('position', new BufferAttribute(new Float32Array(N * 3), 3));
     ringGeo.setAttribute('aScatter', new BufferAttribute(scatter, 3));
     ringGeo.setAttribute('aRing', new BufferAttribute(ring, 4));
     ringGeo.setAttribute('aMeta', new BufferAttribute(meta, 3));
     const ringMat = new ShaderMaterial({
-      vertexShader: RING_VERT,
-      fragmentShader: RING_FRAG,
-      transparent: true,
-      depthWrite: false,
-      depthTest: false,
-      blending: AdditiveBlending,
+      vertexShader: RING_VERT, fragmentShader: RING_FRAG, transparent: true, depthWrite: false, depthTest: false, blending: AdditiveBlending,
       uniforms: {
-        uTime: { value: 0 }, uProgress: { value: 0 }, uScroll: { value: 0 }, uPixelRatio: { value: dpr },
-        uSize: { value: isSmall ? 2.8 : 3.1 }, uOpacity: { value: 1 },
+        uTime: { value: 0 }, uProgress: { value: 0 }, uScroll: { value: 0 }, uPixelRatio: { value: baseDpr },
+        uSize: { value: isSmall ? 3.0 : 3.4 },
         uC1: { value: new Color('#059669') }, uC2: { value: new Color('#22c55e') }, uC3: { value: new Color('#bef264') },
       },
     });
@@ -252,111 +227,101 @@ export default function HeroScene({ onReady, onFail }: Props) {
     ringPoints.frustumCulled = false;
     ringGroup.add(ringPoints);
 
-    // ---------- planeta de pontos (esfera de Fibonacci)
-    const G = isSmall ? 1400 : 2600;
+    // ---------- planeta (esfera de Fibonacci + máscara de continentes pré-calculada)
+    const G = isSmall || lowEnd ? 900 : 1500;
     const gPos = new Float32Array(G * 3);
-    const gSeed = new Float32Array(G);
+    const gLand = new Float32Array(G);
     const golden = Math.PI * (3 - Math.sqrt(5));
     const GR = 1.45;
     for (let i = 0; i < G; i++) {
-      const y = 1 - (i / (G - 1)) * 2;
-      const rr = Math.sqrt(1 - y * y);
-      const th = golden * i;
-      gPos[i * 3] = Math.cos(th) * rr * GR;
-      gPos[i * 3 + 1] = y * GR;
-      gPos[i * 3 + 2] = Math.sin(th) * rr * GR;
-      gSeed[i] = Math.random();
+      const y = 1 - (i / (G - 1)) * 2, rr = Math.sqrt(1 - y * y), th = golden * i;
+      const x = Math.cos(th) * rr * GR, yy = y * GR, z = Math.sin(th) * rr * GR;
+      gPos[i * 3] = x; gPos[i * 3 + 1] = yy; gPos[i * 3 + 2] = z;
+      const n = valueNoise(x * 1.6 + 3, yy * 1.6 + 3, z * 1.6 + 3) * 0.65 + valueNoise(x * 3.4, yy * 3.4, z * 3.4) * 0.35;
+      gLand[i] = smooth(0.48, 0.62, n);
     }
     const globeGeo = new BufferGeometry();
     globeGeo.setAttribute('position', new BufferAttribute(gPos, 3));
-    globeGeo.setAttribute('aSeed', new BufferAttribute(gSeed, 1));
+    globeGeo.setAttribute('aLand', new BufferAttribute(gLand, 1));
     const globeMat = new ShaderMaterial({
-      vertexShader: GLOBE_VERT, fragmentShader: GLOBE_FRAG, transparent: true, depthWrite: false, depthTest: false,
-      blending: AdditiveBlending,
-      uniforms: { uTime: { value: 0 }, uProgress: { value: 0 }, uPixelRatio: { value: dpr }, uOpacity: { value: 0 } },
+      vertexShader: GLOBE_VERT, fragmentShader: GLOBE_FRAG, transparent: true, depthWrite: false, depthTest: false, blending: AdditiveBlending,
+      uniforms: { uProgress: { value: 0 }, uPixelRatio: { value: baseDpr }, uOpacity: { value: 0 } },
     });
     const globe = new Points(globeGeo, globeMat);
     globe.rotation.z = 0.35;
     world.add(globe);
 
-    // ---------- poeira ambiente
-    const D = isSmall ? 260 : 600;
+    // ---------- poeira
+    const D = isSmall ? 120 : 250;
     const dPos = new Float32Array(D * 3);
     const dSeed = new Float32Array(D);
     for (let i = 0; i < D; i++) {
-      dPos[i * 3] = rand(-14, 14);
-      dPos[i * 3 + 1] = rand(-10, 10);
-      dPos[i * 3 + 2] = rand(-8, 3);
+      dPos[i * 3] = rand(-14, 14); dPos[i * 3 + 1] = rand(-10, 10); dPos[i * 3 + 2] = rand(-8, 3);
       dSeed[i] = Math.random();
     }
     const dustGeo = new BufferGeometry();
     dustGeo.setAttribute('position', new BufferAttribute(dPos, 3));
     dustGeo.setAttribute('aSeed', new BufferAttribute(dSeed, 1));
     const dustMat = new ShaderMaterial({
-      vertexShader: DUST_VERT, fragmentShader: DUST_FRAG, transparent: true, depthWrite: false, depthTest: false,
-      blending: AdditiveBlending,
-      uniforms: { uTime: { value: 0 }, uPixelRatio: { value: dpr }, uOpacity: { value: 1 } },
+      vertexShader: DUST_VERT, fragmentShader: DUST_FRAG, transparent: true, depthWrite: false, depthTest: false, blending: AdditiveBlending,
+      uniforms: { uTime: { value: 0 }, uPixelRatio: { value: baseDpr } },
     });
     const dust = new Points(dustGeo, dustMat);
     dust.frustumCulled = false;
     scene.add(dust);
 
-    // ---------- layout responsivo
+    // ---------- estado de entrada (cacheado por eventos passivos; nada é lido do layout por quadro)
+    let scrollY = window.scrollY;
+    let vh = window.innerHeight || 1;
+    let lastInput = performance.now();
+    const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+    const heroRange = () => vh * 1.4;
+    let scrollS = Math.min(1, scrollY / heroRange());
+
+    // ---------- qualidade / tamanho
+    let quality = 0; // 0 cheio · 1 menos DPR e partículas · 2 + 30 fps fixo · 3 → fundo estático
+    let dpr = baseDpr;
     let layout = { x: 0, y: 0, scale: 1 };
-    const resize = () => {
+    let first = true;
+
+    const renderOnce = () => {
+      renderer.render(scene, camera);
+      if (first) { first = false; cb.current.onReady?.(); }
+    };
+
+    const applySize = () => {
       const w = host.clientWidth || window.innerWidth;
       const h = host.clientHeight || window.innerHeight;
+      const pr = Math.min(dpr, 1600 / w); // buffer interno ≤ 1600 px de largura
+      renderer.setPixelRatio(pr);
       renderer.setSize(w, h, false);
+      ringMat.uniforms.uPixelRatio.value = pr;
+      globeMat.uniforms.uPixelRatio.value = pr;
+      dustMat.uniforms.uPixelRatio.value = pr;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       const aspect = w / h;
       if (aspect > 1.25) layout = { x: Math.min(3.1, 1.2 + (aspect - 1.25) * 2.4), y: -0.1, scale: 1 };
       else if (aspect > 0.85) layout = { x: 0.9, y: 0.2, scale: 0.9 };
       else layout = { x: 0, y: 1.75, scale: 0.52 };
+      if (!running && !failed && !first) { update(0); renderOnce(); }
     };
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(host);
 
-    // ---------- interação
-    const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
-    const onPointer = (e: PointerEvent) => {
-      mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.ty = (e.clientY / window.innerHeight) * 2 - 1;
-    };
-    window.addEventListener('pointermove', onPointer, { passive: true });
-
-    let visible = true;
-    const io = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }, { threshold: 0 });
-    io.observe(host);
-
-    // ---------- loop
-    const clock = new Clock();
     let elapsed = 0;
-    let raf = 0;
-    let first = true;
-    let scrollS = 0;
     const startedAt = performance.now();
-
-    const frame = () => {
-      raf = requestAnimationFrame(frame);
-      const dt = Math.min(clock.getDelta(), 0.05);
-      if (!visible || document.hidden) return;
-      elapsed += dt;
-
+    function update(dtSec: number) {
+      elapsed += dtSec;
       const intro = Math.min(1, (performance.now() - startedAt) / 3200);
       const introEased = 1 - Math.pow(1 - intro, 3);
-      const vh = window.innerHeight || 1;
-      const targetScroll = Math.min(1, Math.max(0, window.scrollY / (vh * 1.4)));
-      scrollS += (targetScroll - scrollS) * 0.08;
-
-      mouse.x += (mouse.tx - mouse.x) * 0.04;
-      mouse.y += (mouse.ty - mouse.y) * 0.04;
+      const target = Math.min(1, Math.max(0, scrollY / heroRange()));
+      scrollS += (target - scrollS) * 0.1;
+      if (Math.abs(target - scrollS) < 0.001) scrollS = target;
+      mouse.x += (mouse.tx - mouse.x) * 0.05;
+      mouse.y += (mouse.ty - mouse.y) * 0.05;
 
       ringMat.uniforms.uTime.value = elapsed;
       ringMat.uniforms.uProgress.value = introEased;
       ringMat.uniforms.uScroll.value = scrollS;
-      globeMat.uniforms.uTime.value = elapsed;
       globeMat.uniforms.uProgress.value = introEased;
       globeMat.uniforms.uOpacity.value = introEased * (1 - scrollS * 0.6);
       dustMat.uniforms.uTime.value = elapsed;
@@ -369,17 +334,107 @@ export default function HeroScene({ onReady, onFail }: Props) {
       ringGroup.rotation.z = 0.35 + elapsed * 0.04 + scrollS * 0.9;
       globe.rotation.y = elapsed * 0.08;
       camera.position.z = 9.5 + scrollS * 1.5;
+      return target;
+    }
 
-      renderer.render(scene, camera);
-      if (first) { first = false; cb.current.onReady?.(); }
+    // ---------- loop (gsap.ticker) + governador
+    const samples: number[] = [];
+    let lastStepAt = startedAt;
+    let lastTick = 0;
+    let acc = 0;
+
+    const fail = (why: string) => {
+      if (failed) return;
+      failed = true;
+      if (import.meta.env.DEV) console.warn(`[HeroScene] ${why} → fundo estático`);
+      stop();
+      cb.current.onFail?.();
     };
-    raf = requestAnimationFrame(frame);
+
+    const setQuality = (q: number) => {
+      quality = q;
+      if (q >= 3) { fail('desempenho insuficiente'); return; }
+      const keep = q === 0 ? 1 : q === 1 ? 0.7 : 0.5;
+      dpr = q === 0 ? baseDpr : Math.max(0.75, baseDpr * (q === 1 ? 0.8 : 0.66));
+      ringGeo.setDrawRange(0, Math.floor(N * keep));
+      globeGeo.setDrawRange(0, Math.floor(G * keep));
+      applySize();
+      if (import.meta.env.DEV) console.info(`[HeroScene] qualidade ${q}: dpr ${dpr.toFixed(2)}, ${Math.round(keep * 100)}% partículas`);
+    };
+
+    const tick = (_time: number, deltaMs: number) => {
+      const now = performance.now();
+      const interval = lastTick ? now - lastTick : 16.7;
+      lastTick = now;
+
+      // Intervalo médio entre quadros do navegador (após aquecimento e com folga entre passos).
+      if (now - startedAt > 1500 && now - lastStepAt > 2000) {
+        samples.push(interval);
+        if (samples.length >= 60) {
+          const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
+          samples.length = 0;
+          if (avg > 20) { lastStepAt = now; setQuality(quality + 1); if (failed) return; }
+        }
+      }
+
+      acc += Math.min(deltaMs, 50) / 1000;
+      const idle = now - lastInput > 1500 && now - startedAt > 3400;
+      if ((quality >= 2 || idle) && acc < 1 / 31) return; // 30 fps
+      const target = update(acc);
+      acc = 0;
+      renderOnce();
+      // Hero fora de vista e cena assentada → loop parado (retoma no scroll de volta).
+      if (target >= 1 && scrollS >= 1) stop();
+    };
+
+    function start() {
+      if (running || failed || document.hidden) return;
+      running = true;
+      lastTick = 0;
+      acc = 0;
+      samples.length = 0;
+      gsap.ticker.add(tick);
+    }
+    function stop() {
+      if (!running) return;
+      running = false;
+      gsap.ticker.remove(tick);
+    }
+
+    const onPointer = (e: PointerEvent) => {
+      mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.ty = (e.clientY / window.innerHeight) * 2 - 1;
+      lastInput = performance.now();
+      if (scrollY < heroRange()) start();
+    };
+    const onScroll = () => {
+      scrollY = window.scrollY;
+      lastInput = performance.now();
+      if (scrollY < heroRange() || scrollS < 1) start();
+    };
+    const onResize = () => { vh = window.innerHeight || 1; };
+    const onVisibility = () => { if (document.hidden) stop(); else if (scrollY < heroRange()) start(); };
+    const onLost = (e: Event) => { e.preventDefault(); fail('contexto WebGL perdido'); };
+    window.addEventListener('pointermove', onPointer, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize, { passive: true });
+    document.addEventListener('visibilitychange', onVisibility);
+    canvas.addEventListener('webglcontextlost', onLost);
+
+    applySize();
+    const ro = new ResizeObserver(() => applySize());
+    ro.observe(host);
+    update(0);
+    renderOnce();
+    start();
 
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       ro.disconnect();
-      io.disconnect();
       window.removeEventListener('pointermove', onPointer);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', onVisibility);
       canvas.removeEventListener('webglcontextlost', onLost);
       ringGeo.dispose(); ringMat.dispose();
       globeGeo.dispose(); globeMat.dispose();

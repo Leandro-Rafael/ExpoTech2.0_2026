@@ -6,7 +6,7 @@ import { cn } from '@/lib/cn';
 function Frame({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn('glass-strong relative w-full overflow-hidden rounded-3xl p-5 sm:p-6', className)}>
-      <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 size-64 rounded-full bg-brand-500/15 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -top-32 -right-32 size-80 bg-[radial-gradient(closest-side,rgb(16_185_129/0.16),transparent)]" />
       {children}
     </div>
   );
@@ -20,7 +20,7 @@ export function VisualRegister() {
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex size-24 items-center justify-center rounded-3xl border border-brand-300/30 bg-brand-500/10 text-brand-300"><Camera className="size-10" /></div>
         </div>
-        <span className="absolute bottom-3 left-3 rounded-full bg-black/40 px-2.5 py-1 text-[11px] text-fg-soft backdrop-blur">garrafa-pet.jpg · 1,2 MB</span>
+        <span className="absolute bottom-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-fg-soft">garrafa-pet.jpg · 1,2 MB</span>
       </div>
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-xl border border-line bg-bg-deep/50 p-3"><p className="text-[11px] text-muted">Quantidade</p><p className="font-display text-lg font-semibold tabular">2,4 kg</p></div>
@@ -36,7 +36,7 @@ export function VisualAI() {
       <div className="relative mb-4 aspect-[16/10] overflow-hidden rounded-2xl border border-line bg-[linear-gradient(135deg,#0b1f15,#04140d)]">
         <div className="absolute inset-6 rounded-xl border-2 border-dashed border-lime-300/50" />
         <div className="absolute inset-x-6 top-1/2 h-0.5 bg-gradient-to-r from-transparent via-lime-300 to-transparent shadow-[0_0_20px_#bef264] motion-safe:animate-[float_2.4s_ease-in-out_infinite]" />
-        <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-2.5 py-1 text-[11px] text-lime-200 backdrop-blur"><ScanLine className="size-3.5" />Analisando imagem…</div>
+        <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-lime-200"><ScanLine className="size-3.5" />Analisando imagem…</div>
       </div>
       <div className="flex items-center gap-3 rounded-2xl border border-brand-300/30 bg-brand-500/10 p-3.5">
         <span className="inline-flex size-11 items-center justify-center rounded-xl bg-[#ef4444]/15 text-[#f87171]"><Recycle className="size-5" /></span>

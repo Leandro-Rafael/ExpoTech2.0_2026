@@ -10,7 +10,7 @@ import { usePublicStats } from '@/api/queries';
 import { useAuth } from '@/auth/AuthProvider';
 import { ButtonLink, buttonClasses } from '@/components/ui';
 import { Logo } from '@/components/layout/Logo';
-import { useCountUp } from '@/hooks/useCountUp';
+import { useCountUpText } from '@/hooks/useCountUp';
 import { useInView } from '@/hooks/useInView';
 import { formatCompact, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -167,17 +167,17 @@ export function HowItWorks({ active }: { active: number }) {
         <div className="hidden gap-16 lg:grid lg:grid-cols-[1fr_1.05fr]">
           <ol className="relative space-y-2">
             <span aria-hidden className="absolute top-3 bottom-3 left-[23px] w-px bg-line-strong" />
-            <span aria-hidden data-how="bar" className="absolute top-3 left-[23px] w-px origin-top bg-gradient-to-b from-brand-400 to-lime-300 shadow-[0_0_10px_#34d399]" style={{ height: `calc(${(active / (STEPS.length - 1)) * 100}% - 24px)`, transition: 'height .5s var(--ease-out-expo)' }} />
+            <span aria-hidden className="absolute top-3 bottom-3 left-[23px] w-px origin-top bg-gradient-to-b from-brand-400 to-lime-300 transition-transform duration-500 ease-[var(--ease-out-expo)]" style={{ transform: `scaleY(${active / (STEPS.length - 1)})` }} />
             {STEPS.map((s, i) => (
-              <li key={s.title} className={cn('relative flex gap-5 rounded-2xl p-3 transition-all duration-500', i === active ? 'opacity-100' : 'opacity-40')}>
-                <span className={cn('relative z-10 inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border transition-all duration-500',
+              <li key={s.title} className={cn('relative flex gap-5 rounded-2xl p-3 transition-opacity duration-500', i === active ? 'opacity-100' : 'opacity-40')}>
+                <span className={cn('relative z-10 inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border transition-colors duration-500',
                   i <= active ? 'border-brand-300/50 bg-brand-500/20 text-brand-300 shadow-glow' : 'border-line-strong bg-surface text-subtle')}>
                   <s.icon className="size-5" aria-hidden />
                 </span>
                 <div className="pt-1">
                   <p className="text-xs font-semibold tracking-[0.08em] text-subtle tabular">{s.kicker}</p>
                   <h3 className="font-display text-2xl font-semibold">{s.title}</h3>
-                  <p className={cn('mt-1 max-w-md text-[15px] leading-relaxed text-muted transition-all duration-500', i === active ? 'max-h-32 opacity-100' : 'max-h-0 overflow-hidden opacity-0')}>{s.text}</p>
+                  <p className={cn('mt-1 max-w-md text-[15px] leading-relaxed text-muted transition-opacity duration-500', i === active ? 'opacity-100' : 'opacity-0')}>{s.text}</p>
                 </div>
               </li>
             ))}
@@ -226,7 +226,7 @@ const BINS = [
 export function SmartHome() {
   const [ref, inView] = useInView<HTMLDivElement>({ threshold: 0.3 });
   return (
-    <section id="smart-home" className="relative py-24 sm:py-32 lg:pt-16">
+    <section id="smart-home" className="contain-section relative py-24 sm:py-32 lg:pt-16">
       <div className="container-app grid items-center gap-14 lg:grid-cols-2">
         <div data-reveal>
           <SectionEyebrow>Smart Home 2050</SectionEyebrow>
@@ -264,8 +264,8 @@ export function SmartHome() {
             {BINS.map((b, i) => (
               <div key={b.name} className="rounded-2xl border border-line bg-bg-deep/60 p-3 sm:p-4">
                 <div className="relative mx-auto h-32 w-full max-w-[84px] overflow-hidden rounded-xl border border-line-strong bg-surface sm:h-40">
-                  <div className="absolute inset-x-0 bottom-0 transition-[height] duration-[1400ms] ease-[var(--ease-out-expo)]"
-                    style={{ height: inView ? `${b.fill}%` : '4%', transitionDelay: `${i * 150}ms`, background: `linear-gradient(180deg, ${b.color}cc, ${b.color}55)` }}>
+                  <div className="absolute inset-x-0 bottom-0 origin-bottom transition-transform duration-[1400ms] ease-[var(--ease-out-expo)]"
+                    style={{ height: `${b.fill}%`, transform: `scaleY(${inView ? 1 : 0.05})`, transitionDelay: `${i * 150}ms`, background: `linear-gradient(180deg, ${b.color}cc, ${b.color}55)` }}>
                     <div className="absolute inset-x-0 top-0 h-1 bg-white/40" />
                   </div>
                   <span className="absolute inset-x-0 top-2 text-center font-display text-lg font-semibold tabular">{b.fill}%</span>
@@ -294,13 +294,14 @@ const FALLBACK_STATS: PublicStats = {
 };
 
 function Counter({ value, label, icon: Icon, suffix, start, compact }: { value: number; label: string; icon: LucideIcon; suffix?: string; start: boolean; compact?: boolean }) {
-  const v = useCountUp(value, { start, duration: 2000 });
+  const fmt = (n: number) => (compact && value >= 10000 ? formatCompact(n) : formatNumber(n));
+  const numRef = useCountUpText<HTMLSpanElement>(value, fmt, { start, duration: 2000 });
   return (
     <div className="glass group relative overflow-hidden rounded-3xl p-6">
-      <div aria-hidden className="pointer-events-none absolute -right-10 -bottom-10 size-36 rounded-full bg-brand-500/10 blur-2xl transition-opacity group-hover:opacity-150" />
+      <div aria-hidden className="pointer-events-none absolute -right-16 -bottom-16 size-52 bg-[radial-gradient(closest-side,rgb(16_185_129/0.14),transparent)]" />
       <Icon className="size-5 text-brand-300" aria-hidden />
       <p className="mt-4 font-display text-4xl font-semibold tracking-tight tabular sm:text-5xl">
-        {compact && value >= 10000 ? formatCompact(v) : formatNumber(v)}
+        <span ref={numRef} />
         {suffix && <span className="ml-1 text-xl text-muted sm:text-2xl">{suffix}</span>}
       </p>
       <p className="mt-1 text-sm text-muted">{label}</p>
@@ -314,7 +315,7 @@ export function ImpactStats() {
   const stats = data ?? FALLBACK_STATS;
   const demo = !data && (isError || !isPending);
   return (
-    <section id="impacto" className="relative py-24 sm:py-32">
+    <section id="impacto" className="contain-section relative py-24 sm:py-32">
       <div className="container-app">
         <div className="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-end" data-reveal>
           <div className="max-w-2xl">
@@ -400,7 +401,7 @@ export function Features() {
     },
   ];
   return (
-    <section id="recursos" className="relative py-24 sm:py-32">
+    <section id="recursos" className="contain-section relative py-24 sm:py-32">
       <div className="container-app">
         <div className="mb-12 max-w-2xl" data-reveal>
           <SectionEyebrow>Recursos</SectionEyebrow>
@@ -409,7 +410,7 @@ export function Features() {
         <div className="grid gap-4 md:grid-cols-3">
           {cards.map((c) => (
             <article key={c.title} data-reveal className={cn('glass group relative overflow-hidden rounded-3xl p-6 transition-[border-color,transform] duration-500 hover:-translate-y-1 hover:border-line-strong sm:p-7', c.className)}>
-              <div aria-hidden className="pointer-events-none absolute -top-20 -right-20 size-56 rounded-full bg-brand-500/0 blur-3xl transition-colors duration-700 group-hover:bg-brand-500/15" />
+              <div aria-hidden className="pointer-events-none absolute -top-28 -right-28 size-72 bg-[radial-gradient(closest-side,rgb(16_185_129/0.2),transparent)] opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
               <span className="inline-flex size-11 items-center justify-center rounded-2xl border border-brand-300/30 bg-gradient-to-br from-brand-500/25 to-lime-300/5 text-brand-300">
                 <c.icon className="size-5" aria-hidden />
               </span>
@@ -436,7 +437,7 @@ const TIMELINE = [
 
 export function Timeline() {
   return (
-    <section id="2050" data-timeline className="relative py-24 sm:py-32">
+    <section id="2050" data-timeline className="contain-section relative py-24 sm:py-32">
       <div className="container-app">
         <div className="mb-14 max-w-2xl" data-reveal>
           <SectionEyebrow>Rumo a 2050</SectionEyebrow>
@@ -491,7 +492,7 @@ export function FinalCta() {
 
 export function Footer() {
   return (
-    <footer className="relative border-t border-line bg-bg/80 py-12 backdrop-blur">
+    <footer className="cv-auto relative border-t border-line bg-bg py-12">
       <div className="container-app grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
         <div>
           <Logo variant="full" size={40} />

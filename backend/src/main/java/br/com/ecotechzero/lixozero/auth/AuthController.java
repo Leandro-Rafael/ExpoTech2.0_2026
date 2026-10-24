@@ -1,5 +1,8 @@
 package br.com.ecotechzero.lixozero.auth;
 
+import br.com.ecotechzero.lixozero.common.ApiException;
+import br.com.ecotechzero.lixozero.common.ErrorCode;
+import br.com.ecotechzero.lixozero.security.AuthCookies;
 import br.com.ecotechzero.lixozero.security.AuthUser;
 import br.com.ecotechzero.lixozero.user.UserDtos.UserMe;
 import br.com.ecotechzero.lixozero.user.UserService;
@@ -56,6 +59,22 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@AuthenticationPrincipal AuthUser me, HttpServletRequest request, HttpServletResponse response) {
         authService.logout(me == null ? null : me.id(), request, response);
+    }
+
+    /**
+     * Sessão atual para o boot do SPA, sem erro para visitante: 200 {@code UserMe} com sessão válida; 204 sem sessão;
+     * 401 só quando o access token venceu mas há refresh token (o cliente renova e repete). Assim a landing e o
+     * login não geram 401 no console de quem nunca entrou.
+     */
+    @GetMapping("/session")
+    public ResponseEntity<UserMe> session(@AuthenticationPrincipal AuthUser me, HttpServletRequest request) {
+        if (me != null) {
+            return ResponseEntity.ok(userService.getMe(me.id()));
+        }
+        if (AuthCookies.read(request, AuthCookies.REFRESH).isPresent()) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED, "Sessão expirada. Faça login novamente.");
+        }
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")

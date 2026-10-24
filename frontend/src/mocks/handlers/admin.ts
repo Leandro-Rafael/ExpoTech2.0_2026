@@ -554,7 +554,15 @@ export function registerAdminRoutes() {
   route('GET', '/admin/audit', ({ query }) => {
     const page = intParam(query, 'page', 0, 0, 10_000);
     const size = intParam(query, 'size', 20, 1, 100);
-    const p = paginate(db().audit, page, size);
+    const actions = query.getAll('action').flatMap((a) => a.split(',')).map((a) => a.trim()).filter(Boolean);
+    const v = new Validator();
+    v.check(actions.length <= 50, 'action', 'no máximo 50 ações por filtro');
+    v.check(actions.every((a) => /^[A-Z][A-Z0-9_]{0,59}$/.test(a)), 'action', 'ação inválida');
+    v.throwIfAny();
+    const text = (query.get('q') ?? '').trim().slice(0, 100).toLowerCase();
+    const rows = db().audit.filter((e) => (!actions.length || actions.includes(e.action))
+      && (!text || [e.actor, e.details, e.entity, e.ip].some((x) => x?.toLowerCase().includes(text))));
+    const p = paginate(rows, page, size);
     return ok<Page<AuditEntry>>({ ...p, content: p.content.map((e) => ({ ...e })) });
   }, A);
 

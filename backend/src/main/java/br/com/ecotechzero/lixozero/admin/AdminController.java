@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /** Painel administrativo: visão geral, usuários, moderação, auditoria e relatórios (apenas ADMIN). */
@@ -91,8 +92,10 @@ public class AdminController {
     }
 
     @GetMapping("/audit")
-    public PageResponse<AuditEntryDto> audit(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
-        return audit.page(page, size);
+    public PageResponse<AuditEntryDto> audit(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size,
+                                             @RequestParam(required = false) List<String> action,
+                                             @RequestParam(required = false) String q) {
+        return audit.page(page, size, action, q);
     }
 
     @GetMapping("/reports/disposals.csv")

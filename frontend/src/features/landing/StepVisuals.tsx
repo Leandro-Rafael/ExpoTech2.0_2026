@@ -77,6 +77,8 @@ const STEP_META = [
   { title: 'Rota otimizada', meta: '−31% km' },
 ];
 const CHECKS = ['Foto inédita (hash perceptual)', 'Quantidade dentro do limite', 'Localização consistente', 'Frequência normal de envios'];
+/** Versões curtas para o palco estreito do celular. */
+const CHECKS_SHORT = ['Foto inédita', 'Quantidade ok', 'Local consistente', 'Frequência normal'];
 const PARTICLES = [
   { t: '+3', x: -78, y: 30, d: 0 }, { t: '+5', x: 70, y: 6, d: 0.35 }, { t: '+8', x: -60, y: -18, d: 0.8 },
   { t: '+12', x: 82, y: 58, d: 1.15 }, { t: '+', x: -92, y: 78, d: 1.5 }, { t: '+6', x: 54, y: -40, d: 1.85 },
@@ -206,7 +208,7 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       const drive = i === 4 ? clamp((t - 0.38) / 0.55) : 0;
       const pt = along(drive * ROUTE_LEN);
       op('truck', i === 4 ? clamp((t - 0.1) / 0.1) : 0);
-      attr('truck', 'transform', `translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)}) rotate(${pt.deg.toFixed(1)})`);
+      attr('truck', 'transform', `translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)}) rotate(${pt.deg.toFixed(1)}) scale(1.35)`);
       attr('route', 'stroke-dashoffset', (ROUTE_LEN * (1 - drive)).toFixed(1));
       STOP_AT.forEach((at, k) => { if (k > 0) op(`stop${k}`, drive * ROUTE_LEN >= at - 2 ? 1 : 0); });
 
@@ -294,7 +296,8 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
                     <span ref={ref(`pd${k}`)} className="absolute inset-0.5 rounded-full border border-line-strong" />
                     <Check ref={ref(`ck${k}`)} className="absolute size-4 text-brand-300" strokeWidth={2.5} style={{ opacity: 0 }} aria-hidden />
                   </span>
-                  {c}
+                  <span className="sm:hidden">{CHECKS_SHORT[k]}</span>
+                  <span className="max-sm:hidden">{c}</span>
                 </li>
               ))}
             </ul>
@@ -305,7 +308,7 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
             {PARTICLES.map((q, k) => (
               <span
                 key={k}
-                className={cn('absolute font-mono text-[12px] tabular', k % 3 === 0 ? 'text-accent' : 'text-brand-300', animated && 'animate-[pts-rise_2.6s_cubic-bezier(0.22,1,0.36,1)_infinite]')}
+                className={cn('absolute font-mono text-[13px] tabular', k % 3 === 0 ? 'text-accent' : 'text-brand-300', animated && 'animate-[pts-rise_2.6s_cubic-bezier(0.22,1,0.36,1)_infinite]')}
                 style={{ left: q.x, top: q.y, animationDelay: `${q.d}s`, opacity: animated ? undefined : 0.85 }}
               >
                 {q.t}

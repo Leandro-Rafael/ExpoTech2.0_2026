@@ -37,6 +37,7 @@ Códigos (`code`): `VALIDATION_ERROR`, `BAD_CREDENTIALS`, `ACCOUNT_LOCKED`, `UNA
 | POST | `/refresh` | — | 200 `UserMe` |
 | POST | `/logout` | — | 204 |
 | GET | `/me` | — | 200 `UserMe` |
+| GET | `/session` | — | 200 `UserMe` · **204** sem sessão · 401 só se houver refresh token (o cliente renova e repete). Usado no boot do SPA para o visitante não gerar 401. |
 
 Regras de senha: 10–128 caracteres, ao menos 1 letra e 1 número, não pode conter o e-mail nem estar na lista de senhas comuns.
 
@@ -124,6 +125,7 @@ de `CreateDisposal` são apenas um **palpite** do navegador: ficam guardados, nu
 | POST | `/disposals/{id}/reject` | `{reason}` | `Disposal` |
 | POST/PUT | `/categories`, `/categories/{id}` | `CategoryInput` | `Category` |
 | POST/PUT/DELETE | `/collection-points`, `/collection-points/{id}` | `CollectionPointInput` | `CollectionPoint` |
+| GET | `/rewards` | — | `Reward[]` (todas, inclusive inativas) |
 | POST/PUT | `/rewards`, `/rewards/{id}` | `RewardInput` | `Reward` |
 | GET/POST/PUT | `/challenges`, `/challenges/{id}` | `ChallengeInput` | `Challenge` |
 | GET/POST | `/organizations` | `{name, type}` | `Organization` |
@@ -134,7 +136,7 @@ de `CreateDisposal` são apenas um **palpite** do navegador: ficam guardados, nu
 | POST | `/routes` | `{name, collectorId?, plannedDate, requestIds, depot?, vehicleCapacityKg?}` | 201 `Route[]` |
 | GET | `/routes` | — | `Route[]` |
 | GET | `/bins` | — | `SmartBin[]` (com `household`) |
-| GET | `/audit?page&size` | — | `Page<AuditEntry>` |
+| GET | `/audit?page&size&action&q` | — | `Page<AuditEntry>` (mais recentes primeiro; `action` = código da ação, pode repetir ou separar por vírgula — vale qualquer uma, até 50; `q` = texto em autor, detalhes, entidade ou IP, até 100 caracteres) |
 | GET | `/reports/disposals.csv?from&to` | — | `text/csv` |
 
 `AdminUser` traz também `lockReason` (`PASSWORD`\|`INSPECTION`\|null), `lockedUntil` e `securityWarnings`.

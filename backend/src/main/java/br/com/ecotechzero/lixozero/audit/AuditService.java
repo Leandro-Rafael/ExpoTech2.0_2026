@@ -1,5 +1,6 @@
 package br.com.ecotechzero.lixozero.audit;
 
+import br.com.ecotechzero.lixozero.common.ApiException;
 import br.com.ecotechzero.lixozero.common.PageResponse;
 import br.com.ecotechzero.lixozero.common.Pagination;
 import br.com.ecotechzero.lixozero.common.RequestContext;
@@ -52,9 +53,39 @@ public class AuditService {
         save(actorId, actorLabel, action, entity, entityId, details);
     }
 
+    /** Máximo de ações por filtro (um grupo da tela de auditoria tem bem menos). */
+    static final int MAX_ACTION_FILTERS = 50;
+    private static final java.util.regex.Pattern ACTION_CODE = java.util.regex.Pattern.compile("[A-Z][A-Z0-9_]{0,59}");
+
     @Transactional(readOnly = true)
     public PageResponse<AuditEntryDto> page(Integer page, Integer size) {
-        return PageResponse.of(repository.findAll(Pagination.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))), AuditEntryDto::of);
+        return page(page, size, null, null);
+    }
+
+    /**
+     * Página da auditoria com filtros opcionais: {@code actions} (códigos de ação, ex.: DISPOSAL_APPROVED;
+     * vários = OU) e {@code q} (texto em autor, detalhes, entidade ou IP; até 100 caracteres).
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<AuditEntryDto> page(Integer page, Integer size, List<String> actions, String q) {
+        List<String> codes = actions == null ? List.of() : actions.stream()
+                .flatMap(a -> java.util.Arrays.stream(a.split(",")))
+                .map(String::trim).filter(a -> !a.isEmpty()).distinct().toList();
+        if (codes.size() > MAX_ACTION_FILTERS) {
+            throw ApiException.field("action", "no máximo " + MAX_ACTION_FILTERS + " ações por filtro");
+        }
+        for (String code : codes) {
+            if (!ACTION_CODE.matcher(code).matches()) {
+                throw ApiException.field("action", "ação inválida");
+            }
+        }
+        String cleaned = Text.clean(q);
+        String pattern = cleaned == null ? null : "%" + Text.truncate(cleaned, 100).toLowerCase(java.util.Locale.ROOT)
+                .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+        var pageable = Pagination.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        // Lista vazia em "IN" não é SQL válido: passa um valor qualquer e liga o "anyAction".
+        return PageResponse.of(repository.search(codes.isEmpty(), codes.isEmpty() ? List.of("-") : codes, pattern, pageable),
+                AuditEntryDto::of);
     }
 
     @Transactional(readOnly = true)

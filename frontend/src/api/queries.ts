@@ -13,7 +13,7 @@ import {
   type QueryClient, type UseQueryOptions,
 } from '@tanstack/react-query';
 import { authApi } from './auth';
-import { adminApi, type AdminDisposalsParams, type AdminUsersParams, type CreateRoutesInput, type OptimizeRoutesInput } from './admin';
+import { adminApi, type AdminDisposalsParams, type AdminUsersParams, type AuditQuery, type CreateRoutesInput, type OptimizeRoutesInput } from './admin';
 import { categoriesApi } from './catalog';
 import { collectionApi, type CollectionPointParams } from './collection';
 import { collectorApi } from './collector';
@@ -73,7 +73,7 @@ export const qk = {
     collectors: ['admin', 'collectors'] as const,
     routes: ['admin', 'routes'] as const,
     bins: ['admin', 'bins'] as const,
-    audit: (p: { page?: number; size?: number }) => ['admin', 'audit', p] as const,
+    audit: (p: AuditQuery) => ['admin', 'audit', p] as const,
   },
 };
 
@@ -259,7 +259,7 @@ export const useAdminCollectionRequests = (status?: CollectionRequestStatus) =>
 export const useAdminCollectors = () => useQuery({ queryKey: qk.admin.collectors, queryFn: adminApi.collectors, staleTime: 5 * 60_000 });
 export const useAdminRoutes = () => useQuery({ queryKey: qk.admin.routes, queryFn: adminApi.routes });
 export const useAdminBins = () => useQuery({ queryKey: qk.admin.bins, queryFn: adminApi.bins, refetchInterval: 30_000 });
-export const useAdminAudit = (p: { page?: number; size?: number } = {}) =>
+export const useAdminAudit = (p: AuditQuery = {}) =>
   useQuery({ queryKey: qk.admin.audit(p), queryFn: () => adminApi.audit(p), placeholderData: keepPreviousData });
 
 // ------------------------------------------------------------------ admin (mutações)

@@ -1,6 +1,7 @@
 import { useState, type ComponentPropsWithRef } from 'react';
 import { cn } from '@/lib/cn';
 import { controlClasses } from './Input';
+import { useFieldA11y } from './Field';
 
 export interface TextareaProps extends ComponentPropsWithRef<'textarea'> {
   invalid?: boolean;
@@ -9,7 +10,8 @@ export interface TextareaProps extends ComponentPropsWithRef<'textarea'> {
 }
 
 /** Área de texto. Compatível com register(). */
-export function Textarea({ invalid, showCount = true, className, maxLength, onChange, ...rest }: TextareaProps) {
+export function Textarea({ invalid, showCount = true, className, maxLength, onChange, ...props }: TextareaProps) {
+  const rest = useFieldA11y(props);
   const [count, setCount] = useState(() => String(rest.value ?? rest.defaultValue ?? '').length);
   return (
     <div className="relative">

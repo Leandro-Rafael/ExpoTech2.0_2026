@@ -120,4 +120,17 @@ export function registerAuthRoutes() {
   }, { access: 'public' });
 
   route('GET', '/auth/me', ({ me }) => ok<UserMe>(toUserMe(db(), me)));
+
+  // Boot do SPA: 200 com sessão, 204 para visitante, 401 só se há "refresh token" (o cliente renova).
+  route('GET', '/auth/session', () => {
+    const d = db();
+    const user = currentUser(d);
+    if (user) {
+      const left = inspectionLockRemaining(user);
+      if (left > 0) throw fail.inspectionLocked(left / 1000);
+      return ok<UserMe>(toUserMe(d, user));
+    }
+    if (sessionUserId()) throw fail.unauthorized('Sessão expirada. Faça login novamente.');
+    return noContent();
+  }, { access: 'public' });
 }

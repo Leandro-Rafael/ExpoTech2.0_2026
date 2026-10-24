@@ -12,6 +12,8 @@ export interface OptimizeRoutesInput { requestIds: UUID[]; depot?: GeoPoint; veh
 export interface CreateRoutesInput extends OptimizeRoutesInput { name: string; collectorId?: UUID | null; plannedDate: string }
 
 /** /api/admin — somente ADMIN. */
+export interface AuditQuery { page?: number; size?: number; action?: string[]; q?: string }
+
 export const adminApi = {
   overview: () => api.get<AdminOverview>('/admin/overview'),
 
@@ -57,7 +59,9 @@ export const adminApi = {
   routes: () => api.get<Route[]>('/admin/routes'),
 
   bins: () => api.get<SmartBin[]>('/admin/bins'),
-  audit: (params: { page?: number; size?: number } = {}) => api.get<Page<AuditEntry>>('/admin/audit', { query: { ...params } }),
+  /** `action`: um ou mais códigos (OU); `q`: texto em autor, detalhes, entidade ou IP. */
+  audit: (params: AuditQuery = {}) =>
+    api.get<Page<AuditEntry>>('/admin/audit', { query: { page: params.page, size: params.size, action: params.action, q: params.q } }),
 
   /** CSV de descartes. `const { blob, filename } = await adminApi.disposalsCsv({ from, to }); saveBlob(blob, filename ?? 'descartes.csv')` */
   disposalsCsv: (params: { from?: string; to?: string } = {}) =>

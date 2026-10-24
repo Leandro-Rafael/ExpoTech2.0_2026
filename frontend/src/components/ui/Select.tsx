@@ -2,6 +2,7 @@ import type { ComponentPropsWithRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { controlClasses } from './Input';
+import { useFieldA11y } from './Field';
 
 export interface SelectOption { value: string; label: string; disabled?: boolean }
 
@@ -19,7 +20,8 @@ const sizes = { sm: 'h-9 text-[13px]', md: 'h-11 text-sm', lg: 'h-12 text-[15px]
  * Select nativo estilizado (melhor acessibilidade e UX no celular). Compatível com register().
  * `<Select options={[{ value: 'WEEK', label: 'Semana' }]} {...register('period')} />`
  */
-export function Select({ options, placeholder, invalid, inputSize = 'md', className, children, ...rest }: SelectProps) {
+export function Select({ options, placeholder, invalid, inputSize = 'md', className, children, ...props }: SelectProps) {
+  const rest = useFieldA11y(props);
   return (
     <div className="relative">
       <select

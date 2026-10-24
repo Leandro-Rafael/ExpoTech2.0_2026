@@ -1,6 +1,7 @@
 import { useState, type ComponentPropsWithRef, type ReactNode } from 'react';
 import { Eye, EyeOff, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useFieldA11y } from './Field';
 
 /** Classes compartilhadas por Input, NumberInput, Textarea e Select. */
 export const controlClasses =
@@ -25,7 +26,8 @@ export interface InputProps extends Omit<ComponentPropsWithRef<'input'>, 'size'>
  * Campo de texto. Compatível com `register()` do react-hook-form (ref é repassado).
  * `<Input leftIcon={Mail} type="email" {...register('email')} />`
  */
-export function Input({ leftIcon: L, rightSlot, inputSize = 'md', invalid, className, wrapperClassName, ...rest }: InputProps) {
+export function Input({ leftIcon: L, rightSlot, inputSize = 'md', invalid, className, wrapperClassName, ...props }: InputProps) {
+  const rest = useFieldA11y(props);
   return (
     <div className={cn('relative flex items-center', wrapperClassName)}>
       {L && <L aria-hidden className="pointer-events-none absolute left-3.5 size-[18px] text-subtle" />}

@@ -7,33 +7,29 @@ import { toneDot } from '@/components/ui/Badge';
 import { cn } from '@/lib/cn';
 import { formatDateTime, formatRelative } from '@/lib/format';
 import { AdminTable, SearchField, type AdminColumn } from '@/features/admin/ui';
-import { AUDIT_GROUPS, auditMeta, type AuditGroup } from '@/features/admin/auditLabels';
+import { AUDIT_GROUPS, auditActionOptions, auditGroupActions, auditMeta, type AuditGroup } from '@/features/admin/auditLabels';
+import { useDebounced } from '@/features/admin/useDebounced';
 
-/**
- * A API pagina sem filtro por ação; com filtro/busca ativos buscamos páginas maiores (100)
- * e filtramos no cliente — suficiente para a auditoria do protótipo.
- */
+/** Filtros por área, ação e texto aplicados no servidor (GET /admin/audit?action&q), com paginação real. */
 export default function AdminAuditPage() {
   const [page, setPage] = useState(0);
   const [group, setGroup] = useState<AuditGroup | 'ALL'>('ALL');
   const [action, setAction] = useState<string>('ALL');
   const [search, setSearch] = useState('');
-  const filtering = group !== 'ALL' || action !== 'ALL' || !!search.trim();
-  const size = filtering ? 100 : 25;
-  const q = useAdminAudit({ page, size });
+  const q = useDebounced(search.trim(), 350);
+  const filtering = group !== 'ALL' || action !== 'ALL' || !!q;
 
-  useEffect(() => { setPage(0); }, [filtering]);
+  const actions = useMemo(() => {
+    if (action !== 'ALL') return action.split(',');
+    if (group !== 'ALL') return auditGroupActions(group);
+    return undefined;
+  }, [group, action]);
+  const query = useAdminAudit({ page, size: 25, action: actions, q: q || undefined });
 
-  const actionsInPage = useMemo(() => [...new Set(q.data?.content.map((e) => e.action) ?? [])].sort((a, b) => auditMeta(a).label.localeCompare(auditMeta(b).label, 'pt-BR')), [q.data]);
+  useEffect(() => { setPage(0); }, [group, action, q]);
 
-  const rows = useMemo(() => {
-    const s = search.trim().toLocaleLowerCase('pt-BR');
-    return q.data?.content.filter((e) => {
-      const m = auditMeta(e.action);
-      return (group === 'ALL' || m.group === group) && (action === 'ALL' || e.action === action)
-        && (!s || [e.actor, e.details, e.ip, e.entity, m.label].some((x) => x?.toLocaleLowerCase('pt-BR').includes(s)));
-    });
-  }, [q.data, group, action, search]);
+  const actionOptions = useMemo(() => auditActionOptions(group), [group]);
+  const rows = query.data?.content;
 
   const columns: AdminColumn<AuditEntry>[] = [
     {
@@ -61,7 +57,7 @@ export default function AdminAuditPage() {
     { key: 'ip', header: 'IP', sort: (e) => e.ip ?? '', cell: (e) => <span className="font-mono text-[12px] text-muted tabular">{e.ip ?? '—'}</span> },
   ];
 
-  const d = q.data;
+  const d = query.data;
   return (
     <>
       <PageHeader eyebrow="Administração" title="Auditoria" description="Registro imutável das ações sensíveis: acessos, moderação, alterações de catálogo, rotas e exportações." />
@@ -76,7 +72,7 @@ export default function AdminAuditPage() {
           <select value={action} onChange={(e) => setAction(e.target.value)} aria-label="Filtrar por ação"
             className="h-9 max-w-64 cursor-pointer rounded-[10px] border border-line bg-bg-deep/60 px-3 text-[13px] text-fg-soft focus:outline-none [&>option]:bg-surface">
             <option value="ALL">Todas as ações</option>
-            {actionsInPage.filter((a) => group === 'ALL' || auditMeta(a).group === group).map((a) => <option key={a} value={a}>{auditMeta(a).label}</option>)}
+            {actionOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <SearchField value={search} onChange={setSearch} placeholder="Autor, IP ou detalhe" className="w-full lg:w-72" />
@@ -87,14 +83,14 @@ export default function AdminAuditPage() {
         columns={columns}
         rows={rows}
         rowKey={(e) => e.id}
-        loading={q.isFetching}
-        error={q.error}
-        onRetry={q.refetch}
+        loading={query.isFetching}
+        error={query.error}
+        onRetry={query.refetch}
         skeletonRows={10}
-        empty={<EmptyState compact icon={ScrollText} title="Nenhum registro" description={filtering ? 'Nenhum evento desta página corresponde aos filtros.' : 'Ainda não há eventos.'} />}
+        empty={<EmptyState compact icon={ScrollText} title="Nenhum registro" description={filtering ? 'Nenhum evento corresponde aos filtros.' : 'Ainda não há eventos.'} />}
         footer={d && d.totalElements > 0 ? (
           <div className="flex flex-col gap-2">
-            {filtering && <p className="text-xs text-subtle">Filtrando {d.content.length} eventos desta página · {rows?.length ?? 0} correspondem.</p>}
+            {filtering && <p className="text-xs text-subtle">{d.totalElements} eventos correspondem aos filtros.</p>}
             <Pagination page={d.page} totalPages={d.totalPages} totalElements={d.totalElements} size={d.size} onChange={setPage} />
           </div>
         ) : undefined}

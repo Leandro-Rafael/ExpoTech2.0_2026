@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ClipboardEvent, type ComponentPropsWi
 import { Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { controlClasses } from './Input';
+import { useFieldA11y } from './Field';
 
 export interface NumberInputProps extends Omit<ComponentPropsWithRef<'input'>, 'value' | 'defaultValue' | 'onChange' | 'type' | 'size' | 'min' | 'max' | 'step'> {
   value: number | null | undefined;
@@ -56,8 +57,9 @@ function parse(text: string): number | null {
  */
 export function NumberInput({
   value, onChange, decimals = 2, min, max, step = 1, allowNegative = false, unit, stepper = false,
-  invalid, inputSize = 'md', className, onBlur, onFocus, disabled, ref, ...rest
+  invalid, inputSize = 'md', className, onBlur, onFocus, disabled, ref, ...props
 }: NumberInputProps) {
+  const rest = useFieldA11y(props);
   const [text, setText] = useState(() => toText(value, decimals));
   const focused = useRef(false);
   const negAllowed = allowNegative || (min != null && min < 0);
@@ -126,7 +128,7 @@ export function NumberInput({
         inputMode={decimals > 0 ? 'decimal' : 'numeric'}
         autoComplete="off"
         pattern={decimals > 0 ? '-?[0-9]*[,.]?[0-9]*' : '-?[0-9]*'}
-        aria-invalid={invalid || undefined}
+        aria-invalid={invalid || (rest['aria-invalid'] as boolean | undefined) || undefined}
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={parse(text) ?? undefined}

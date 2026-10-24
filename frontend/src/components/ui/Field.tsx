@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, createContext, isValidElement, useContext, useId, type ReactElement, type ReactNode } from 'react';
 import type { FieldError } from 'react-hook-form';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -29,6 +29,23 @@ export interface FieldA11yProps {
   'aria-required'?: true;
 }
 
+const FieldContext = createContext<FieldA11yProps | null>(null);
+
+/**
+ * Usado pelos controles do kit (Input, NumberInput, Select, Textarea): dentro de um <Field>,
+ * recebem automaticamente `id`, `aria-describedby`, `aria-invalid` e `aria-required` — mesmo
+ * quando estão dentro de um <Controller> ou de um wrapper. Props explícitas têm prioridade.
+ */
+export function useFieldA11y<P extends { id?: string; 'aria-describedby'?: string; 'aria-invalid'?: unknown; 'aria-required'?: unknown }>(props: P): P {
+  const ctx = useContext(FieldContext);
+  if (!ctx) return props;
+  const out: Record<string, unknown> = { ...props };
+  for (const k of ['id', 'aria-describedby', 'aria-invalid', 'aria-required'] as const) {
+    if (out[k] == null && ctx[k] != null) out[k] = ctx[k];
+  }
+  return out as P;
+}
+
 /**
  * Rótulo + controle + dica + erro, acessível.
  *
@@ -51,9 +68,11 @@ export function Field({ label, error, hint, required, optional, labelAside, id, 
     ...(required ? { 'aria-required': true as const } : {}),
   };
 
+  // Controles do kit leem o contexto; elementos nativos diretos (<input>, <select>...) recebem via clone.
+  // Componentes como <Controller> não recebem clone (evita ids duplicados em wrappers).
   const control = typeof children === 'function'
     ? children(a11y)
-    : isValidElement(children)
+    : isValidElement(children) && typeof children.type === 'string'
       ? cloneElement(children as ReactElement<Record<string, unknown>>, a11y as unknown as Record<string, unknown>)
       : children;
 
@@ -71,7 +90,7 @@ export function Field({ label, error, hint, required, optional, labelAside, id, 
           {labelAside && <div className="text-[13px]">{labelAside}</div>}
         </div>
       )}
-      {control}
+      <FieldContext.Provider value={a11y}>{control}</FieldContext.Provider>
       {message ? (
         <p id={errorId} role="alert" className="flex items-start gap-1.5 text-[13px] text-danger animate-fade-up">
           <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden />

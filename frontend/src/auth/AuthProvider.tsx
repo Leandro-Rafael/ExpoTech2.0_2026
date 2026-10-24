@@ -1,5 +1,5 @@
 /**
- * Sessão do usuário. O usuário atual vem de GET /api/auth/me (cache do React Query em `qk.me`).
+ * Sessão do usuário. O usuário atual vem de GET /api/auth/session (204 = visitante; cache do React Query em `qk.me`).
  *
  *   const { user, status, login, register, logout, hasRole } = useAuth();
  *
@@ -29,7 +29,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function fetchMe(): Promise<UserMe | null> {
   try {
-    return await authApi.me();
+    return (await authApi.session()) ?? null;
   } catch (e) {
     // 401/403 = sem sessão; 0/5xx = back-end offline (proxy do Vite responde 500) → trata como anônimo.
     if (e instanceof ApiError) return null;

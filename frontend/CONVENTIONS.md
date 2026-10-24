@@ -63,7 +63,7 @@ const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema), de
 
 - Campos numéricos: **sempre `NumberInput`** (bloqueia teclado/colar/arrastar não numéricos; requisito avaliado).
 - Textos: `Input`/`Textarea` com `{...register('x')}`. Senha: `PasswordInput` + `passwordSchema` de `lib/validation`.
-- `Field` injeta `id`, `aria-invalid`, `aria-describedby` no controle filho.
+- `Field` liga rótulo, dica e erro ao controle: `Input`, `NumberInput`, `Select` e `Textarea` recebem `id`, `aria-invalid` e `aria-describedby` via contexto — inclusive dentro de `<Controller>`. Controles próprios: use a forma função `{(a11y) => <X {...a11y} />}`.
 
 ## Kit de UI (`@/components/ui`)
 

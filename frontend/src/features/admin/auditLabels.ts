@@ -27,18 +27,23 @@ const A: Record<string, [string, AuditGroup, Tone?]> = {
   LOGIN_BLOCKED_INSPECTION: ['Login bloqueado (inspeção)', 'acesso', 'danger'],
   USER_UNLOCKED: ['Usuário desbloqueado', 'acesso'],
   PASSWORD_CHANGED: ['Alterou a senha', 'acesso'],
+  REFRESH_TOKEN_REUSE: ['Reuso de sessão detectado', 'acesso', 'danger'],
   USER_REGISTERED: ['Novo cadastro', 'usuarios'],
   USER_UPDATED: ['Usuário alterado', 'usuarios'],
+  USER_ROLE_CHANGED: ['Perfil de acesso alterado', 'usuarios'],
+  USER_ENABLED_CHANGED: ['Conta ativada ou desativada', 'usuarios', 'warning'],
   PROFILE_UPDATED: ['Perfil atualizado', 'usuarios'],
   DISPOSAL_CREATED: ['Descarte registrado', 'descartes'],
   DISPOSAL_APPROVED: ['Descarte aprovado', 'descartes', 'success'],
   DISPOSAL_AUTO_APPROVED: ['Descarte aprovado automaticamente', 'descartes', 'success'],
   DISPOSAL_REJECTED: ['Descarte recusado', 'descartes', 'danger'],
+  DISPOSAL_FLAGGED: ['Descarte sinalizado (antifraude)', 'descartes', 'warning'],
   COLLECTION_REQUESTED: ['Coleta solicitada', 'coletas'],
   COLLECTION_CANCELLED: ['Coleta cancelada', 'coletas'],
   ROUTE_CREATED: ['Rota criada', 'coletas'],
   ROUTE_STARTED: ['Rota iniciada', 'coletas'],
   STOP_COMPLETED: ['Parada concluída', 'coletas', 'success'],
+  ROUTE_STOP_COMPLETED: ['Parada concluída', 'coletas', 'success'],
   ROUTE_COMPLETED: ['Rota concluída', 'coletas', 'success'],
   CATEGORY_CREATED: ['Categoria criada', 'catalogo'],
   CATEGORY_UPDATED: ['Categoria alterada', 'catalogo'],
@@ -59,7 +64,9 @@ const A: Record<string, [string, AuditGroup, Tone?]> = {
   SMART_BIN_CREATED: ['Lixeira conectada', 'casa'],
   SMART_BIN_DELETED: ['Lixeira removida', 'casa'],
   SMART_BIN_AUTO_REQUEST: ['Lixeira pediu coleta', 'casa', 'warning'],
+  IOT_AUTH_FAILED: ['Falha de autenticação do sensor', 'casa', 'danger'],
   REPORT_EXPORTED: ['Relatório exportado', 'outros'],
+  DEMO_DATA_SEEDED: ['Dados de demonstração criados', 'outros'],
 };
 
 /** "SOME_NEW_ACTION" → "Some new action" quando não há rótulo. */
@@ -75,3 +82,22 @@ export function auditMeta(action: string): { label: string; group: AuditGroup; t
 }
 
 export const KNOWN_ACTIONS = Object.keys(A);
+
+/**
+ * Opções do filtro "ação" (para o filtro no servidor): códigos com o mesmo rótulo viram uma opção só
+ * (ex.: SECURITY_INSPECTION_LOCK e INSPECTION_LOCKED). `value` = códigos separados por vírgula.
+ */
+export function auditActionOptions(group: AuditGroup | 'ALL'): { value: string; label: string }[] {
+  const byLabel = new Map<string, string[]>();
+  for (const [code, [label, g]] of Object.entries(A)) {
+    if (group !== 'ALL' && g !== group) continue;
+    byLabel.set(label, [...(byLabel.get(label) ?? []), code]);
+  }
+  return [...byLabel].map(([label, codes]) => ({ value: codes.join(','), label }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+}
+
+/** Todos os códigos conhecidos de um grupo (filtro por área no servidor). */
+export function auditGroupActions(group: AuditGroup): string[] {
+  return Object.entries(A).filter(([, m]) => m[1] === group).map(([code]) => code);
+}

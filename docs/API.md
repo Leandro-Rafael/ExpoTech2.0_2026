@@ -40,6 +40,17 @@ Códigos (`code`): `VALIDATION_ERROR`, `BAD_CREDENTIALS`, `ACCOUNT_LOCKED`, `UNA
 
 Regras de senha: 10–128 caracteres, ao menos 1 letra e 1 número, não pode conter o e-mail nem estar na lista de senhas comuns.
 
+## Segurança — `/api/security`
+| POST | `/inspection-events` | `{trigger: 'F12'\|'CTRL_SHIFT_I'\|'CTRL_SHIFT_J'\|'CTRL_SHIFT_C'\|'CTRL_U'\|'CONTEXT_MENU'\|'DEVTOOLS_OPEN'}` | `InspectionEventResult` `{warnings, maxWarnings: 3, locked, lockedUntil}` |
+
+Enviado pelo guarda da área logada (`/app/**`) quando o usuário tenta abrir o inspetor ou o código-fonte. O **servidor** conta:
+eventos a menos de 5 s do último aviso contado valem um só; no 3º aviso o acesso fica bloqueado por **30 minutos** e todas as
+sessões são revogadas (auditado: `SECURITY_INSPECTION_WARNING`, `SECURITY_INSPECTION_LOCK`). Limite: 20 eventos/min por usuário.
+Enquanto bloqueado, login (com a senha correta), refresh e **toda** requisição autenticada (exceto `/auth/csrf`, `/auth/logout`,
+`/auth/login`, `/auth/register`) respondem **423** `ACCOUNT_LOCKED` com `Retry-After` (segundos) e
+`detail: "Acesso bloqueado por 30 minutos por tentativa de inspeção do sistema."`. Ao vencer o bloqueio, os avisos voltam a 0.
+`UserMe.securityWarnings` traz os avisos vigentes.
+
 ## Perfil — `/api/me`
 | PATCH | `/api/me` | `{name?, organizationId? (uuid ou null)}` | `UserMe` |
 | POST | `/api/me/password` | `{currentPassword, newPassword}` | 204 (encerra as outras sessões) |
@@ -52,10 +63,19 @@ Regras de senha: 10–128 caracteres, ao menos 1 letra e 1 número, não pode co
 | POST | `/api/photos` | multipart `file` (JPEG/PNG ≤ 5 MB) | 201 `PhotoUpload` |
 | GET | `/api/photos/{id}` | — | `image/jpeg` (dono ou admin) |
 
+**IA verificada no servidor.** No upload, o servidor classifica a foto (Claude, quando há `ANTHROPIC_API_KEY`) e grava o
+resultado na própria foto. `PhotoUpload.ai.verified = true` só nesse caso. Os campos `aiSuggestedCode/aiConfidence/aiSource`
+de `CreateDisposal` são apenas um **palpite** do navegador: ficam guardados, nunca dão bônus e nunca reduzem o risco antifraude.
+
 ## Descartes
 | POST | `/api/disposals` | `CreateDisposal` + header `Idempotency-Key` | 201 `Disposal` |
 | GET | `/api/disposals?status=PENDING\|APPROVED\|REJECTED&page&size` | — | `Page<Disposal>` (meus) |
 | GET | `/api/disposals/{id}` | — | `Disposal` |
+
+- `photoId` de outra pessoa → **404**; foto já usada em outro descarte → 400 (e `UNIQUE(photo_id)` no banco).
+- Bônus de +10% só quando: a foto é do usuário, foi enviada há ≤ 24 h, a classificação **verificada do servidor** concorda com a
+  categoria **final** (reavaliada na aprovação, inclusive após correção do admin) e a confiança é ≥ 0,6.
+- `Disposal.ai.verified`: `true` = sugestão do servidor; `false` = palpite do navegador (só informativo).
 
 ## Pontos, níveis, medalhas, desafios
 | GET | `/api/points/transactions?page&size` | — | `Page<PointTransaction>` |
@@ -97,6 +117,8 @@ Regras de senha: 10–128 caracteres, ao menos 1 letra e 1 número, não pode co
 | GET | `/overview` | — | `AdminOverview` |
 | GET | `/users?q&role&page&size` | — | `Page<AdminUser>` |
 | PATCH | `/users/{id}` | `{role?, enabled?}` | `AdminUser` |
+| POST | `/users/{id}/unlock` | — | `AdminUser` (remove bloqueio por senha e por inspeção e zera os avisos; auditado `USER_UNLOCKED`) |
+| GET | `/integrity` | — | `IntegrityReport` (verifica a cadeia HMAC do extrato e da auditoria e os saldos; 6 verificações/min) |
 | GET | `/disposals?status&flagged=true&page&size` | — | `Page<Disposal>` (com `user` e `fraud`) |
 | POST | `/disposals/{id}/approve` | `{categoryId?, quantityKg?}` | `Disposal` |
 | POST | `/disposals/{id}/reject` | `{reason}` | `Disposal` |
@@ -114,5 +136,12 @@ Regras de senha: 10–128 caracteres, ao menos 1 letra e 1 número, não pode co
 | GET | `/bins` | — | `SmartBin[]` (com `household`) |
 | GET | `/audit?page&size` | — | `Page<AuditEntry>` |
 | GET | `/reports/disposals.csv?from&to` | — | `text/csv` |
+
+`AdminUser` traz também `lockReason` (`PASSWORD`\|`INSPECTION`\|null), `lockedUntil` e `securityWarnings`.
+
+`IntegrityReport`: `{ checkedAt, ledger: {ok, rowsChecked, brokenAt: {table, id, userId} | null}, audit: {…mesmo formato},
+balances: {ok, mismatches} }`. `brokenAt` aponta a **primeira** linha cuja cadeia não confere (hash, `prev_hash`, sequência ou
+saldo). `balances` confere, para cada usuário, pontos = último saldo do extrato = soma dos lançamentos (e total ganho = soma dos créditos).
+As tabelas `point_transactions` e `audit_log` são **append-only** (o banco recusa UPDATE/DELETE/TRUNCATE).
 
 Os tipos exatos estão em [`frontend/src/api/types.ts`](../frontend/src/api/types.ts), que é a fonte da verdade do contrato.

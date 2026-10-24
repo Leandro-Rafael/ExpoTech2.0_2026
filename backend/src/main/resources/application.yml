@@ -83,6 +83,8 @@ app:
     refresh-grace: ${APP_REFRESH_GRACE_SECONDS:0}s
   cookies:
     secure: ${APP_COOKIE_SECURE:auto}
+  integrity:
+    key: ${APP_INTEGRITY_KEY:}
   cors-origins: ${APP_CORS_ORIGINS:}
   embedded-db:
     port: ${APP_EMBEDDED_DB_PORT:54329}

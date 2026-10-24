@@ -187,7 +187,7 @@ function PointForm({ point, onClose, colors, context }: {
             <Input {...form.register('openingHours')} maxLength={120} list="hours-presets" placeholder="Seg a sex, 8h às 17h" />
           </Field>
           <datalist id="hours-presets">{HOURS_PRESETS.map((h) => <option key={h} value={h} />)}</datalist>
-          <Field label="Materiais aceitos" required error={errors.categories as { message?: string } | undefined}>
+          <Field label="Materiais aceitos" required error={errors.categories?.message ?? errors.categories?.root?.message}>
             {(a11y) => (
               <Controller control={form.control} name="categories"
                 render={({ field }) => <CategoryCodesPicker {...a11y} value={field.value} onChange={field.onChange} colors={colors} />} />

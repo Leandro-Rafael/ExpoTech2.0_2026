@@ -43,6 +43,7 @@ Copie `.env.example` para `backend/.env` (nunca versionado). Variáveis reais do
 | `PORT` | `8080` | Porta HTTP. |
 | `APP_DATA_DIR` | `./data` | Dados locais (banco embarcado e chave JWT gerada). |
 | `APP_JWT_SECRET` | vazio | Segredo HS256 (≥ 32 bytes; `openssl rand -base64 48`). Vazio = gerado e salvo em `data/jwt-secret.key`. |
+| `APP_INTEGRITY_KEY` | vazio | Chave HMAC da cadeia de integridade (≥ 32 bytes; `openssl rand -base64 48`). Vazio = gerada e salva em `data/integrity.key`. Fica fora do banco; não troque depois de criado o banco. |
 | `APP_COOKIE_SECURE` | `auto` | Atributo `Secure` dos cookies: `auto` (só em HTTPS), `true`, `false`. |
 | `APP_CORS_ORIGINS` | vazio | Origens CORS separadas por vírgula. Vazio = CORS desligado (mesma origem). |
 | `APP_FORWARD_HEADERS` | `none` | Use `native` **somente** atrás de um proxy reverso confiável (senão o IP do `X-Forwarded-For` poderia ser falsificado). |
@@ -74,6 +75,7 @@ br.com.ecotechzero.lixozero
 ├── household, iot     residência, lixeiras inteligentes, endpoint para sensores e simulador
 ├── impact, admin      indicadores, metas, simulador de cenários, painel e relatório CSV
 ├── audit              trilha de auditoria das ações sensíveis
+├── integrity          cadeia HMAC (extrato e auditoria), verificação de integridade, migração de selagem
 └── common, config     erros (RFC 7807), paginação, rate limiter, Jackson, banco embarcado, SPA
 ```
 
@@ -108,6 +110,10 @@ br.com.ecotechzero.lixozero
 | **Concorrência**: locks pessimistas (saldo, estoque, aprovação, rotas, lixeiras, residência) + `UNIQUE`/`CHECK` no banco | `PointsService`, `RewardService`, `DisposalReviewService`, migrações | Dois cliques simultâneos não geram pontos em dobro, saldo negativo nem estoque negativo. |
 | **Auditoria** das ações sensíveis em transação própria | `AuditService` | Quem fez o quê e quando, mesmo se a operação falhar. |
 | Segredos fora do código (`.env`/variáveis), chave JWT local com permissão restrita, banco embarcado só em `localhost` | `application.yml`, `JwtService`, `EmbeddedPostgresConfig` | Nada sensível no Git nem exposto na rede. |
+| **IA verificada no servidor**: a classificação é feita no upload e gravada na própria foto (modelo e horário); os campos de IA enviados pelo navegador viram só "palpite". Bônus de +10% só com foto do próprio usuário, enviada há ≤ 24 h, nunca usada em outro descarte (`UNIQUE`), e classificação do servidor que confirma a categoria **final** (reavaliada na aprovação) | `PhotoService`, `DisposalService`, `Disposal.aiBonusApplies`, `AiMismatchRule` | Antes, quem editasse a requisição (`aiSource: "CLAUDE"`) ganhava o bônus. Agora o cliente não consegue forjar pontos nem "limpar" o risco antifraude: o palpite dele só pode **aumentar** o risco. Limite: sem `ANTHROPIC_API_KEY` não há IA no servidor, então ninguém recebe o bônus. |
+| **Cadeia de integridade HMAC-SHA256** no extrato de pontos (por usuário) e na auditoria (global): cada linha guarda `prev_hash` e `hash = HMAC(chave, campos + prev_hash)`; `GET /api/admin/integrity` confere tudo em fluxo e aponta a primeira linha quebrada; saldos conferidos (pontos = último saldo = soma) | `integrity/` (`LedgerChain`, `AuditChain`, `IntegrityService`, migração V5) | Alterar um valor direto no banco (ex.: dar pontos a alguém) é detectado: sem a chave, que fica fora do banco, não dá para recalcular os hashes. Limites: quem tiver a chave **e** o banco consegue refazer a cadeia; apagar as últimas linhas da auditoria só é percebido se ocorrer com o servidor rodando (ele lembra o último elo) — no extrato, a conferência de saldos denuncia. |
+| **Tabelas append-only**: triggers no PostgreSQL recusam `UPDATE`, `DELETE` e `TRUNCATE` em `point_transactions` e `audit_log`; no JPA as entidades são `@Immutable` | `V6__append_only.sql` | Nem um bug nem um SQL manual "corrige" o extrato ou apaga rastros. Limite: o dono do banco pode desligar o trigger — e aí a cadeia HMAC denuncia a alteração. |
+| **Bloqueio por inspeção + desbloqueio pelo admin**: na área logada, abrir o inspetor (F12, Ctrl+Shift+I/J/C, Ctrl+U) mostra "Não tente novamente"; o servidor conta os avisos (5 s de deduplicação), e no 3º bloqueia o acesso por 30 min, revoga todas as sessões e responde 423 a login, refresh e qualquer requisição. O admin desbloqueia em `POST /api/admin/users/{id}/unlock` | `InspectionService`, `JwtAuthenticationFilter`, `AuthService`, front `src/security/` | Desestimula a curiosidade e registra quem tentou (auditoria). **Limite honesto:** bloquear o inspetor no navegador é só um impedimento — dá para usar outro navegador, DevTools em janela separada ou ferramentas de rede. A proteção real dos dados está no servidor (autorização, validação, antifraude, integridade); o código do front não contém segredos. |
 
 ## Estruturas de dados e algoritmos
 

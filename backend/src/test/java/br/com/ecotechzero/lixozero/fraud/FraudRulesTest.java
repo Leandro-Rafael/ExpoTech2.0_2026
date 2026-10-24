@@ -72,7 +72,7 @@ class FraudRulesTest {
         // servidor diverge; palpite forjado do cliente "concordando" não reduz o risco
         var forged = rule.evaluate(ctx2(1, null, CategoryCode.REJEITO, 0.9, CategoryCode.ELETRONICO, 0.99, AiSource.LOCAL));
         assertThat(forged).isPresent();
-        assertThat(forged.get().score()).isEqualTo(AiMismatchRule.SCORE_SERVER_AI);
+        assertThat(forged.get().score()).isEqualTo(30); // peso da IA do servidor
         // sem IA do servidor: palpite divergente do cliente aumenta o risco
         assertThat(rule.evaluate(ctx2(1, null, null, null, CategoryCode.REJEITO, 0.9, AiSource.LOCAL))).isPresent();
         // servidor confirmou a categoria: palpite local divergente é ignorado (sem falso positivo)

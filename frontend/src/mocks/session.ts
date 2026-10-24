@@ -43,6 +43,11 @@ function validUser(d: MockDb, s: MockSession | null): UserRec | null {
   return u;
 }
 
+/** Id do usuário da sessão atual, mesmo revogada (usado para responder 423 durante o bloqueio por inspeção). */
+export function sessionUserId(): string | null {
+  return read()?.userId ?? null;
+}
+
 /** Usuário do "access token" atual (null se ausente/expirado). */
 export function currentUser(d: MockDb): UserRec | null {
   const s = read();

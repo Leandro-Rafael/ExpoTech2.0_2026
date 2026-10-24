@@ -69,6 +69,17 @@ public class User extends BaseEntity {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    /** Avisos por tentativa de inspeção do sistema (0..3); no 3º o acesso fica bloqueado por 30 min. */
+    @Column(name = "security_warnings", nullable = false)
+    private int securityWarnings;
+
+    @Column(name = "security_locked_until")
+    private Instant securityLockedUntil;
+
+    /** Último aviso CONTADO (janela de deduplicação). */
+    @Column(name = "security_last_event_at")
+    private Instant securityLastEventAt;
+
     protected User() {
     }
 
@@ -92,6 +103,44 @@ public class User extends BaseEntity {
     /** Debita pontos (resgate). A verificação de saldo é feita antes pelo serviço. */
     public void spend(long amount) {
         this.points -= amount;
+    }
+
+    public boolean isSecurityLocked(Instant now) {
+        return securityLockedUntil != null && securityLockedUntil.isAfter(now);
+    }
+
+    /** Avisos vigentes: depois que o bloqueio expira, a contagem recomeça do zero. */
+    public int activeSecurityWarnings(Instant now) {
+        return securityLockedUntil != null && !securityLockedUntil.isAfter(now) ? 0 : securityWarnings;
+    }
+
+    /** Zera avisos e bloqueio de inspeção já vencidos. */
+    public void clearExpiredSecurityLock(Instant now) {
+        if (securityLockedUntil != null && !securityLockedUntil.isAfter(now)) {
+            securityWarnings = 0;
+            securityLockedUntil = null;
+            securityLastEventAt = null;
+        }
+    }
+
+    /** Conta um aviso; ao atingir o máximo, bloqueia até {@code now + lockDuration}. Devolve true se bloqueou agora. */
+    public boolean registerSecurityWarning(Instant now, int maxWarnings, java.time.Duration lockDuration) {
+        securityWarnings = Math.min(maxWarnings, securityWarnings + 1);
+        securityLastEventAt = now;
+        if (securityWarnings >= maxWarnings) {
+            securityLockedUntil = now.plus(lockDuration);
+            return true;
+        }
+        return false;
+    }
+
+    /** Desbloqueio pelo administrador: limpa o bloqueio por senha e o de inspeção. */
+    public void unlockAll() {
+        failedLoginAttempts = 0;
+        lockedUntil = null;
+        securityWarnings = 0;
+        securityLockedUntil = null;
+        securityLastEventAt = null;
     }
 
     public void incrementTokenVersion() {
@@ -121,5 +170,8 @@ public class User extends BaseEntity {
     public void setLockedUntil(Instant lockedUntil) { this.lockedUntil = lockedUntil; }
     public int getTokenVersion() { return tokenVersion; }
     public Instant getLastLoginAt() { return lastLoginAt; }
+    public int getSecurityWarnings() { return securityWarnings; }
+    public Instant getSecurityLockedUntil() { return securityLockedUntil; }
+    public Instant getSecurityLastEventAt() { return securityLastEventAt; }
     public void setLastLoginAt(Instant lastLoginAt) { this.lastLoginAt = lastLoginAt; }
 }

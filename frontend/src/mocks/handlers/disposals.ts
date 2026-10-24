@@ -64,7 +64,7 @@ export function registerDisposalRoutes() {
     const photoId = b.photoId ?? null;
     const photo = typeof photoId === 'string' ? d.photos.find((p) => p.id === photoId && p.ownerId === me.id) ?? null : null;
     if (photoId !== null) {
-      if (!photo) v.add('photoId', 'foto não encontrada');
+      if (!photo) throw fail.notFound('Foto não encontrada.'); // de outro usuário ou inexistente (como no back-end)
       else if (d.disposals.some((x) => x.photoId === photo.id)) v.add('photoId', 'esta foto já foi usada em outro descarte');
     }
 

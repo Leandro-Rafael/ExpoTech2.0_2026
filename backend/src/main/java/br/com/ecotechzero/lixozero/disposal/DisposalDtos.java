@@ -45,7 +45,8 @@ public final class DisposalDtos {
     public record PointRef(UUID id, String name) {
     }
 
-    public record AiInfo(CategoryCode suggestedCode, Double confidence, AiSource source) {
+    /** verified = classificação do servidor (vale o bônus); false = palpite do navegador, só informativo. */
+    public record AiInfo(CategoryCode suggestedCode, Double confidence, AiSource source, boolean verified) {
     }
 
     public record FraudInfo(int score, List<String> flags) {
@@ -62,7 +63,7 @@ public final class DisposalDtos {
         public static DisposalDto of(Disposal d, boolean adminView) {
             var point = d.getCollectionPoint();
             AiInfo ai = d.getAiSuggestedCode() == null && d.getAiSource() == null ? null
-                    : new AiInfo(d.getAiSuggestedCode(), d.getAiConfidence(), d.getAiSource());
+                    : new AiInfo(d.getAiSuggestedCode(), d.getAiConfidence(), d.getAiSource(), d.isAiVerified());
             return new DisposalDto(d.getId(), CategoryRef.of(d.getCategory()), Numbers.round(d.getQuantityKg(), 3), d.getStatus(),
                     d.getPointsAwarded(), d.getEstimatedPoints(),
                     d.getPhoto() == null ? null : PhotoService.url(d.getPhoto().getId()),

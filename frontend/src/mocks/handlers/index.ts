@@ -7,6 +7,7 @@ import { registerHouseholdRoutes } from './household';
 import { registerCollectorRoutes, registerImpactRoutes } from './impact';
 import { registerPhotoRoutes } from './photos';
 import { registerProfileRoutes } from './profile';
+import { registerSecurityRoutes } from './security';
 
 let registered = false;
 
@@ -24,4 +25,5 @@ export function registerAllRoutes() {
   registerImpactRoutes();
   registerCollectorRoutes();
   registerAdminRoutes();
+  registerSecurityRoutes();
 }

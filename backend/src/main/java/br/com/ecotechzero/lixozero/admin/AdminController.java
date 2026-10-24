@@ -65,6 +65,12 @@ public class AdminController {
         return admin.updateUser(me, id, body);
     }
 
+    /** Remove o bloqueio por senha errada e o bloqueio/avisos de inspeção. */
+    @PostMapping("/users/{id}/unlock")
+    public AdminUser unlockUser(@PathVariable UUID id) {
+        return admin.unlockUser(id);
+    }
+
     @GetMapping("/disposals")
     public PageResponse<DisposalDto> disposals(@RequestParam(required = false) DisposalStatus status,
                                                @RequestParam(required = false) Boolean flagged,

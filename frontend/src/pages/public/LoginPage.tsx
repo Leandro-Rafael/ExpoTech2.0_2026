@@ -13,6 +13,7 @@ import { useCooldown } from '@/features/auth/useCooldown';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { emailSchema } from '@/lib/validation';
 import { cn } from '@/lib/cn';
+import { clearLockNotice, readLockNotice } from '@/security/lockNotice';
 
 const schema = z.object({
   email: emailSchema,
@@ -32,7 +33,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const cooldown = useCooldown();
-  const [locked, setLocked] = useState<string | null>(null);
+  const [locked, setLocked] = useState<string | null>(readLockNotice); // bloqueio por inspeção vindo do app
   const [filled, setFilled] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -43,6 +44,7 @@ export default function LoginPage() {
     setLocked(null);
     try {
       const user = await login(values);
+      clearLockNotice();
       toast.success(`Bem-vindo(a) de volta, ${user.name.split(' ')[0]}!`);
       navigate(safeRedirect(location.search), { replace: true });
     } catch (e) {

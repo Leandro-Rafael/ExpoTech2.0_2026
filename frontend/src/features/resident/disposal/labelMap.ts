@@ -8,12 +8,12 @@ import type { CategoryCode } from '@/api/types';
 export const LABEL_KEYWORDS: Record<Exclude<CategoryCode, 'REJEITO'>, string[]> = {
   PLASTICO: [
     'water bottle', 'pop bottle', 'soda bottle', 'plastic bag', 'water jug', 'pill bottle', 'lotion', 'sunscreen',
-    'packet', 'bucket', 'pail', 'shower cap', 'syringe', 'tub', 'bubble', 'balloon', 'toothbrush', 'plunger', 'lighter',
+    'packet', 'bucket', 'pail', 'shower cap', 'syringe', 'bubble', 'balloon', 'toothbrush', 'plunger', 'lighter',
     'crate', 'band aid', 'diaper', 'plastic',
   ],
   PAPEL: [
     'carton', 'envelope', 'newspaper', 'paper towel', 'toilet tissue', 'book jacket', 'comic book', 'menu',
-    'binder', 'crossword puzzle', 'paper', 'book', 'mailbag', 'tissue', 'cardboard', 'box', 'notepad', 'jigsaw puzzle',
+    'binder', 'crossword puzzle', 'paper', 'book', 'mailbag', 'tissue', 'cardboard', 'notepad', 'jigsaw puzzle',
   ],
   VIDRO: [
     'wine bottle', 'beer bottle', 'beer glass', 'goblet', 'red wine', 'whiskey jug', 'jar', 'vase', 'perfume',
@@ -21,8 +21,8 @@ export const LABEL_KEYWORDS: Record<Exclude<CategoryCode, 'REJEITO'>, string[]> 
   ],
   METAL: [
     'can', 'tin', 'milk can', 'hair spray', 'frying pan', 'wok', 'caldron', 'cauldron', 'dutch oven', 'ladle',
-    'spatula', 'strainer', 'nail', 'screw', 'padlock', 'chain', 'safety pin', 'thimble', 'coffeepot', 'teapot',
-    'can opener', 'corkscrew', 'chain mail', 'steel', 'iron', 'aluminium', 'aluminum', 'foil', 'cocktail shaker', 'spoon',
+    'spatula', 'strainer', 'nail', 'screw', 'padlock', 'chain', 'safety pin', 'thimble', 'coffeepot', 'teapot', 'tin can',
+    'can opener', 'corkscrew', 'chain mail', 'steel', 'aluminium', 'aluminum', 'foil', 'cocktail shaker', 'spoon',
   ],
   ORGANICO: [
     'banana', 'orange', 'lemon', 'granny smith', 'apple', 'pineapple', 'strawberry', 'fig', 'pomegranate', 'custard apple',

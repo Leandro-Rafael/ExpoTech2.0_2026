@@ -7,7 +7,8 @@ import { db, save } from './db';
 import { HttpError, fail, type MockContext, type MockRequest, type MockResponse } from './http';
 import { tickBins } from './logic/bins';
 import { latencyMs } from './logic/random';
-import { csrfValid, currentUser } from './session';
+import { inspectionLockRemaining } from './logic/security';
+import { csrfValid, currentUser, sessionUserId } from './session';
 
 /** `public` = sem login; `user` = qualquer usuário logado; demais = papéis permitidos. */
 export type Access = 'public' | 'user' | Role[];
@@ -22,6 +23,7 @@ interface RouteDef {
 }
 
 const routes: RouteDef[] = [];
+const LOCK_EXEMPT = new Set(['GET /api/auth/csrf', 'POST /api/auth/logout', 'POST /api/auth/register']);
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export interface RouteOptions { access?: Access; csrf?: boolean }
@@ -95,6 +97,14 @@ export async function handle(req: Request): Promise<Response> {
     const match = def.pattern.exec(url.pathname)!;
     const params: Record<string, string> = {};
     def.keys.forEach((k, i) => { params[k] = decodeURIComponent(match[i + 1]); });
+
+    // Bloqueio por inspeção: toda rota autenticada responde 423 (exceto csrf e logout, para sair limpo)
+    const sid = sessionUserId();
+    if (sid && !LOCK_EXEMPT.has(`${method} ${url.pathname}`)) {
+      const sessionUser = d.users.find((u) => u.id === sid);
+      const remaining = sessionUser ? inspectionLockRemaining(sessionUser) : 0;
+      if (remaining > 0 && url.pathname !== '/api/auth/login') throw fail.inspectionLocked(remaining / 1000);
+    }
 
     const me = currentUser(d);
     if (def.access !== 'public') {

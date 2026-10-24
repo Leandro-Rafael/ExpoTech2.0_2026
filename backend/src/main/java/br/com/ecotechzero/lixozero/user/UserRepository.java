@@ -37,8 +37,18 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("update User u set u.failedLoginAttempts = :attempts, u.lockedUntil = :lockedUntil where u.id = :id")
     void updateLoginFailures(@Param("id") UUID id, @Param("attempts") int attempts, @Param("lockedUntil") Instant lockedUntil);
 
+    /** Login bem-sucedido: zera falhas de senha e, se o bloqueio por inspeção já venceu, zera também os avisos. */
     @Modifying
-    @Query("update User u set u.failedLoginAttempts = 0, u.lockedUntil = null, u.lastLoginAt = :now where u.id = :id")
+    @Query("""
+            update User u set u.failedLoginAttempts = 0, u.lockedUntil = null, u.lastLoginAt = :now,
+                u.securityWarnings = case when u.securityLockedUntil is not null and u.securityLockedUntil <= :now
+                                          then 0 else u.securityWarnings end,
+                u.securityLastEventAt = case when u.securityLockedUntil is not null and u.securityLockedUntil <= :now
+                                             then null else u.securityLastEventAt end,
+                u.securityLockedUntil = case when u.securityLockedUntil is not null and u.securityLockedUntil <= :now
+                                             then null else u.securityLockedUntil end
+            where u.id = :id
+            """)
     void registerSuccessfulLogin(@Param("id") UUID id, @Param("now") Instant now);
 
     @Query("select count(distinct d.user.id) from Disposal d where d.createdAt >= :since")

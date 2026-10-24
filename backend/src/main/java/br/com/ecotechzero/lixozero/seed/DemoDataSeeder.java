@@ -33,8 +33,8 @@ import br.com.ecotechzero.lixozero.impact.Goal;
 import br.com.ecotechzero.lixozero.impact.GoalRepository;
 import br.com.ecotechzero.lixozero.organization.Organization;
 import br.com.ecotechzero.lixozero.organization.OrganizationRepository;
-import br.com.ecotechzero.lixozero.points.PointTransaction;
-import br.com.ecotechzero.lixozero.points.PointTransactionRepository;
+import br.com.ecotechzero.lixozero.integrity.ChainHashes.LedgerRow;
+import br.com.ecotechzero.lixozero.integrity.LedgerChain;
 import br.com.ecotechzero.lixozero.points.PointTransactionType;
 import br.com.ecotechzero.lixozero.reward.Redemption;
 import br.com.ecotechzero.lixozero.reward.RedemptionRepository;
@@ -131,7 +131,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final CategoryRepository categories;
     private final CollectionPointRepository points;
     private final DisposalRepository disposals;
-    private final PointTransactionRepository transactions;
+    private final LedgerChain ledger;
     private final RewardRepository rewards;
     private final RedemptionRepository redemptions;
     private final ChallengeRepository challenges;
@@ -149,7 +149,7 @@ public class DemoDataSeeder implements ApplicationRunner {
 
     public DemoDataSeeder(AppProperties props, UserRepository users, HouseholdRepository households, OrganizationRepository organizations,
                           CategoryRepository categories, CollectionPointRepository points, DisposalRepository disposals,
-                          PointTransactionRepository transactions, RewardRepository rewards, RedemptionRepository redemptions,
+                          LedgerChain ledger, RewardRepository rewards, RedemptionRepository redemptions,
                           ChallengeRepository challenges, GoalRepository goals, SmartBinRepository bins, BinReadingRepository readings,
                           CollectionRequestRepository requests, GamificationService gamification, SmartBinService smartBins,
                           RouteService routes, AuditService audit, PasswordEncoder encoder, TransactionTemplate tx, Clock clock) {
@@ -160,7 +160,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         this.categories = categories;
         this.points = points;
         this.disposals = disposals;
-        this.transactions = transactions;
+        this.ledger = ledger;
         this.rewards = rewards;
         this.redemptions = redemptions;
         this.challenges = challenges;
@@ -276,7 +276,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         // ---------- Descartes, extrato e resgates ----------
         List<Reward> catalog = rewards.findAllByOrderByCostPoints();
         List<Disposal> allDisposals = new ArrayList<>();
-        List<PointTransaction> allTx = new ArrayList<>();
+        List<SeedTx> allTx = new ArrayList<>();
         List<Redemption> allRedemptions = new ArrayList<>();
         int flaggedLeft = 6;
         for (User u : residents) {
@@ -293,7 +293,10 @@ public class DemoDataSeeder implements ApplicationRunner {
         }
         disposals.saveAll(allDisposals);
         redemptions.saveAll(allRedemptions);
-        transactions.saveAll(allTx);
+        // extrato encadeado (HMAC) na ordem cronológica de cada usuário; os ids de descartes/resgates já existem
+        ledger.appendAll(allTx.stream().map(t -> new LedgerRow(null, t.user().getId(), t.type().name(), t.amount(), t.balanceAfter(),
+                t.description(), t.disposal() == null ? null : t.disposal().getId(), null,
+                t.redemption() == null ? null : t.redemption().getId(), t.at())).toList());
         ctx.disposalCount = allDisposals.size();
         return ctx;
     }
@@ -327,7 +330,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                         .ifPresent(d::setCollectionPoint);
             }
             if (random.nextInt(10) < 3) {
-                d.setAi(cat.getCode(), Numbers.round(0.7 + random.nextDouble() * 0.29, 3), AiSource.LOCAL);
+                d.recordClientHint(cat.getCode(), Numbers.round(0.7 + random.nextDouble() * 0.29, 3), AiSource.LOCAL);
             }
             int pts = PointsCalculator.points(cat.getPointsPerKg(), kg, false);
             d.setEstimatedPoints(pts);
@@ -361,7 +364,7 @@ public class DemoDataSeeder implements ApplicationRunner {
             flags.add("Muitos registros em pouco tempo (5 em 10 minutos).");
             score += 30;
         } else {
-            d.setAi(CategoryCode.REJEITO, 0.86, AiSource.LOCAL);
+            d.recordClientHint(CategoryCode.REJEITO, 0.86, AiSource.LOCAL);
             flags.add("Categoria informada (" + cat.getCode() + ") difere da sugerida pela IA (REJEITO, 86% de confiança).");
             score += 15;
         }
@@ -389,7 +392,7 @@ public class DemoDataSeeder implements ApplicationRunner {
 
     /** Monta o extrato em ordem cronológica (saldo após cada lançamento) e alguns resgates. */
     private void buildLedger(User u, List<Disposal> mine, List<Reward> catalog, Random random, Instant now,
-                             List<PointTransaction> txOut, List<Redemption> redemptionsOut) {
+                             List<SeedTx> txOut, List<Redemption> redemptionsOut) {
         List<Disposal> approved = mine.stream().filter(d -> d.getReviewedAt() != null && d.getPointsAwarded() > 0)
                 .sorted(Comparator.comparing(Disposal::getReviewedAt)).toList();
         long balance = 0, earned = 0;
@@ -397,11 +400,9 @@ public class DemoDataSeeder implements ApplicationRunner {
         for (Disposal d : approved) {
             balance += d.getPointsAwarded();
             earned += d.getPointsAwarded();
-            PointTransaction t = new PointTransaction(u, PointTransactionType.EARN, d.getPointsAwarded(), balance,
-                    String.format(Locale.forLanguageTag("pt-BR"), "Descarte aprovado: %.2f kg de %s", d.getQuantityKg(), d.getCategory().getName()));
-            t.link(d, null, null);
-            t.setCreatedAt(d.getReviewedAt());
-            txOut.add(t);
+            txOut.add(new SeedTx(u, PointTransactionType.EARN, d.getPointsAwarded(), balance,
+                    String.format(Locale.forLanguageTag("pt-BR"), "Descarte aprovado: %.2f kg de %s", d.getQuantityKg(), d.getCategory().getName()),
+                    d, null, d.getReviewedAt()));
             if (redeemed < 3 && random.nextInt(100) < 5) {
                 final long available = balance;
                 List<Reward> affordable = catalog.stream().filter(r -> r.getCostPoints() <= available && r.getStock() > 0).toList();
@@ -419,17 +420,19 @@ public class DemoDataSeeder implements ApplicationRunner {
                     }
                     redemptionsOut.add(redemption);
                     balance -= reward.getCostPoints();
-                    PointTransaction debit = new PointTransaction(u, PointTransactionType.REDEEM, -reward.getCostPoints(), balance,
-                            "Resgate: " + reward.getName());
-                    debit.link(null, null, redemption);
-                    debit.setCreatedAt(at);
-                    txOut.add(debit);
+                    txOut.add(new SeedTx(u, PointTransactionType.REDEEM, -reward.getCostPoints(), balance,
+                            "Resgate: " + reward.getName(), null, redemption, at));
                     redeemed++;
                 }
             }
         }
         u.setPoints(balance);
         u.setTotalEarned(earned);
+    }
+
+    /** Lançamento do extrato montado em memória (gravado depois, já encadeado, pela LedgerChain). */
+    private record SeedTx(User user, PointTransactionType type, int amount, long balanceAfter, String description,
+                          Disposal disposal, Redemption redemption, Instant at) {
     }
 
     private static String voucher(Random random) {

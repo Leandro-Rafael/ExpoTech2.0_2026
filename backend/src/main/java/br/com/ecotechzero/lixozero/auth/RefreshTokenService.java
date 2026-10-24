@@ -89,7 +89,7 @@ public class RefreshTokenService {
             }
             return new Rotation(Outcome.INVALID, user, null);
         }
-        if (token.isExpired(now) || !user.isEnabled()) {
+        if (token.isExpired(now) || !user.isEnabled() || user.isSecurityLocked(now)) {
             token.revoke(now, RefreshToken.REASON_LOGOUT);
             return new Rotation(Outcome.INVALID, user, null);
         }

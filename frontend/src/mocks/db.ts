@@ -30,6 +30,11 @@ export interface UserRec {
   sessionEpoch: number;
   createdAt: string;
   lastLoginAt: string | null;
+  /** Avisos de inspeção (0..3) — opcionais para bancos salvos antes desta versão. */
+  securityWarnings?: number;
+  /** Fim do bloqueio por inspeção (ISO) e último aviso contado (janela de 5 s). */
+  securityLockedUntil?: string | null;
+  securityLastEventAt?: string | null;
 }
 
 export interface DisposalRec {

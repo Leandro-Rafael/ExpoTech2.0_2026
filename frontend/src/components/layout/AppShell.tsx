@@ -10,6 +10,7 @@ import { Logo } from './Logo';
 import { MobileNav } from './MobileNav';
 import { Sidebar } from './Sidebar';
 import { PointsChip, UserMenu } from './UserMenu';
+import { InspectionGuard } from '@/security/InspectionGuard';
 
 const COLLAPSE_KEY = 'ez:sidebar-collapsed';
 
@@ -74,6 +75,8 @@ export function AppShell() {
       </div>
 
       <MobileNav />
+      {/* Dissuasão de inspeção: só existe dentro da área logada */}
+      <InspectionGuard />
     </div>
   );
 }

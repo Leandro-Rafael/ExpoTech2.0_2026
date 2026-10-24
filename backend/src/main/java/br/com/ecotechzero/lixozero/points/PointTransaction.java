@@ -13,13 +13,18 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.Immutable;
 
 /**
  * Lançamento no extrato de pontos (livro-razão imutável). Guarda o saldo após o lançamento,
  * permitindo auditar a evolução do saldo. Um índice único no banco garante no máximo um
  * lançamento EARN por descarte.
+ * <p>
+ * Somente leitura no JPA: as linhas são gravadas pela {@code LedgerChain} já encadeadas (seq, prev_hash e
+ * HMAC) e a tabela é append-only no banco (UPDATE/DELETE recusados por trigger).
  */
 @Entity
+@Immutable
 @Table(name = "point_transactions")
 public class PointTransaction extends BaseEntity {
 
@@ -52,21 +57,16 @@ public class PointTransaction extends BaseEntity {
     @JoinColumn(name = "redemption_id")
     private Redemption redemption;
 
+    @Column(nullable = false)
+    private long seq;
+
+    @Column(name = "prev_hash", nullable = false, length = 64)
+    private String prevHash;
+
+    @Column(nullable = false, length = 64)
+    private String hash;
+
     protected PointTransaction() {
-    }
-
-    public PointTransaction(User user, PointTransactionType type, int amount, long balanceAfter, String description) {
-        this.user = user;
-        this.type = type;
-        this.amount = amount;
-        this.balanceAfter = balanceAfter;
-        this.description = description;
-    }
-
-    public void link(Disposal disposal, Challenge challenge, Redemption redemption) {
-        this.disposal = disposal;
-        this.challenge = challenge;
-        this.redemption = redemption;
     }
 
     public User getUser() { return user; }
@@ -74,4 +74,7 @@ public class PointTransaction extends BaseEntity {
     public int getAmount() { return amount; }
     public long getBalanceAfter() { return balanceAfter; }
     public String getDescription() { return description; }
+    public long getSeq() { return seq; }
+    public String getPrevHash() { return prevHash; }
+    public String getHash() { return hash; }
 }

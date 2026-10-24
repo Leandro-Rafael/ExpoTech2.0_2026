@@ -7,17 +7,10 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
@@ -36,7 +29,6 @@ import java.util.UUID;
 @Service
 public class JwtService {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtService.class);
     private static final String ISSUER = "lixozero-api";
     private static final int MIN_SECRET_BYTES = 32;
     private static final int MAX_TOKEN_LENGTH = 2048;
@@ -107,7 +99,7 @@ public class JwtService {
             }
             return bytes;
         }
-        return loadOrCreateLocalSecret(props.dataPath().resolve("jwt-secret.key"));
+        return LocalSecrets.loadOrCreate(props.dataPath().resolve("jwt-secret.key"), "APP_JWT_SECRET");
     }
 
     private static byte[] decodeSecret(String value) {
@@ -120,44 +112,5 @@ public class JwtService {
             // não é Base64: usa o texto puro
         }
         return value.getBytes(StandardCharsets.UTF_8);
-    }
-
-    private static byte[] loadOrCreateLocalSecret(Path file) {
-        try {
-            if (Files.exists(file)) {
-                byte[] bytes = Base64.getDecoder().decode(Files.readString(file).strip());
-                if (bytes.length >= MIN_SECRET_BYTES) {
-                    return bytes;
-                }
-            }
-            byte[] secret = new byte[48];
-            new SecureRandom().nextBytes(secret);
-            Files.createDirectories(file.getParent());
-            Files.writeString(file, Base64.getEncoder().encodeToString(secret));
-            restrictPermissions(file);
-            log.warn("APP_JWT_SECRET não definido: segredo aleatório gerado em {} (use APP_JWT_SECRET em produção)", file);
-            return secret;
-        } catch (IOException e) {
-            throw new UncheckedIOException("Não foi possível ler/gravar o segredo JWT local", e);
-        }
-    }
-
-    private static void restrictPermissions(Path file) {
-        try {
-            if (Files.getFileStore(file).supportsFileAttributeView("posix")) {
-                Files.setPosixFilePermissions(file, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")); // chmod 600
-                return;
-            }
-        } catch (IOException | UnsupportedOperationException ignored) {
-            // segue para o modo genérico abaixo
-        }
-        try {
-            file.toFile().setReadable(false, false);
-            file.toFile().setReadable(true, true);
-            file.toFile().setWritable(false, false);
-            file.toFile().setWritable(true, true);
-        } catch (SecurityException ignored) {
-            // melhor esforço (Windows ignora parte das permissões POSIX)
-        }
     }
 }

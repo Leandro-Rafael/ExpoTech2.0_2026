@@ -50,7 +50,9 @@ public class PhotoService {
         this.clock = clock;
     }
 
-    public record AiSuggestion(boolean available, CategoryCode categoryCode, Double confidence, String reasoning, AiSource source) {
+    /** verified = classificação feita pelo servidor (fica gravada na foto e é a única que vale para o bônus). */
+    public record AiSuggestion(boolean available, CategoryCode categoryCode, Double confidence, String reasoning, AiSource source,
+                               boolean verified) {
     }
 
     public record PhotoUpload(UUID id, String url, int width, int height, boolean duplicateSuspected, AiSuggestion ai) {
@@ -75,12 +77,12 @@ public class PhotoService {
 
         return tx.execute(status -> {
             Photo photo = new Photo(users.getReferenceById(me.id()), image.jpeg(), image.width(), image.height(), image.dHash(), image.sha256());
-            ai.ifPresent(c -> photo.setAi(c.categoryCode(), c.confidence(), c.reasoning(), c.source()));
+            ai.ifPresent(c -> photo.setServerAi(c.categoryCode(), c.confidence(), c.reasoning(), c.source(), c.model(), clock.instant()));
             photos.save(photo);
             boolean duplicate = isDuplicateSuspected(photo.getId(), image.sha256(), image.dHash());
             AiSuggestion suggestion = ai
-                    .map(c -> new AiSuggestion(true, c.categoryCode(), c.confidence(), c.reasoning(), c.source()))
-                    .orElse(new AiSuggestion(false, null, null, null, null));
+                    .map(c -> new AiSuggestion(true, c.categoryCode(), c.confidence(), c.reasoning(), c.source(), photo.isAiVerified()))
+                    .orElse(new AiSuggestion(false, null, null, null, null, false));
             return new PhotoUpload(photo.getId(), url(photo.getId()), image.width(), image.height(), duplicate, suggestion);
         });
     }

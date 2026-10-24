@@ -1,7 +1,8 @@
 /**
  * Pontos, níveis, medalhas, desafios e sequência — mesmas regras do back-end:
  * - só descartes APROVADOS geram pontos, e uma única vez;
- * - pontos = arredondar(kg × pontosPorKg), mínimo 1, +10% quando a IA confirmou a categoria com foto;
+ * - pontos = arredondar(kg × pontosPorKg), mínimo 1, +10% só quando a IA DO SERVIDOR confirmou a categoria
+ *   (o modo demonstração não tem IA no servidor: palpites do navegador nunca valem bônus);
  * - nível pelo total já ganho (totalEarned), saldo (points) é o disponível para resgates.
  */
 import type { BadgeTier, Category, CategoryCode, Level } from '@/api/types';
@@ -49,8 +50,9 @@ export function computePoints(category: Pick<Category, 'pointsPerKg'>, kg: numbe
   return Math.max(1, base);
 }
 
-export function aiConfirmed(d: DisposalRec, category: Category): boolean {
-  return !!d.photoId && d.aiSuggestedCode === category.code && (d.aiConfidence ?? 0) >= AI_MIN_CONFIDENCE;
+/** Sempre false no modo demonstração: a sugestão enviada pelo cliente é só um palpite e não pode gerar bônus. */
+export function aiConfirmed(_d: DisposalRec, _category: Category): boolean {
+  return false;
 }
 
 // ---------------------------------------------------------------- transações

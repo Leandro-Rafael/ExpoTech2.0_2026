@@ -60,6 +60,7 @@ export interface UserMe {
   household: { id: UUID; name: string; neighborhood: string } | null;
   organization: Organization | null;
   createdAt: ISODateTime;
+  securityWarnings: number; // avisos de inspeção (0..3); no 3º o acesso é bloqueado por 30 min
 }
 
 export interface Organization { id: UUID; name: string; type: OrganizationType }
@@ -86,6 +87,7 @@ export interface AiSuggestion {
   confidence: number | null;  // 0..1
   reasoning: string | null;
   source: AiSource | null;
+  verified: boolean;      // true só quando a IA do SERVIDOR classificou (única que conta para o bônus)
 }
 
 export interface PhotoUpload {
@@ -127,7 +129,8 @@ export interface Disposal {
   reviewedAt: ISODateTime | null;
   rejectionReason: string | null;
   notes: string | null;
-  ai: { suggestedCode: CategoryCode | null; confidence: number | null; source: AiSource | null } | null;
+  // verified=true: classificação feita pelo servidor (vale o bônus de +10%); false: palpite do navegador (só informativo)
+  ai: { suggestedCode: CategoryCode | null; confidence: number | null; source: AiSource | null; verified: boolean } | null;
   // Somente para ADMIN:
   user?: UserRef;
   fraud?: { score: number; flags: string[] };
@@ -413,7 +416,10 @@ export interface AdminUser {
   email: string;
   role: Role;
   enabled: boolean;
-  locked: boolean;
+  locked: boolean;          // bloqueio ativo (senha errada ou inspeção)
+  lockReason: AccountLockReason | null;
+  lockedUntil: ISODateTime | null;
+  securityWarnings: number; // avisos de inspeção acumulados (0..3)
   points: number;
   totalEarned: number;
   household: string | null;
@@ -451,3 +457,30 @@ export interface ChallengeInput {
   target: number; bonusPoints: number; startsAt: ISODate; endsAt: ISODate; active: boolean;
 }
 export interface GoalInput { year: number; title: string; targetRecyclingRate: number; targetKg: number }
+
+// ---------- Segurança: dissuasão de inspeção e integridade dos dados ----------
+export type AccountLockReason = 'PASSWORD' | 'INSPECTION';
+export type InspectionTrigger =
+  | 'F12' | 'CTRL_SHIFT_I' | 'CTRL_SHIFT_J' | 'CTRL_SHIFT_C' | 'CTRL_U' | 'CONTEXT_MENU' | 'DEVTOOLS_OPEN';
+
+/** POST /api/security/inspection-events */
+export interface InspectionEventResult {
+  warnings: number;         // avisos acumulados (eventos em até 5 s contam como um só)
+  maxWarnings: number;      // 3
+  locked: boolean;          // true no 3º aviso: sessões encerradas, acesso bloqueado
+  lockedUntil: ISODateTime | null;
+}
+
+export interface IntegrityBreak {
+  table: 'point_transactions' | 'audit_log' | 'users';
+  id: UUID;
+  userId: UUID | null;
+}
+
+/** GET /api/admin/integrity */
+export interface IntegrityReport {
+  checkedAt: ISODateTime;
+  ledger: { ok: boolean; rowsChecked: number; brokenAt: IntegrityBreak | null };
+  audit: { ok: boolean; rowsChecked: number; brokenAt: IntegrityBreak | null };
+  balances: { ok: boolean; mismatches: number };
+}

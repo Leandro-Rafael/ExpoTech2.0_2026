@@ -150,7 +150,8 @@ public class ClaudeVisionClassifier implements WasteClassifier {
                 confidence = 0.5;
             }
             String reasoning = Text.truncate(Text.clean(result.path("reasoning").asString("")), 300);
-            return Optional.of(new Classification(code, Math.clamp(confidence, 0.0, 1.0), reasoning, AiSource.CLAUDE));
+            return Optional.of(new Classification(code, Math.clamp(confidence, 0.0, 1.0), reasoning, AiSource.CLAUDE,
+                    Text.truncate(config.model(), 60)));
         }
         return Optional.empty();
     }

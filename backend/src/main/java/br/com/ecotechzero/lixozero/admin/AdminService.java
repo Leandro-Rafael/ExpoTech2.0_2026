@@ -146,6 +146,22 @@ public class AdminService {
         return toAdminUser(user);
     }
 
+    /**
+     * Desbloqueio manual (ex.: alguém apertou F12 sem querer na apresentação): limpa o bloqueio por senha errada
+     * e o bloqueio/avisos de inspeção. As sessões revogadas não voltam: o usuário faz login de novo.
+     */
+    @Transactional
+    public AdminUser unlockUser(UUID id) {
+        User user = users.findById(id).orElseThrow(() -> ApiException.notFound("Usuário não encontrado."));
+        Instant now = clock.instant();
+        String before = "senha: " + (user.isLocked(now) ? "bloqueado" : "livre") + ", inspeção: "
+                + (user.isSecurityLocked(now) ? "bloqueado" : "livre") + ", avisos: " + user.activeSecurityWarnings(now);
+        user.unlockAll();
+        loginAttempts.clear(user.getEmail());
+        audit.record(AuditAction.USER_UNLOCKED, "User", id, before);
+        return toAdminUser(user);
+    }
+
     @Transactional(readOnly = true)
     public List<UserRef> collectors() {
         List<UserRef> list = new ArrayList<>();
@@ -154,8 +170,20 @@ public class AdminService {
     }
 
     private AdminUser toAdminUser(User u) {
-        return new AdminUser(u.getId(), u.getName(), u.getEmail(), u.getRole(), u.isEnabled(), u.isLocked(clock.instant()),
-                u.getPoints(), u.getTotalEarned(), u.getHousehold() == null ? null : u.getHousehold().getName(),
-                u.getCreatedAt(), u.getLastLoginAt());
+        Instant now = clock.instant();
+        boolean inspection = u.isSecurityLocked(now);
+        boolean password = u.isLocked(now);
+        String reason = null;
+        Instant until = null;
+        if (inspection && (!password || !u.getLockedUntil().isAfter(u.getSecurityLockedUntil()))) {
+            reason = "INSPECTION";
+            until = u.getSecurityLockedUntil();
+        } else if (password) {
+            reason = "PASSWORD";
+            until = u.getLockedUntil();
+        }
+        return new AdminUser(u.getId(), u.getName(), u.getEmail(), u.getRole(), u.isEnabled(), inspection || password,
+                reason, until, u.activeSecurityWarnings(now), u.getPoints(), u.getTotalEarned(),
+                u.getHousehold() == null ? null : u.getHousehold().getName(), u.getCreatedAt(), u.getLastLoginAt());
     }
 }

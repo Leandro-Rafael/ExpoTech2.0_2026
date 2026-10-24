@@ -22,14 +22,14 @@ public final class UserDtos {
         }
     }
 
-    /** Usuário logado (contrato UserMe). */
+    /** Usuário logado (contrato UserMe). securityWarnings = avisos de inspeção vigentes (0..3). */
     public record UserMe(UUID id, String name, String email, Role role, long points, long totalEarned,
                          LevelCatalog.LevelDto level, HouseholdRef household, OrganizationDto organization,
-                         Instant createdAt) {
+                         Instant createdAt, int securityWarnings) {
         public static UserMe of(User u) {
             return new UserMe(u.getId(), u.getName(), u.getEmail(), u.getRole(), u.getPoints(), u.getTotalEarned(),
                     LevelCatalog.levelFor(u.getTotalEarned()), HouseholdRef.of(u.getHousehold()),
-                    OrganizationDto.of(u.getOrganization()), u.getCreatedAt());
+                    OrganizationDto.of(u.getOrganization()), u.getCreatedAt(), u.activeSecurityWarnings(Instant.now()));
         }
     }
 

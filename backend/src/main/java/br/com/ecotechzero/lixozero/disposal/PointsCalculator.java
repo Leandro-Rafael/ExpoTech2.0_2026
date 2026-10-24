@@ -3,12 +3,14 @@ package br.com.ecotechzero.lixozero.disposal;
 /**
  * Regra de pontuação de um descarte aprovado:
  * pontos = arredondar(kg x pontosPorKg da categoria), mínimo 1,
- * + 10% de bônus quando há foto e a IA confirmou a categoria informada.
+ * + 10% de bônus quando há foto e a IA DO SERVIDOR confirmou a categoria final.
  */
 public final class PointsCalculator {
 
     public static final double AI_CONFIRMED_BONUS = 0.10;
     public static final double AI_MIN_CONFIDENCE = 0.6;
+    /** A foto precisa ter sido enviada há no máximo este tempo para a classificação valer o bônus. */
+    public static final java.time.Duration AI_PHOTO_MAX_AGE = java.time.Duration.ofHours(24);
 
     private PointsCalculator() {
     }

@@ -10,6 +10,8 @@ import { mapPredictions, type LocalGuess } from './labelMap';
 const MODEL_URL = `${import.meta.env.BASE_URL}models/mobilenet/model.json`;
 
 let modelPromise: Promise<mobilenet.MobileNet> | null = null;
+let lastProgress = 0;
+const listeners = new Set<(p: number) => void>();
 
 async function pickBackend() {
   try {
@@ -18,23 +20,34 @@ async function pickBackend() {
   await tf.setBackend('cpu');
 }
 
-/** Carrega (uma vez) o modelo. Chamadas seguintes reutilizam a mesma promessa. */
-export function loadModel(): Promise<mobilenet.MobileNet> {
+export function isModelLoaded() {
+  return lastProgress >= 1 && modelPromise != null;
+}
+
+/** Carrega (uma vez) o modelo; `onProgress` recebe 0..1 do download dos pesos. */
+export function loadModel(onProgress?: (p: number) => void): Promise<mobilenet.MobileNet> {
+  if (onProgress) { listeners.add(onProgress); onProgress(lastProgress); }
   if (!modelPromise) {
     modelPromise = (async () => {
       await pickBackend();
       await tf.ready();
-      const model = await mobilenet.load({ version: 2, alpha: 1.0, modelUrl: MODEL_URL, inputRange: [0, 1] });
+      const handler = tf.io.http(MODEL_URL, {
+        onProgress: (p: number) => { lastProgress = p; listeners.forEach((l) => l(p)); },
+      });
+      const model = await mobilenet.load({ version: 2, alpha: 1.0, modelUrl: handler, inputRange: [0, 1] });
+      lastProgress = 1;
+      listeners.forEach((l) => l(1));
       // Aquecimento: compila os shaders para a 1ª classificação real ser rápida.
       tf.tidy(() => { model.infer(tf.zeros([224, 224, 3]) as tf.Tensor3D); });
       return model;
-    })().catch((e) => { modelPromise = null; throw e; });
+    })().catch((e) => { modelPromise = null; lastProgress = 0; throw e; });
   }
-  return modelPromise;
+  const p = modelPromise;
+  return onProgress ? p.finally(() => listeners.delete(onProgress)) : p;
 }
 
-export async function classify(image: HTMLCanvasElement | HTMLImageElement): Promise<LocalGuess> {
-  const model = await loadModel();
+export async function classify(image: HTMLCanvasElement | HTMLImageElement, onProgress?: (p: number) => void): Promise<LocalGuess> {
+  const model = await loadModel(onProgress);
   const preds = await model.classify(image, 5);
   return mapPredictions(preds);
 }

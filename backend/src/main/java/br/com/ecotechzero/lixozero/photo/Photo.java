@@ -13,6 +13,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import java.time.Instant;
+
 /**
  * Foto de um descarte. Os bytes (JPEG já sanitizado) ficam no próprio banco (bytea),
  * o que funciona em qualquer PostgreSQL gerenciado (Supabase) sem storage externo.
@@ -60,6 +62,12 @@ public class Photo extends BaseEntity {
     @Column(name = "ai_source", length = 10)
     private AiSource aiSource;
 
+    @Column(name = "ai_model", length = 60)
+    private String aiModel;
+
+    @Column(name = "ai_classified_at")
+    private Instant aiClassifiedAt;
+
     protected Photo() {
     }
 
@@ -74,11 +82,18 @@ public class Photo extends BaseEntity {
         this.sha256 = sha256;
     }
 
-    public void setAi(CategoryCode code, Double confidence, String reasoning, AiSource source) {
+    /** Resultado do classificador do SERVIDOR (nunca dados vindos do cliente). */
+    public void setServerAi(CategoryCode code, Double confidence, String reasoning, AiSource source, String model, Instant at) {
         this.aiCode = code;
         this.aiConfidence = confidence;
         this.aiReasoning = reasoning;
         this.aiSource = source;
+        this.aiModel = model;
+        this.aiClassifiedAt = at;
+    }
+
+    public boolean isAiVerified() {
+        return aiCode != null && aiSource != null && aiSource.isServerSide();
     }
 
     public User getOwner() { return owner; }
@@ -92,4 +107,6 @@ public class Photo extends BaseEntity {
     public Double getAiConfidence() { return aiConfidence; }
     public String getAiReasoning() { return aiReasoning; }
     public AiSource getAiSource() { return aiSource; }
+    public String getAiModel() { return aiModel; }
+    public Instant getAiClassifiedAt() { return aiClassifiedAt; }
 }

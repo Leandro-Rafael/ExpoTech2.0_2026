@@ -4,11 +4,16 @@ import br.com.ecotechzero.lixozero.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.Immutable;
 
 import java.util.UUID;
 
-/** Registro de auditoria de ações sensíveis (quem, o quê, quando e de qual IP). */
+/**
+ * Registro de auditoria de ações sensíveis (quem, o quê, quando e de qual IP).
+ * Somente leitura no JPA: gravado pela {@code AuditChain} numa cadeia de hashes; append-only no banco.
+ */
 @Entity
+@Immutable
 @Table(name = "audit_log")
 public class AuditLog extends BaseEntity {
 
@@ -33,17 +38,13 @@ public class AuditLog extends BaseEntity {
     @Column(length = 64)
     private String ip;
 
-    protected AuditLog() {
-    }
+    @Column(nullable = false)
+    private long seq;
 
-    public AuditLog(UUID actorId, String actorLabel, String action, String entity, String entityId, String details, String ip) {
-        this.actorId = actorId;
-        this.actorLabel = actorLabel;
-        this.action = action;
-        this.entity = entity;
-        this.entityId = entityId;
-        this.details = details;
-        this.ip = ip;
+    @Column(nullable = false, length = 64)
+    private String hash;
+
+    protected AuditLog() {
     }
 
     public UUID getActorId() { return actorId; }
@@ -53,4 +54,6 @@ public class AuditLog extends BaseEntity {
     public String getEntityId() { return entityId; }
     public String getDetails() { return details; }
     public String getIp() { return ip; }
+    public long getSeq() { return seq; }
+    public String getHash() { return hash; }
 }

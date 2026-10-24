@@ -129,3 +129,5 @@ Formatação sempre por `lib/format` (`formatKg`, `formatNumber`, `formatPercent
 ## Contas de demonstração
 
 admin@ecotechzero.com.br / EcoTech@2050 · coletor@ecotechzero.com.br / Coleta@2050 · morador@ecotechzero.com.br / Recicla@2050
+
+> Atualização (CSP): o mapa usa tiles do OpenStreetMap em `https://tile.openstreetmap.org/{z}/{x}/{y}.png`; a CSP do back-end (`img-src`) libera `https://tile.openstreetmap.org` e `https://*.tile.openstreetmap.org`, além de `https://*.basemaps.cartocdn.com`.

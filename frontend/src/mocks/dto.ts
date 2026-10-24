@@ -11,6 +11,7 @@ import { binStatus } from './logic/bins';
 import { haversineKm } from './logic/geo';
 import { challengeProgress, levelFor } from './logic/points';
 import { priority } from './logic/priority';
+import { activeWarnings, adminLockInfo } from './logic/security';
 import { round } from './logic/random';
 
 export function userRef(u: UserRec | undefined | null, withEmail = true): UserRef | null {
@@ -29,6 +30,7 @@ export function toUserMe(d: MockDb, u: UserRec): UserMe {
     points: u.points,
     totalEarned: u.totalEarned,
     level: levelFor(u.totalEarned),
+    securityWarnings: activeWarnings(u),
     household: h ? { id: h.id, name: h.name, neighborhood: h.neighborhood } : null,
     organization: org ? { ...org } : null,
     createdAt: u.createdAt,
@@ -65,7 +67,8 @@ export function toDisposal(d: MockDb, x: DisposalRec, admin = false): Disposal {
     reviewedAt: x.reviewedAt,
     rejectionReason: x.rejectionReason,
     notes: x.notes,
-    ai: x.aiSource || x.aiSuggestedCode ? { suggestedCode: x.aiSuggestedCode, confidence: x.aiConfidence, source: x.aiSource } : null,
+    // sem IA no servidor no modo demonstração: a sugestão é sempre um palpite do navegador (não verificado)
+    ai: x.aiSource || x.aiSuggestedCode ? { suggestedCode: x.aiSuggestedCode, confidence: x.aiConfidence, source: x.aiSource, verified: false } : null,
   };
   if (admin) {
     const u = d.users.find((k) => k.id === x.userId);
@@ -202,7 +205,7 @@ export function toAdminUser(d: MockDb, u: UserRec): AdminUser {
     email: u.email,
     role: u.role,
     enabled: u.enabled,
-    locked: !!u.lockedUntil && Date.parse(u.lockedUntil) > Date.now(),
+    ...adminLockInfo(u),
     points: u.points,
     totalEarned: u.totalEarned,
     household: d.households.find((h) => h.id === u.householdId)?.name ?? null,

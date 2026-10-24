@@ -6,6 +6,7 @@ import br.com.ecotechzero.lixozero.common.PageResponse;
 import br.com.ecotechzero.lixozero.common.Pagination;
 import br.com.ecotechzero.lixozero.disposal.Disposal;
 import br.com.ecotechzero.lixozero.gamification.Challenge;
+import br.com.ecotechzero.lixozero.integrity.LedgerChain;
 import br.com.ecotechzero.lixozero.reward.Redemption;
 import br.com.ecotechzero.lixozero.user.User;
 import jakarta.persistence.EntityManager;
@@ -24,16 +25,19 @@ import java.util.UUID;
  * Toda operação trava a linha do usuário (SELECT ... FOR UPDATE) antes de ler o saldo. Assim, duas
  * operações simultâneas (ex.: dois resgates em abas diferentes) são executadas uma após a outra e
  * o saldo nunca fica inconsistente nem negativo (há também um CHECK points >= 0 no banco).
+ * Cada lançamento entra no fim da cadeia de integridade do usuário ({@link LedgerChain}).
  */
 @Service
 public class PointsService {
 
     private final EntityManager em;
     private final PointTransactionRepository transactions;
+    private final LedgerChain ledger;
 
-    public PointsService(EntityManager em, PointTransactionRepository transactions) {
+    public PointsService(EntityManager em, PointTransactionRepository transactions, LedgerChain ledger) {
         this.em = em;
         this.transactions = transactions;
+        this.ledger = ledger;
     }
 
     public record PointTransactionDto(UUID id, PointTransactionType type, int amount, long balanceAfter,
@@ -56,32 +60,28 @@ public class PointsService {
 
     /** Credita pontos ganhos (EARN por descarte aprovado ou BONUS por desafio). */
     @Transactional(propagation = Propagation.MANDATORY)
-    public PointTransaction credit(UUID userId, int amount, PointTransactionType type, String description,
-                                   Disposal disposal, Challenge challenge, Instant at) {
+    public UUID credit(UUID userId, int amount, PointTransactionType type, String description,
+                       Disposal disposal, Challenge challenge, Instant at) {
         if (amount <= 0) {
             throw new IllegalArgumentException("amount deve ser positivo");
         }
         User user = lockUser(userId);
         user.earn(amount);
-        PointTransaction tx = new PointTransaction(user, type, amount, user.getPoints(), description);
-        tx.link(disposal, challenge, null);
-        tx.setCreatedAt(at);
-        return transactions.save(tx);
+        return ledger.append(userId, type.name(), amount, user.getPoints(), description,
+                disposal == null ? null : disposal.getId(), challenge == null ? null : challenge.getId(), null, at);
     }
 
     /** Debita pontos de um resgate. Verifica o saldo com a linha travada (sem condição de corrida). */
     @Transactional(propagation = Propagation.MANDATORY)
-    public PointTransaction debit(UUID userId, int cost, String description, Redemption redemption, Instant at) {
+    public UUID debit(UUID userId, int cost, String description, Redemption redemption, Instant at) {
         User user = lockUser(userId);
         if (user.getPoints() < cost) {
             throw new ApiException(ErrorCode.INSUFFICIENT_POINTS,
                     "Saldo insuficiente: você tem " + user.getPoints() + " pontos e a recompensa custa " + cost + ".");
         }
         user.spend(cost);
-        PointTransaction tx = new PointTransaction(user, PointTransactionType.REDEEM, -cost, user.getPoints(), description);
-        tx.link(null, null, redemption);
-        tx.setCreatedAt(at);
-        return transactions.save(tx);
+        return ledger.append(userId, PointTransactionType.REDEEM.name(), -cost, user.getPoints(), description,
+                null, null, redemption == null ? null : redemption.getId(), at);
     }
 
     @Transactional(readOnly = true)

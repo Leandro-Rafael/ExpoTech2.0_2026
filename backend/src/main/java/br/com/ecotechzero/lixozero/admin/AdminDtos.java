@@ -13,8 +13,10 @@ public final class AdminDtos {
     private AdminDtos() {
     }
 
-    public record AdminUser(UUID id, String name, String email, Role role, boolean enabled, boolean locked, long points,
-                            long totalEarned, String household, Instant createdAt, Instant lastLoginAt) {
+    /** locked = bloqueio ativo (senha errada ou inspeção); lockReason PASSWORD | INSPECTION; lockedUntil = fim do bloqueio ativo. */
+    public record AdminUser(UUID id, String name, String email, Role role, boolean enabled, boolean locked, String lockReason,
+                            Instant lockedUntil, int securityWarnings, long points, long totalEarned, String household,
+                            Instant createdAt, Instant lastLoginAt) {
     }
 
     /** PATCH /api/admin/users/{id}: campos nulos não são alterados. */

@@ -98,6 +98,15 @@ export function onUnauthorized(fn: Listener): () => void {
 }
 function emitUnauthorized() { logoutListeners.forEach((fn) => fn()); }
 
+type LockedListener = (err: ApiError) => void;
+const lockedListeners = new Set<LockedListener>();
+
+/** Assina respostas 423 ACCOUNT_LOCKED (o InspectionGuard mostra a tela de bloqueio dentro do app). */
+export function onAccountLocked(fn: LockedListener): () => void {
+  lockedListeners.add(fn);
+  return () => lockedListeners.delete(fn);
+}
+
 // ---------------------------------------------------------------- CSRF
 
 export function readCookie(name: string): string | null {
@@ -198,12 +207,20 @@ async function toApiError(res: Response): Promise<ApiError> {
     detail: code === 'RATE_LIMITED' || res.status === 429
       ? rateLimitMessage(retryAfter)
       : code === 'ACCOUNT_LOCKED'
-        ? lockedMessage(retryAfter)
+        ? lockedDetail(problem.detail, retryAfter)
         : problem.detail ?? errorCodeMessage[code],
     fieldErrors: Array.isArray(problem.errors) ? problem.errors : [],
     retryAfter,
   });
+  if (code === 'ACCOUNT_LOCKED') lockedListeners.forEach((fn) => fn(err));
   return err;
+}
+
+/** Mantém o motivo enviado pelo servidor (senha ou inspeção) e acrescenta o tempo restante se faltar. */
+function lockedDetail(detail: string | undefined, seconds: number | null): string {
+  if (!detail) return lockedMessage(seconds);
+  if (/tente novamente/i.test(detail) || !seconds || seconds <= 0) return detail;
+  return `${detail} Tente novamente em ${Math.max(1, Math.ceil(seconds / 60))} min.`;
 }
 
 function lockedMessage(seconds: number | null): string {

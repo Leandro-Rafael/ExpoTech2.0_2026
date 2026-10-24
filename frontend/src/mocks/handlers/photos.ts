@@ -73,7 +73,7 @@ export function registerPhotoRoutes() {
       width: img.width,
       height: img.height,
       duplicateSuspected: !!duplicate,
-      ai: { available: false, categoryCode: null, confidence: null, reasoning: null, source: null },
+      ai: { available: false, categoryCode: null, confidence: null, reasoning: null, source: null, verified: false },
     });
   });
 

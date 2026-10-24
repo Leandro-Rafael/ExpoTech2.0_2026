@@ -1,5 +1,7 @@
 /**
- * MapView — mapa base (Leaflet + react-leaflet) com tiles escuros da CARTO e controles do design system.
+ * MapView — mapa base (Leaflet + react-leaflet) com tiles do OpenStreetMap escurecidos por CSS e controles do design system.
+ * (Os basemaps escuros da CARTO passaram a exigir chave de API — "API KEY REQUIRED" —; por isso usamos o
+ *  tile padrão do OSM com filtro escuro. Para voltar à CARTO com chave, defina VITE_CARTO_API_KEY.)
  * Use SOMENTE em páginas lazy (o leaflet fica no chunk "leaflet"; o CSS também é carregado só aqui).
  *
  *   <MapView className="h-[420px]" bounds={points.map(p => [p.latitude, p.longitude])}>
@@ -26,9 +28,15 @@ export interface LatLon { latitude: number; longitude: number }
 /** Centro padrão (Taboão da Serra / SP — mesma região dos dados de demonstração). */
 export const DEFAULT_CENTER: LatLngTuple = [-23.609, -46.758];
 
-export const TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-export const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>';
+const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY as string | undefined;
+/** true = tiles já escuros (CARTO); false = OSM claro invertido por CSS. */
+export const TILES_DARK = !!CARTO_KEY;
+export const TILE_URL = CARTO_KEY
+  ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=${encodeURIComponent(CARTO_KEY)}`
+  : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+export const TILE_ATTRIBUTION = CARTO_KEY
+  ? '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>'
+  : '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
 
 /** Converte {latitude, longitude} → [lat, lon]. */
 export const toLatLng = (p: LatLon): LatLngTuple => [p.latitude, p.longitude];
@@ -67,7 +75,7 @@ export function MapView({
         zoomControl={false}
         attributionControl={false}
         scrollWheelZoom={scrollWheelZoom}
-        className={cn('ez-map absolute inset-0 h-full w-full', picking && 'ez-picking')}
+        className={cn('ez-map absolute inset-0 h-full w-full', !TILES_DARK && 'ez-map-invert', picking && 'ez-picking')}
         minZoom={3}
         maxZoom={19}
         worldCopyJump

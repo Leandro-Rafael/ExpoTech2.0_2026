@@ -33,13 +33,20 @@ class FraudRulesTest {
     private static final UUID USER = UUID.randomUUID();
     private static final Instant NOW = Instant.parse("2026-10-23T15:00:00Z");
 
+    /** source CLAUDE = classificação do servidor; demais = palpite do cliente. */
     private static FraudContext ctx(double kg, PhotoMeta photo, CategoryCode ai, Double conf, AiSource source) {
-        return new FraudContext(USER, CategoryCode.ELETRONICO, 15, kg, photo, null, null, NOW, ai, conf, source,
-                NOW, ZoneId.of("America/Sao_Paulo"));
+        boolean server = source == AiSource.CLAUDE;
+        return ctx2(kg, photo, server ? ai : null, server ? conf : null, server ? null : ai, server ? null : conf, server ? null : source);
+    }
+
+    private static FraudContext ctx2(double kg, PhotoMeta photo, CategoryCode serverAi, Double serverConf,
+                                     CategoryCode clientAi, Double clientConf, AiSource clientSource) {
+        return new FraudContext(USER, CategoryCode.ELETRONICO, 15, kg, photo, null, null, NOW, serverAi, serverConf,
+                clientAi, clientConf, clientSource, NOW, ZoneId.of("America/Sao_Paulo"));
     }
 
     private static PhotoMeta photo(long dhash) {
-        return new PhotoMeta(UUID.randomUUID(), USER, dhash, "abc", null, null, null);
+        return new PhotoMeta(UUID.randomUUID(), USER, dhash, "abc", null, null, null, NOW);
     }
 
     @Test
@@ -57,6 +64,21 @@ class FraudRulesTest {
         assertThat(server).isGreaterThan(local);
         assertThat(rule.evaluate(ctx(1, null, CategoryCode.REJEITO, 0.4, AiSource.CLAUDE))).isEmpty(); // baixa confiança
         assertThat(rule.evaluate(ctx(1, null, CategoryCode.ELETRONICO, 0.95, AiSource.CLAUDE))).isEmpty(); // concorda
+    }
+
+    @Test
+    void clientHintCanRaiseButNeverLowerRisk() {
+        var rule = new AiMismatchRule();
+        // servidor diverge; palpite forjado do cliente "concordando" não reduz o risco
+        var forged = rule.evaluate(ctx2(1, null, CategoryCode.REJEITO, 0.9, CategoryCode.ELETRONICO, 0.99, AiSource.LOCAL));
+        assertThat(forged).isPresent();
+        assertThat(forged.get().score()).isEqualTo(AiMismatchRule.SCORE_SERVER_AI);
+        // sem IA do servidor: palpite divergente do cliente aumenta o risco
+        assertThat(rule.evaluate(ctx2(1, null, null, null, CategoryCode.REJEITO, 0.9, AiSource.LOCAL))).isPresent();
+        // servidor confirmou a categoria: palpite local divergente é ignorado (sem falso positivo)
+        assertThat(rule.evaluate(ctx2(1, null, CategoryCode.ELETRONICO, 0.9, CategoryCode.REJEITO, 0.9, AiSource.LOCAL))).isEmpty();
+        // escolha manual não é IA
+        assertThat(rule.evaluate(ctx2(1, null, null, null, CategoryCode.REJEITO, 0.9, AiSource.MANUAL))).isEmpty();
     }
 
     @Test

@@ -21,7 +21,8 @@ public interface PhotoRepository extends JpaRepository<Photo, UUID> {
     List<PhotoHash> recentHashes(@Param("since") Instant since, @Param("excludeId") UUID excludeId, Pageable limit);
 
     @Query("""
-            select new br.com.ecotechzero.lixozero.photo.PhotoMeta(p.id, p.owner.id, p.dhash, p.sha256, p.aiCode, p.aiConfidence, p.aiSource)
+            select new br.com.ecotechzero.lixozero.photo.PhotoMeta(p.id, p.owner.id, p.dhash, p.sha256, p.aiCode, p.aiConfidence, p.aiSource,
+                                                          p.createdAt)
             from Photo p where p.id = :id
             """)
     Optional<PhotoMeta> findMeta(@Param("id") UUID id);

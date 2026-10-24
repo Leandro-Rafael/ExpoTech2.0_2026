@@ -44,6 +44,9 @@ export const fail = {
     return new HttpError(423, 'ACCOUNT_LOCKED', 'Conta temporariamente bloqueada',
       `Muitas tentativas inválidas. Tente novamente em ${minutes} minuto(s).`, undefined, { 'Retry-After': String(Math.max(1, Math.round(seconds))) });
   },
+  inspectionLocked: (seconds: number) =>
+    new HttpError(423, 'ACCOUNT_LOCKED', 'Conta temporariamente bloqueada',
+      'Acesso bloqueado por 30 minutos por tentativa de inspeção do sistema.', undefined, { 'Retry-After': String(Math.max(1, Math.ceil(seconds))) }),
   unauthorized: (detail = 'Faça login para continuar.') => new HttpError(401, 'UNAUTHORIZED', 'Não autenticado', detail),
   forbidden: (detail = 'Você não tem permissão para acessar este recurso.') => new HttpError(403, 'FORBIDDEN', 'Acesso negado', detail),
   csrf: () => new HttpError(403, 'FORBIDDEN', 'Acesso negado', 'Token CSRF inválido ou ausente. Recarregue a página.'),

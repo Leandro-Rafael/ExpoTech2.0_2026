@@ -26,6 +26,7 @@ public class RefreshToken extends BaseEntity {
     public static final String REASON_REUSE = "REUSE_DETECTED";
     public static final String REASON_PASSWORD = "PASSWORD_CHANGED";
     public static final String REASON_DISABLED = "USER_DISABLED";
+    public static final String REASON_SECURITY = "SECURITY_LOCK";
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)

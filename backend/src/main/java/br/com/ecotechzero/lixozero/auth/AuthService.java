@@ -9,6 +9,7 @@ import br.com.ecotechzero.lixozero.common.Text;
 import br.com.ecotechzero.lixozero.common.TokenBucketRateLimiter;
 import br.com.ecotechzero.lixozero.common.TokenBucketRateLimiter.Policy;
 import br.com.ecotechzero.lixozero.security.AuthCookies;
+import br.com.ecotechzero.lixozero.security.InspectionService;
 import br.com.ecotechzero.lixozero.security.JwtService;
 import br.com.ecotechzero.lixozero.security.PasswordPolicy;
 import br.com.ecotechzero.lixozero.user.Role;
@@ -22,7 +23,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,12 +50,13 @@ public class AuthService {
     private final AuthCookies cookies;
     private final AuditService audit;
     private final TokenBucketRateLimiter limiter;
+    private final Clock clock;
     /** Hash fictício: comparamos a senha mesmo quando o e-mail não existe (tempo de resposta uniforme). */
     private final String dummyHash;
 
     public AuthService(UserRepository users, UserService userService, PasswordEncoder encoder, PasswordPolicy passwordPolicy,
                        JwtService jwtService, RefreshTokenService refreshTokens, LoginAttemptService loginAttempts,
-                       AuthCookies cookies, AuditService audit, TokenBucketRateLimiter limiter) {
+                       AuthCookies cookies, AuditService audit, TokenBucketRateLimiter limiter, Clock clock) {
         this.users = users;
         this.userService = userService;
         this.encoder = encoder;
@@ -63,6 +67,7 @@ public class AuthService {
         this.cookies = cookies;
         this.audit = audit;
         this.limiter = limiter;
+        this.clock = clock;
         this.dummyHash = encoder.encode(UUID.randomUUID().toString());
     }
 
@@ -113,6 +118,13 @@ public class AuthService {
             audit.recordAs(user.getId(), label(user), AuditAction.LOGIN_DISABLED_ACCOUNT, "User", user.getId(), null);
             throw new ApiException(ErrorCode.FORBIDDEN, "Esta conta está desativada. Procure o administrador.");
         }
+        // bloqueio por inspeção: checado só DEPOIS da senha correta (não revela a terceiros que a conta existe)
+        Instant now = clock.instant();
+        if (user.isSecurityLocked(now)) {
+            audit.recordAs(user.getId(), label(user), AuditAction.LOGIN_BLOCKED_INSPECTION, "User", user.getId(),
+                    "bloqueado até " + user.getSecurityLockedUntil());
+            throw InspectionService.lockedException(user.getSecurityLockedUntil(), now);
+        }
         loginAttempts.recordSuccess(email, user);
         startSession(user, request, response);
         audit.recordAs(user.getId(), label(user), AuditAction.LOGIN_SUCCESS, "User", user.getId(), null);
@@ -124,6 +136,11 @@ public class AuthService {
         String raw = AuthCookies.read(request, AuthCookies.REFRESH)
                 .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, "Sessão expirada. Faça login novamente."));
         RefreshTokenService.Rotation rotation = refreshTokens.rotate(raw);
+        Instant now = clock.instant();
+        if (rotation.user() != null && rotation.user().isSecurityLocked(now)) {
+            cookies.clear(request, response);
+            throw InspectionService.lockedException(rotation.user().getSecurityLockedUntil(), now);
+        }
         switch (rotation.outcome()) {
             case ROTATED -> {
                 User user = rotation.user();

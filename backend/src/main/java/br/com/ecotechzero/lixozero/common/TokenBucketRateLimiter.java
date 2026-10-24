@@ -36,7 +36,9 @@ public class TokenBucketRateLimiter {
         HOUSEHOLD_JOIN_USER(10, Duration.ofMinutes(10)),
         IOT_DEVICE(12, Duration.ofMinutes(1)),
         SIMULATION_IP(60, Duration.ofMinutes(1)),
-        IOT_IP(120, Duration.ofMinutes(1));
+        IOT_IP(120, Duration.ofMinutes(1)),
+        INSPECTION_EVENT_USER(20, Duration.ofMinutes(1)),
+        INTEGRITY_CHECK_USER(6, Duration.ofMinutes(1));
 
         final int capacity;
         final Duration refillPeriod;

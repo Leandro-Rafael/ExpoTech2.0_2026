@@ -89,6 +89,22 @@ public class Disposal extends BaseEntity {
     @Column(name = "ai_source", length = 10)
     private AiSource aiSource;
 
+    /** true = ai_* veio da classificação do SERVIDOR sobre a foto deste descarte (única que vale para o bônus). */
+    @Column(name = "ai_verified", nullable = false)
+    private boolean aiVerified;
+
+    /** Palpite enviado pelo navegador: guardado só para consulta/antifraude, nunca usado para pontuar. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "client_ai_code", length = 20)
+    private CategoryCode clientAiCode;
+
+    @Column(name = "client_ai_confidence")
+    private Double clientAiConfidence;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "client_ai_source", length = 10)
+    private AiSource clientAiSource;
+
     @Column(name = "fraud_score", nullable = false)
     private int fraudScore;
 
@@ -163,10 +179,33 @@ public class Disposal extends BaseEntity {
         this.longitude = longitude;
     }
 
-    public void setAi(CategoryCode code, Double confidence, AiSource source) {
+    /** Palpite do cliente (informativo). Só aparece como sugestão exibida se não houver resultado do servidor. */
+    public void recordClientHint(CategoryCode code, Double confidence, AiSource source) {
+        this.clientAiCode = code;
+        this.clientAiConfidence = confidence;
+        this.clientAiSource = source;
+        if (!aiVerified) {
+            this.aiSuggestedCode = code;
+            this.aiConfidence = confidence;
+            this.aiSource = code == null && source == null ? null : source;
+        }
+    }
+
+    /** Classificação feita pelo servidor sobre a foto (copiada do registro da foto, nunca do corpo da requisição). */
+    public void recordServerAi(CategoryCode code, double confidence, AiSource source) {
         this.aiSuggestedCode = code;
         this.aiConfidence = confidence;
         this.aiSource = source;
+        this.aiVerified = true;
+    }
+
+    /**
+     * Bônus de +10%: há foto, a classificação VERIFICADA do servidor concorda com a categoria FINAL
+     * (inclusive após correção do admin) e a confiança é suficiente. O palpite do cliente nunca conta.
+     */
+    public boolean aiBonusApplies() {
+        return photo != null && aiVerified && aiSuggestedCode != null && aiSuggestedCode == category.getCode()
+                && aiConfidence != null && aiConfidence >= PointsCalculator.AI_MIN_CONFIDENCE;
     }
 
     public User getUser() { return user; }
@@ -194,6 +233,10 @@ public class Disposal extends BaseEntity {
     public CategoryCode getAiSuggestedCode() { return aiSuggestedCode; }
     public Double getAiConfidence() { return aiConfidence; }
     public AiSource getAiSource() { return aiSource; }
+    public boolean isAiVerified() { return aiVerified; }
+    public CategoryCode getClientAiCode() { return clientAiCode; }
+    public Double getClientAiConfidence() { return clientAiConfidence; }
+    public AiSource getClientAiSource() { return clientAiSource; }
     public int getFraudScore() { return fraudScore; }
     public boolean isFlagged() { return flagged; }
     public String getIdempotencyKey() { return idempotencyKey; }

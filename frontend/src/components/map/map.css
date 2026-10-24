@@ -9,6 +9,8 @@
   outline: none;
 }
 .ez-map .leaflet-tile-pane { filter: saturate(0.85) brightness(0.95); }
+/* OSM claro → escuro neutro (inverte luminância, preserva matiz, tira saturação). */
+.ez-map.ez-map-invert .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) grayscale(0.8) brightness(0.78) contrast(0.9); }
 
 /* Controles */
 .ez-map .leaflet-bar {

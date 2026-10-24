@@ -4,6 +4,8 @@ import br.com.ecotechzero.lixozero.common.PageResponse;
 import br.com.ecotechzero.lixozero.common.Pagination;
 import br.com.ecotechzero.lixozero.common.RequestContext;
 import br.com.ecotechzero.lixozero.common.Text;
+import br.com.ecotechzero.lixozero.integrity.AuditChain;
+import br.com.ecotechzero.lixozero.integrity.ChainHashes.AuditRow;
 import br.com.ecotechzero.lixozero.security.AuthUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +23,7 @@ import java.util.UUID;
 /**
  * Registra ações sensíveis. Usa REQUIRES_NEW: o registro é gravado numa transação própria e
  * permanece mesmo que a operação principal falhe (ex.: tentativa de login com senha errada).
+ * Cada registro entra no fim da cadeia de hashes global ({@link AuditChain}); a tabela é append-only.
  */
 @Service
 public class AuditService {
@@ -28,9 +31,11 @@ public class AuditService {
     private static final Logger log = LoggerFactory.getLogger(AuditService.class);
 
     private final AuditLogRepository repository;
+    private final AuditChain chain;
 
-    public AuditService(AuditLogRepository repository) {
+    public AuditService(AuditLogRepository repository, AuditChain chain) {
         this.repository = repository;
+        this.chain = chain;
     }
 
     /** Registra com o usuário autenticado atual como ator (ou "sistema"). */
@@ -58,11 +63,9 @@ public class AuditService {
     }
 
     private void save(UUID actorId, String actorLabel, AuditAction action, String entity, Object entityId, String details) {
-        AuditLog entry = new AuditLog(actorId, Text.truncate(actorLabel, 160), action.name(), entity,
+        chain.append(new AuditRow(null, actorId, Text.truncate(actorLabel, 160), action.name(), entity,
                 entityId == null ? null : Text.truncate(entityId.toString(), 64), Text.truncate(details, 1000),
-                Text.truncate(RequestContext.currentIp(), 64));
-        entry.setCreatedAt(Instant.now());
-        repository.save(entry);
+                Text.truncate(RequestContext.currentIp(), 64), Instant.now()));
         log.info("AUDIT {} entity={} id={} actor={}", action, entity, entityId, actorId);
     }
 

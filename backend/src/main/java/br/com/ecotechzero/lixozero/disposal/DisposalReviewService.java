@@ -113,19 +113,14 @@ public class DisposalReviewService {
     public int approveInternal(Disposal disposal, User reviewer) {
         Instant now = clock.instant();
         Category category = disposal.getCategory();
-        int awarded = PointsCalculator.points(category.getPointsPerKg(), disposal.getQuantityKg(), aiConfirmed(disposal));
+        // bônus reavaliado AGORA, com a categoria final (o admin pode ter corrigido)
+        int awarded = PointsCalculator.points(category.getPointsPerKg(), disposal.getQuantityKg(), disposal.aiBonusApplies());
         disposal.approve(awarded, reviewer, now);
         String description = String.format(Locale.forLanguageTag("pt-BR"), "Descarte aprovado: %.2f kg de %s",
                 disposal.getQuantityKg(), category.getName());
         points.credit(disposal.getUser().getId(), awarded, PointTransactionType.EARN, description, disposal, null, now);
         gamification.onDisposalApproved(disposal.getUser().getId(), disposal.getDisposedAt());
         return awarded;
-    }
-
-    /** A foto existe e a IA concordou com a categoria final com confiança suficiente. */
-    static boolean aiConfirmed(Disposal d) {
-        return d.getPhoto() != null && d.getAiSuggestedCode() == d.getCategory().getCode()
-                && d.getAiConfidence() != null && d.getAiConfidence() >= PointsCalculator.AI_MIN_CONFIDENCE;
     }
 
     private String applyCorrection(Disposal disposal, ApproveRequest request) {

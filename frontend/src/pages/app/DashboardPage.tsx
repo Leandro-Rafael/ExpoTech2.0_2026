@@ -61,16 +61,15 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow={<span className="capitalize">{todayLabel}</span>}
+        eyebrow={todayLabel}
         title={`${greeting()}, ${first}.`}
         description={pending > 0
           ? `Você tem ${pending === 1 ? '1 descarte' : `${pending} descartes`} aguardando análise. Os pontos entram assim que forem aprovados.`
           : 'Cada descarte correto vira pontos, sobe seu nível e entra na conta do impacto da sua cidade.'}
-        actions={<ButtonLink to="/app/descartar" size="lg" leftIcon={ScanLine}>Registrar descarte</ButtonLink>}
       />
 
       {/* Faixa principal: saldo + nível | mês | sequência */}
-      <section aria-label="Resumo" className="surface grid overflow-hidden rounded-2xl lg:grid-cols-[1.35fr_1fr_1fr]">
+      <section aria-label="Resumo" className="surface grid grid-cols-1 overflow-hidden rounded-2xl lg:grid-cols-[1.35fr_1fr_1fr]">
         <div className="p-6 sm:p-7">
           <p className="label-mono">Saldo de pontos</p>
           <p className="mt-3 flex items-baseline gap-2">
@@ -122,7 +121,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-12">
+      <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-12">
         {/* Descartes recentes */}
         <section aria-labelledby="recent-h">
           <SectionHeading id="recent-h" title="Descartes recentes" description="Status de análise e pontos de cada registro." action={<TextLink to="/app/descartes">Ver histórico</TextLink>} />
@@ -156,7 +155,7 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-12">
+      <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-12">
         {/* Smart home */}
         <section aria-labelledby="home-h">
           {user.household ? (

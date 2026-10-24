@@ -126,9 +126,10 @@ public class DisposalService {
 
         PhotoMeta photo = null;
         if (in.photoId() != null) {
+            // foto de outra pessoa = 404 (não revela que existe); reuso também é barrado pelo UNIQUE(photo_id) no banco
             photo = photos.findMeta(in.photoId())
                     .filter(p -> p.ownerId().equals(me.id()))
-                    .orElseThrow(() -> ApiException.field("photoId", "foto não encontrada"));
+                    .orElseThrow(() -> ApiException.notFound("Foto não encontrada."));
             if (disposals.existsByPhotoId(photo.id())) {
                 throw ApiException.field("photoId", "esta foto já foi usada em outro descarte");
             }
@@ -141,23 +142,21 @@ public class DisposalService {
             }
         }
 
-        // Sugestão da IA: a do servidor (Claude) é confiável e prevalece; a do cliente nunca pode se passar por CLAUDE
-        CategoryCode aiCode = in.aiSuggestedCode();
-        Double aiConfidence = in.aiConfidence() == null ? null : Math.clamp(in.aiConfidence(), 0.0, 1.0);
-        AiSource aiSource = in.aiSource();
-        if (photo != null && photo.aiSource() == AiSource.CLAUDE && photo.aiCode() != null) {
-            aiCode = photo.aiCode();
-            aiConfidence = photo.aiConfidence();
-            aiSource = AiSource.CLAUDE;
-        } else if (aiSource == AiSource.CLAUDE) {
-            aiSource = AiSource.LOCAL;
-        }
-        if (aiCode != null && aiSource == null) {
-            aiSource = AiSource.LOCAL;
-        }
+        // IA: só vale o que o SERVIDOR gravou na foto no upload. Os campos ai* do corpo são apenas um palpite
+        // do navegador (informativo): nunca dão bônus, nunca reduzem o risco e nunca se passam por IA do servidor.
+        CategoryCode hintCode = in.aiSuggestedCode();
+        Double hintConfidence = in.aiConfidence() == null ? null : Math.clamp(in.aiConfidence(), 0.0, 1.0);
+        AiSource hintSource = in.aiSource() == AiSource.MANUAL ? AiSource.MANUAL
+                : (hintCode != null || in.aiSource() != null ? AiSource.LOCAL : null);
+        boolean serverAi = photo != null && photo.aiVerified();
+        // o bônus exige foto recente (tirada para ESTE descarte, não guardada de outro dia)
+        boolean bonusEligible = serverAi && photo.createdAt() != null
+                && !photo.createdAt().isBefore(now.minus(PointsCalculator.AI_PHOTO_MAX_AGE));
 
         var fraud = fraudEngine.assess(new FraudContext(me.id(), category.getCode(), category.getMaxKgPerDisposal(), kg, photo,
-                in.latitude(), in.longitude(), disposedAt, aiCode, aiConfidence, aiSource, now, props.zoneId()));
+                in.latitude(), in.longitude(), disposedAt,
+                serverAi ? photo.aiCode() : null, serverAi ? photo.aiConfidence() : null,
+                hintCode, hintConfidence, hintSource, now, props.zoneId()));
 
         Disposal disposal = new Disposal(users.getReferenceById(me.id()), category, kg, disposedAt);
         disposal.setLocation(in.latitude(), in.longitude());
@@ -165,13 +164,14 @@ public class DisposalService {
         if (photo != null) {
             disposal.setPhoto(photos.getReferenceById(photo.id()));
         }
-        disposal.setAi(aiCode, aiConfidence, aiSource);
+        if (bonusEligible) {
+            disposal.recordServerAi(photo.aiCode(), photo.aiConfidence(), photo.aiSource());
+        }
+        disposal.recordClientHint(hintCode, hintConfidence, hintSource);
         disposal.setNotes(Text.truncate(Text.clean(in.notes()), 500));
         disposal.setIdempotencyKey(idempotencyKey);
         disposal.setFraud(fraud.score(), fraud.flags(), fraud.flagged());
-        boolean aiConfirmed = photo != null && aiCode == category.getCode() && aiConfidence != null
-                && aiConfidence >= PointsCalculator.AI_MIN_CONFIDENCE;
-        disposal.setEstimatedPoints(PointsCalculator.points(category.getPointsPerKg(), kg, aiConfirmed));
+        disposal.setEstimatedPoints(PointsCalculator.points(category.getPointsPerKg(), kg, disposal.aiBonusApplies()));
         disposals.saveAndFlush(disposal);
 
         if (fraud.flagged()) {

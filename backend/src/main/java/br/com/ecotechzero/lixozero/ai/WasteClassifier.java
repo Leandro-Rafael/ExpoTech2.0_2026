@@ -13,8 +13,8 @@ import java.util.Optional;
  */
 public interface WasteClassifier {
 
-    /** Resultado de uma classificação. confidence entre 0 e 1. */
-    record Classification(CategoryCode categoryCode, double confidence, String reasoning, AiSource source) {
+    /** Resultado de uma classificação. confidence entre 0 e 1; model = modelo que classificou (auditoria). */
+    record Classification(CategoryCode categoryCode, double confidence, String reasoning, AiSource source, String model) {
     }
 
     boolean isAvailable();

@@ -5,7 +5,8 @@ import { toUserMe } from '../dto';
 import { Validator, bodyObject, created, fail, noContent, ok, str } from '../http';
 import { audit, actorLabel } from '../logic/audit';
 import { checkPassword, demoHash, validatePassword } from '../logic/password';
-import { clearSession, currentUser, issueCsrfCookie, refreshSession, startSession } from '../session';
+import { expireInspectionLock, inspectionLockRemaining } from '../logic/security';
+import { clearSession, currentUser, issueCsrfCookie, refreshSession, sessionUserId, startSession } from '../session';
 import { route } from '../server';
 
 export const MAX_FAILED_LOGINS = 5;
@@ -88,6 +89,10 @@ export function registerAuthRoutes() {
       audit(d, user, 'LOGIN_DISABLED_ACCOUNT', 'User', user.id, null);
       throw fail.forbidden('Esta conta está desativada. Procure o administrador.');
     }
+    // bloqueio por inspeção: só revelado depois da senha correta (não confirma contas a quem não tem a senha)
+    expireInspectionLock(user);
+    const inspectionLeft = inspectionLockRemaining(user);
+    if (inspectionLeft > 0) throw fail.inspectionLocked(inspectionLeft / 1000);
     user.failedLogins = 0;
     user.lastLoginAt = nowIso();
     startSession(user);
@@ -97,6 +102,10 @@ export function registerAuthRoutes() {
 
   route('POST', '/auth/refresh', () => {
     const d = db();
+    const sid = sessionUserId();
+    const sessionUser = sid ? d.users.find((u) => u.id === sid) : undefined;
+    const left = sessionUser ? inspectionLockRemaining(sessionUser) : 0;
+    if (left > 0) throw fail.inspectionLocked(left / 1000);
     const user = refreshSession(d);
     if (!user) throw fail.unauthorized('Sessão expirada. Faça login novamente.');
     return ok<UserMe>(toUserMe(d, user));

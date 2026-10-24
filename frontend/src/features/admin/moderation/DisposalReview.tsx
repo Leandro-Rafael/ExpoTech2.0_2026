@@ -172,6 +172,7 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
                   <p className="mt-1 text-xs text-muted">
                     <span className="font-mono tabular">{formatPercent(d.ai.confidence ?? 0)}</span> de confiança
                     {d.ai.source && <> · {aiSource[d.ai.source].label}</>}
+                    {d.ai.verified ? <span className="ml-1 text-success">· verificada</span> : <span className="ml-1 text-subtle">· só informativa</span>}
                   </p>
                 </>
               ) : <p className="mt-1.5 text-[13px] text-subtle">Sem sugestão</p>}

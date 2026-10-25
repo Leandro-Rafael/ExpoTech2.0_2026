@@ -222,7 +222,8 @@ export function AdminTable<T>({
       {placeholder ?? (
         <>
           {/* Desktop */}
-          <div className="hidden overflow-x-auto md:block">
+          {/* relative: prende os sr-only (absolute) dentro da rolagem, senão alargam a página */}
+          <div className="relative hidden overflow-x-auto md:block">
             <table className="w-full border-collapse text-[13.5px]">
               <caption className="sr-only">{caption}</caption>
               <thead>

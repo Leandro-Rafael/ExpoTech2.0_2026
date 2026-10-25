@@ -5,7 +5,7 @@
  *  - acento lima só no CTA primário e na única ênfase do hero
  *  - divisórias em vez de caixas; um visual por seção
  */
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ArrowRight, ArrowUpRight, BatteryMedium } from 'lucide-react';
 import type { PublicStats } from '@/api/types';
@@ -19,7 +19,7 @@ import { formatCompact, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { StoryCard } from './StepVisuals';
 import { gsap, ScrollTrigger } from './gsap';
-import { scrollToY } from './useSmoothScroll';
+import { getLenis, scrollToY } from './useSmoothScroll';
 import { LINKS } from './hero';
 
 // ------------------------------------------------------------------ primitivas
@@ -104,12 +104,62 @@ export function HowItWorks() {
     return () => mm.revert();
   }, [pinned]);
 
+  /** Posição de scroll em que o cartão está no progresso p (0..5) do pin. */
+  const yAt = (st: ScrollTrigger, p: number) => Math.round(st.start + ((st.end - st.start) * pToUnits(p)) / PIN_UNITS);
+
+  /**
+   * Enquanto a sequência do caminhão toca (por tempo), a página NÃO avança: senão parece que
+   * o scroll é que faz a animação andar e, ao fim, a página "pula" para a frente. Voltar
+   * continua livre (cancela a sequência). Só trava se ainda estiver dentro do pin.
+   */
+  const releaseLock = useRef<(() => void) | null>(null);
+  const onIntro = (playing: boolean) => {
+    releaseLock.current?.();
+    releaseLock.current = null;
+    const st = trigger.current;
+    if (!playing || !st?.isActive) return;
+    const lenis = getLenis();
+    const now = lenis ? lenis.animatedScroll : window.scrollY;
+    // encaixa no início do passo 05 (cabeçalho já inteiro); se já passou dele, para onde está
+    const lockY = Math.max(Math.round(now), yAt(st, STEP_TARGET_P[4]));
+    if (lenis) lenis.scrollTo(lockY, lockY > now + 1 ? { duration: 0.6, easing: (t) => 1 - Math.pow(1 - t, 3) } : { immediate: true });
+    else window.scrollTo({ top: lockY, behavior: 'smooth' });
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY <= 0) return;
+      e.preventDefault();
+      e.stopImmediatePropagation(); // antes do Lenis (que escuta na fase de bolha)
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!['ArrowDown', 'PageDown', 'End', ' '].includes(e.key)) return;
+      if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select, button, a, [contenteditable]')) return;
+      e.preventDefault();
+    };
+    // reforço (barra de rolagem, gestos): se passar do ponto travado, volta
+    const clampY = () => {
+      const y = lenis ? lenis.scroll : window.scrollY;
+      if (y <= lockY + 2) return;
+      // rolagem suave para baixo com a roda bloqueada = clique num link do menu: deixa ir
+      if (lenis?.isScrolling === 'smooth' && lenis.targetScroll > lockY + 2) { releaseLock.current?.(); releaseLock.current = null; return; }
+      if (lenis) lenis.scrollTo(lockY, { immediate: true });
+      else window.scrollTo({ top: lockY });
+    };
+    window.addEventListener('wheel', onWheel, { capture: true, passive: false });
+    window.addEventListener('keydown', onKey, { capture: true });
+    const offScroll = lenis ? lenis.on('scroll', clampY) : (window.addEventListener('scroll', clampY, { passive: true }), () => window.removeEventListener('scroll', clampY));
+    releaseLock.current = () => {
+      window.removeEventListener('wheel', onWheel, { capture: true });
+      window.removeEventListener('keydown', onKey, { capture: true });
+      offScroll();
+    };
+  };
+  useEffect(() => () => releaseLock.current?.(), []);
+
   /** Clique num passo: rola até o ponto do pin em que o cartão daquele passo está completo. */
   const goTo = (i: number) => {
     const st = trigger.current;
     if (st) {
-      const y = st.start + ((st.end - st.start) * pToUnits(STEP_TARGET_P[i])) / PIN_UNITS;
-      scrollToY(Math.round(y));
+      scrollToY(yAt(st, STEP_TARGET_P[i]));
       return;
     }
     const el = document.getElementById(`how-step-${i}`);
@@ -166,7 +216,7 @@ export function HowItWorks() {
           {pinned && (
             <div id="how-card" className="hidden items-center lg:col-span-6 lg:col-start-7 lg:flex">
               {/* um só cartão contínuo: a mesma garrafa atravessa os 5 passos */}
-              <StoryCard mode="scroll" progressRef={progress} />
+              <StoryCard mode="scroll" progressRef={progress} onIntro={onIntro} />
             </div>
           )}
 

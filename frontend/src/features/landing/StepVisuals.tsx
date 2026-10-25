@@ -220,11 +220,16 @@ export interface StoryCardProps {
   mode: 'scroll' | 'static';
   step?: number;
   progressRef?: MutableRefObject<((p: number) => void) | null>;
+  /** Sequência do caminhão (por tempo) começou (true) ou terminou/foi cancelada (false). */
+  onIntro?: (playing: boolean) => void;
   className?: string;
 }
 
-export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardProps) {
+export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: StoryCardProps) {
   const els = useRef<Record<string, HTMLElement | SVGElement | null>>({});
+  // lido dentro do efeito sem recriá-lo (o efeito monta os tweens uma vez)
+  const onIntroRef = useRef(onIntro);
+  onIntroRef.current = onIntro;
   const ref = (k: string) => (el: HTMLElement | SVGElement | null) => { els.current[k] = el; };
   const animated = mode === 'scroll' || !prefersReducedMotion();
   // ids únicos por cartão (a página tem vários): desenhos do caminhão e recortes das faixas
@@ -296,11 +301,13 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       if (!isStatic) {
         lastP = p;
         if (p >= 4 && !introTween && intro.v < 1) {
+          onIntroRef.current?.(true);
           introTween = gsap.to(intro, {
             v: 1, duration: INTRO_SECONDS, ease: 'none', overwrite: true,
             onUpdate: () => draw(lastP),
             onComplete: () => {
               introTween = null;
+              onIntroRef.current?.(false);
               followTween = gsap.to(follow, {
                 v: 1, duration: FOLLOW_SECONDS, ease: 'power2.inOut', overwrite: true,
                 onUpdate: () => draw(lastP),
@@ -309,6 +316,7 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
             },
           });
         } else if (p < 4 && (introTween || intro.v > 0)) {
+          if (introTween) onIntroRef.current?.(false);
           introTween?.kill();
           followTween?.kill();
           introTween = followTween = null;
@@ -459,6 +467,7 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
     apply(0);
     if (progressRef) progressRef.current = apply;
     return () => {
+      if (introTween) onIntroRef.current?.(false);
       introTween?.kill();
       followTween?.kill();
       if (progressRef) progressRef.current = null;

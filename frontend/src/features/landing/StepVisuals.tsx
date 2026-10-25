@@ -13,7 +13,7 @@
  * (+ stroke-dashoffset de um traço pequeno). `mode="static"` desenha o estado final de um
  * passo (celular, movimento reduzido).
  */
-import { useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import { Check, MapPin } from 'lucide-react';
 import { prefersReducedMotion } from '@/hooks/useReducedMotion';
 import { cn } from '@/lib/cn';
@@ -48,7 +48,23 @@ const DEPOT = STOPS[0];
 const REAR = { x: 290, y: 168 };
 const OPEN = { x0: REAR.x - 90, x1: REAR.x + 90, y0: REAR.y - 102, y1: REAR.y + 42 };
 const TOP_S = 0.16; // ícone: 300×116 local → ~48×19 px no palco
+/** Inclinação: altura da traseira (topo −122 até as rodas 100), proporção de largura
+ *  traseira/teto (224/112) e comprimento do teto em unidades da traseira. */
+const REAR_SPAN = 222;
+const TOP_K = 2;
+const TOP_LEN = 300 * TOP_K;
+/**
+ * Perspectiva durante a inclinação: distância da câmera (unidades da traseira). O mais
+ * próximo fica mais largo, o mais distante mais estreito (fator F / (F + profundidade)).
+ * O SVG não tem perspectiva, então só enquanto a câmera inclina a traseira e o teto viram
+ * dois planos CSS 3D emendados a 90° (uma "caixa") que giram juntos — perspectiva real,
+ * feita pela GPU, sem custo de pintura por quadro.
+ */
+const PERSP_F = 1100;
+/** Unidade do palco (viewBox) em CSS: o palco é um container, 100cqw = W unidades. */
+const u = (v: number) => `calc(${v.toFixed(2)} * 100cqw / ${W})`;
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeSine = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * t);
 const routeD = STOPS.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ');
 const naiveD = NAIVE.map((k, i) => `${i ? 'L' : 'M'}${STOPS[k][0]} ${STOPS[k][1]}`).join(' ');
 const SEG = STOPS.slice(1).map(([x, y], i) => Math.hypot(x - STOPS[i][0], y - STOPS[i][1]));
@@ -175,13 +191,14 @@ function TruckRear({ r }: { r: (k: string) => (el: SVGElement | null) => void })
 }
 
 /** O mesmo caminhão visto de cima (frente para +x): baú, faixa, cabine, para-brisa, giroflex. */
-function TruckTop() {
+function TruckTop({ r }: { r: (k: string) => (el: SVGElement | null) => void }) {
   return (
     <>
       <defs>
         <linearGradient id="tt-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#d3d9d4" /><stop offset="1" stopColor="#b9c0bb" /></linearGradient>
       </defs>
-      <rect x="-144" y="-50" width="300" height="116" rx="14" fill="#000" opacity=".35" />
+      {/* sombra projetada no chão: só faz sentido de cima, some durante a inclinação */}
+      <rect ref={r('topShadow')} x="-144" y="-50" width="300" height="116" rx="14" fill="#000" opacity=".35" />
       {[-118, 92].map((wx) => [-64, 58].map((wy) => <rect key={`${wx}${wy}`} x={wx} y={wy} width="30" height="6" rx="2" fill="#0a0e0c" />))}
       <rect x="-150" y="-56" width="214" height="112" rx="8" fill="url(#tt-body)" />
       <path d="M-110 -50V50M-70 -50V50M-30 -50V50M10 -50V50M50 -50V50" stroke="#0a0e0c" strokeOpacity=".08" strokeWidth="2" />
@@ -210,6 +227,10 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
   const els = useRef<Record<string, HTMLElement | SVGElement | null>>({});
   const ref = (k: string) => (el: HTMLElement | SVGElement | null) => { els.current[k] = el; };
   const animated = mode === 'scroll' || !prefersReducedMotion();
+  // ids únicos por cartão (a página tem vários): desenhos do caminhão e recortes das faixas
+  const uid = `sc${useId().replace(/[^\w-]/g, '')}`;
+  const rearArt = `${uid}-rear`;
+  const topArt = `${uid}-top`;
 
   useLayoutEffect(() => {
     const e = els.current;
@@ -227,6 +248,14 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       last[key] = v;
       e[k]?.setAttribute(name, v);
     };
+    /** Como `attr`, para propriedades de estilo (camada 3D da inclinação). */
+    const css = (k: string, prop: 'transform' | 'perspective' | 'perspectiveOrigin', v: string) => {
+      const key = k + prop;
+      if (last[key] === v) return;
+      last[key] = v;
+      const el = e[k];
+      if (el) el.style[prop] = v;
+    };
 
     /**
      * Passo 05: a mini-história do caminhão (surge → portas abrem → garrafa entra → portas
@@ -235,12 +264,17 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
      * intro e depois controla o trajeto na rota.
      */
     const INTRO_END = 0.79; // fração do passo 05 coberta pela intro (fases já calibradas)
-    const INTRO_SECONDS = 4.8;
+    const INTRO_SECONDS = 7.6;
     /**
-     * Relógio da intro (s) → fase t. A garrafa (arco .30–.44 e queda .44–.52) ganha mais
-     * tempo para ficar fluida. As emendas caem onde o movimento já está parado, sem trancos.
+     * Relógio da intro (s) → fase t. A garrafa (arco .30–.44 e queda .44–.52), a inclinação
+     * da câmera (.65–.73) e o deslocamento até o depósito (.73–.79) ganham mais tempo para
+     * ficarem fluidos. As emendas caem onde o movimento já está parado, sem trancos.
      */
-    const INTRO_KEYS: [number, number][] = [[0, 0], [1.2, 0.3], [2.6, 0.44], [3.4, 0.52], [INTRO_SECONDS, INTRO_END]];
+    const INTRO_KEYS: [number, number][] = [[0, 0], [1.2, 0.3], [2.6, 0.44], [3.4, 0.52], [4.4, 0.65], [6.3, 0.73], [INTRO_SECONDS, INTRO_END]];
+    /** Depois da intro, o caminhão "alcança" a posição do scroll na rota em vez de saltar. */
+    const FOLLOW_SECONDS = 1.1;
+    const follow = { v: 0 };
+    let followTween: gsap.core.Tween | null = null;
     const introPhase = (v: number) => {
       const s = v * INTRO_SECONDS;
       for (let k = 1; k < INTRO_KEYS.length; k++) {
@@ -265,12 +299,20 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
           introTween = gsap.to(intro, {
             v: 1, duration: INTRO_SECONDS, ease: 'none', overwrite: true,
             onUpdate: () => draw(lastP),
-            onComplete: () => { introTween = null; draw(lastP); },
+            onComplete: () => {
+              introTween = null;
+              followTween = gsap.to(follow, {
+                v: 1, duration: FOLLOW_SECONDS, ease: 'power2.inOut', overwrite: true,
+                onUpdate: () => draw(lastP),
+                onComplete: () => { followTween = null; },
+              });
+            },
           });
         } else if (p < 4 && (introTween || intro.v > 0)) {
           introTween?.kill();
-          introTween = null;
-          intro.v = 0;
+          followTween?.kill();
+          introTween = followTween = null;
+          intro.v = follow.v = 0;
         }
       }
       draw(p);
@@ -320,12 +362,15 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       op('bottle', bottleO);
       op('shadow', i === 4 ? 1 - clamp(t / 0.1) : 1);
 
-      // "câmera": traseira → vista de cima, enquanto encolhe até o depósito (.63–.79)
-      const cam = i === 4 ? easeInOut(clamp((t - 0.63) / 0.16)) : 0;
-      const mapO = i === 4 ? clamp((cam - 0.15) / 0.6) : 0;
-      op('photo', 1 - mapO);
+      // "câmera", em duas etapas com curva senoidal (começa e termina parada):
+      //   inclina (.65–.73): sobe de trás até ficar sobre o caminhão, no lugar, sem o mapa;
+      //   desloca (.73–.79): o mapa surge e o caminhão, já visto de cima, vai até o depósito.
+      const tilt = i === 4 ? easeSine(clamp((t - 0.65) / 0.08)) : 0;
+      const move = i === 4 ? easeSine(clamp((t - 0.73) / 0.06)) : 0;
+      const mapO = clamp(move / 0.6);
+      op('photo', (1 - 0.6 * clamp((tilt - 0.4) / 0.6)) * (1 - mapO));
       op('map', mapO);
-      const zoom = lerp(1.8, 1, cam);
+      const zoom = Math.pow(1.8, 1 - move);
       attr('map', 'transform', `translate(${DEPOT[0]} ${DEPOT[1]}) scale(${zoom.toFixed(4)}) translate(${-DEPOT[0]} ${-DEPOT[1]})`);
 
       // IA: caixa + varredura + rótulo
@@ -352,33 +397,56 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
 
       // coleta: traseira em close → portas abrem → garrafa entra → portas fecham → câmera inclina → rota
       // trajeto na rota: controlado pelo scroll, só depois da intro completa
-      const drive = i !== 4 ? 0 : isStatic ? clamp((t - 0.8) / 0.18) : intro.v >= 1 ? clamp((t0 - 0.25) / 0.7) : 0;
+      const drive = i !== 4 ? 0 : isStatic ? clamp((t - 0.8) / 0.18) : intro.v >= 1 ? clamp((t0 - 0.25) / 0.7) * follow.v : 0;
       const pt = along(drive * ROUTE_LEN);
       const start = along(0);
       const appear = i === 4 ? easeOut(clamp((t - 0.1) / 0.1)) : 0;
       const settle = i === 4 ? Math.sin(Math.PI * clamp((t - 0.59) / 0.06)) * 2.5 : 0;
-      // traseira: entra subindo, depois "achata" (inclinação) e encolhe rumo ao depósito
-      const rx = lerp(REAR.x, start.x, cam);
-      const ry = lerp(REAR.y + (1 - appear) * 16 + settle, start.y, cam);
-      const rs = lerp(1, 0.24, cam);
-      attr('truckRear', 'transform', `translate(${rx.toFixed(1)} ${ry.toFixed(1)}) scale(${rs.toFixed(4)} ${(rs * lerp(1, 0.12, cam)).toFixed(4)})`);
-      show('truckRear', appear * (1 - clamp((cam - 0.35) / 0.3)));
-      // vista de cima: nasce "achatada" no comprimento e abre até a planta; depois percorre a rota
-      let tx = rx;
-      let ty = ry;
-      let deg = lerp(-90, start.deg, cam);
-      let sLen = lerp(0.62, TOP_S, cam) * lerp(0.15, 1, cam);
-      let sWid = lerp(0.62, TOP_S, cam);
+      // Inclinação como câmera ortográfica girando θ = 0→90°: a traseira encolhe na altura
+      // (cos θ) e o teto aparece acima dela (sin θ), as duas faces sempre emendadas na borda
+      // de cima da traseira — nada se sobrepõe nem fica transparente. A escala compensa para
+      // a altura total na tela ficar constante (a câmera "afasta" enquanto sobe).
+      const th = (tilt * Math.PI) / 2;
+      const cos = Math.cos(th);
+      const sin = Math.sin(th);
+      // profundidade → fator de perspectiva: traseira afunda para baixo (sin θ), teto para a frente (cos θ)
+      const kRear = (y: number) => PERSP_F / (PERSP_F + (y + 122) * sin);
+      const kTop = (x: number) => PERSP_F / (PERSP_F + (x + 150) * TOP_K * cos);
+      const up = TOP_LEN * sin * kTop(150);
+      const down = REAR_SPAN * cos * kRear(100);
+      const ts = REAR_SPAN / (up + down); // = 1 em θ=0; altura total na tela constante
+      const edgeY = REAR.y + (1 - appear) * 16 + settle - 122 + ts * up; // emenda traseira/teto
+      const persp = i === 4 && tilt > 0 && tilt < 1;
+      attr('truckRear', 'transform', `translate(${REAR.x} ${edgeY.toFixed(1)}) scale(${ts.toFixed(4)} ${(ts * cos).toFixed(4)}) translate(0 122)`);
+      show('truckRear', i === 4 && !persp && cos > 0.004 ? appear : 0);
+      show('truck3d', persp ? appear : 0);
+      attr('topShadow', 'opacity', (0.35 * (i === 4 ? Math.pow(tilt, 4) : 1)).toFixed(3));
+      if (persp) {
+        // câmera na emenda: mesma projeção F / (F + profundidade) usada para enquadrar acima
+        css('truck3d', 'perspective', u(PERSP_F * ts));
+        css('truck3d', 'perspectiveOrigin', `${u(REAR.x)} ${u(edgeY)}`);
+        css('truckBox', 'transform', `translate(${u(REAR.x)}, ${u(edgeY)}) scale(${ts.toFixed(4)}) rotateX(${(-90 * tilt).toFixed(2)}deg)`);
+      }
+      // vista de cima (frente para cima): comprimento ∝ sin θ, traseira na emenda; depois
+      // desloca até o depósito (escala em log = zoom uniforme) e percorre a rota
+      const tilted = TOP_K * ts;
+      let tx = lerp(REAR.x, start.x, move);
+      let ty = lerp(edgeY - 150 * tilted * sin, start.y, move);
+      let deg = lerp(-90, start.deg, move);
+      let sWid = tilted * Math.pow(TOP_S / tilted, move);
+      let sLen = sWid * sin; // no deslocamento sin já é 1
       if (drive > 0) { tx = pt.x; ty = pt.y; deg = pt.deg; sLen = TOP_S; sWid = TOP_S; }
       attr('truckTop', 'transform', `translate(${tx.toFixed(1)} ${ty.toFixed(1)}) rotate(${deg.toFixed(1)}) scale(${sLen.toFixed(4)} ${sWid.toFixed(4)})`);
-      show('truckTop', i === 4 ? clamp((cam - 0.35) / 0.3) : 0);
+      show('truckTop', i === 4 && !persp && sin > 0.004 ? 1 : 0);
       // portas (duas folhas): abrem .2–.3, fecham .52–.6 com leve acomodação
       const open = i === 4 ? easeInOut(clamp((t - 0.2) / 0.1)) - easeInOut(clamp((t - 0.52) / 0.08)) : 0;
       const wobble = i === 4 ? Math.sin(Math.PI * clamp((t - 0.6) / 0.04)) * 0.04 : 0;
-      const dsx = lerp(1, -0.32, clamp(open)) - wobble;
+      // aberta = girada 180° na dobradiça, encostada na lateral com o mesmo tamanho de fechada
+      const dsx = lerp(1, -1, clamp(open)) - wobble;
       attr('doorL', 'transform', `translate(-90 0) scale(${dsx.toFixed(3)} 1) translate(90 0)`);
       attr('doorR', 'transform', `translate(90 0) scale(${dsx.toFixed(3)} 1) translate(-90 0)`);
-      const shade = dsx >= 0 ? (1 - dsx) * 0.35 : 0.3 + Math.abs(dsx) * 0.2;
+      // escurece de lado (de perfil para a câmera) e clareia de novo ao ficar de frente, por dentro
+      const shade = dsx >= 0 ? (1 - dsx) * 0.35 : 0.35 - Math.abs(dsx) * 0.13;
       op('shadeL', shade);
       op('shadeR', shade);
       attr('route', 'stroke-dashoffset', (ROUTE_LEN * (1 - drive)).toFixed(1));
@@ -392,6 +460,7 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
     if (progressRef) progressRef.current = apply;
     return () => {
       introTween?.kill();
+      followTween?.kill();
       if (progressRef) progressRef.current = null;
     };
   }, [mode, step, progressRef]);
@@ -412,7 +481,7 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
 
       <div className="p-4 sm:p-5">
         {/* palco */}
-        <div className="relative aspect-[520/320] overflow-hidden rounded-xl border border-line bg-[#0d1210]">
+        <div className="relative aspect-[520/320] overflow-hidden rounded-xl border border-line bg-[#0d1210] [container-type:inline-size]">
           <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" aria-hidden>
             <defs>
               <linearGradient id="sc-wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1a221d" /><stop offset="1" stopColor="#111713" /></linearGradient>
@@ -440,9 +509,14 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
                 </g>
               ))}
             </g>
-            {/* caminhão: traseira (close) e vista de cima (rota) — mesmo desenho, mesmo estilo */}
-            <g ref={ref('truckRear')} style={{ opacity: 0, visibility: 'hidden' }}><TruckRear r={ref} /></g>
-            <g ref={ref('truckTop')} style={{ opacity: 0, visibility: 'hidden' }}><TruckTop /></g>
+            {/* caminhão: traseira (close) e vista de cima (rota) — mesmo desenho, mesmo estilo.
+                Cada desenho existe uma vez (defs) e é clonado: inteiro, ou em faixas na inclinação. */}
+            <defs>
+              <g id={rearArt}><TruckRear r={ref} /></g>
+              <g id={topArt}><TruckTop r={ref} /></g>
+            </defs>
+            <g ref={ref('truckRear')} style={{ opacity: 0, visibility: 'hidden' }}><use href={`#${rearArt}`} /></g>
+            <g ref={ref('truckTop')} style={{ opacity: 0, visibility: 'hidden' }}><use href={`#${topArt}`} /></g>
             <clipPath id="sc-open" clipPathUnits="userSpaceOnUse">
               <rect x={OPEN.x0} y={OPEN.y0} width={OPEN.x1 - OPEN.x0} height={OPEN.y1 - OPEN.y0} />
             </clipPath>
@@ -461,6 +535,19 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
             </g>
             </g>
           </svg>
+
+          {/* inclinação da câmera: traseira e teto como dois planos 3D emendados a 90°, girando
+              juntos em volta da emenda (só visível enquanto inclina; ver PERSP_F) */}
+          <div ref={ref('truck3d')} className="pointer-events-none absolute inset-0" style={{ opacity: 0, visibility: 'hidden' }} aria-hidden>
+            <div ref={ref('truckBox')} className="absolute top-0 left-0 origin-top-left [transform-style:preserve-3d]">
+              <svg viewBox="-135 -122 270 234" className="absolute" style={{ left: u(-135), top: 0, width: u(270), height: u(234) }}>
+                <use href={`#${rearArt}`} />
+              </svg>
+              <svg viewBox="-136 -316 272 616" className="absolute origin-bottom" style={{ left: u(-136), top: u(-616), width: u(272), height: u(616), transform: 'rotateX(90deg)' }}>
+                <g transform={`rotate(-90) scale(${TOP_K})`}><use href={`#${topArt}`} /></g>
+              </svg>
+            </div>
+          </div>
 
           {/* rótulo da IA (passo 2) */}
           <div ref={ref('chip')} className="absolute rounded-md border border-line-strong bg-bg/90 px-2.5 py-1.5" style={{ left: pct(P_PHOTO.cx + 26 * P_PHOTO.s + 18, W), top: pct(P_PHOTO.top, H), opacity: 0 }}>

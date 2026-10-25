@@ -230,11 +230,28 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
 
     /**
      * Passo 05: a mini-história do caminhão (surge → portas abrem → garrafa entra → portas
-     * fecham → câmera inclina) roda por TEMPO (~2,8 s) assim que o passo começa — sempre
+     * fecham → câmera inclina) roda por TEMPO (~4,8 s) assim que o passo começa — sempre
      * completa, mesmo com scroll rápido ou quadros perdidos. O scroll só dispara/zera a
      * intro e depois controla o trajeto na rota.
      */
     const INTRO_END = 0.79; // fração do passo 05 coberta pela intro (fases já calibradas)
+    const INTRO_SECONDS = 4.8;
+    /**
+     * Relógio da intro (s) → fase t. A garrafa (arco .30–.44 e queda .44–.52) ganha mais
+     * tempo para ficar fluida. As emendas caem onde o movimento já está parado, sem trancos.
+     */
+    const INTRO_KEYS: [number, number][] = [[0, 0], [1.2, 0.3], [2.6, 0.44], [3.4, 0.52], [INTRO_SECONDS, INTRO_END]];
+    const introPhase = (v: number) => {
+      const s = v * INTRO_SECONDS;
+      for (let k = 1; k < INTRO_KEYS.length; k++) {
+        const [s1, t1] = INTRO_KEYS[k];
+        if (s <= s1) {
+          const [s0, t0] = INTRO_KEYS[k - 1];
+          return lerp(t0, t1, (s - s0) / (s1 - s0));
+        }
+      }
+      return INTRO_END;
+    };
     const intro = { v: 0 };
     let introTween: gsap.core.Tween | null = null;
     let lastP = 0;
@@ -246,7 +263,7 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
         lastP = p;
         if (p >= 4 && !introTween && intro.v < 1) {
           introTween = gsap.to(intro, {
-            v: 1, duration: 2.8, ease: 'none', overwrite: true,
+            v: 1, duration: INTRO_SECONDS, ease: 'none', overwrite: true,
             onUpdate: () => draw(lastP),
             onComplete: () => { introTween = null; draw(lastP); },
           });
@@ -264,7 +281,7 @@ export function StoryCard({ mode, step = 0, progressRef, className }: StoryCardP
       const i = Math.min(4, Math.floor(p));
       const t0 = p - i;
       // No passo 05 as fases da intro usam o relógio da intro (ou o estado final, no modo estático).
-      const t = i === 4 && !isStatic ? intro.v * INTRO_END : t0;
+      const t = i === 4 && !isStatic ? introPhase(intro.v) : t0;
       const vis = (k: number) => {
         if (isStatic) return k === step ? 1 : 0;
         const lo = k === 0 ? 1 : clamp((p - k) / 0.06);

@@ -1,3 +1,4 @@
+// Ranking por pessoa, residência, bairro ou organização, filtrado por período.
 import { useState } from 'react';
 import { Building2, Crown, Home, MapPinned, Trophy, Users } from 'lucide-react';
 import { useRanking } from '@/api/queries';
@@ -22,11 +23,14 @@ export default function RankingPage() {
   const [period, setPeriod] = useState<RankingPeriod>('MONTH');
   const q = useRanking(scope, period);
 
+  // 1. O servidor devolve a lista e, à parte, a posição de quem está logado ("me").
   // Só o top 10; quem está fora dele vê a própria posição logo abaixo da lista.
   const entries = (q.data?.entries ?? []).slice(0, 10);
+  // 2. Os 3 primeiros vão para o pódio; do 4º ao 10º, para a tabela.
   const podium = entries.slice(0, 3);
   const rest = entries.slice(3);
   const me = q.data?.me ?? null;
+  // 3. Se a pessoa não está no top 10, aparece uma linha extra "Você" no fim, com a posição real.
   const meOutside = !!me && !entries.some((e) => e.isMe);
   const ScopeIcon = SCOPES.find((s) => s.value === scope)!.icon;
 

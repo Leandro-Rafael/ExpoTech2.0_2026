@@ -88,6 +88,7 @@ public class IntegrityService {
                 """, (ResultSet rs) -> {
             state.rows++;
             UUID userId = rs.getObject("user_id", UUID.class);
+            // 1. Mudou de usuário: a corrente recomeça (seq 1, hash inicial, saldo 0).
             if (!userId.equals(state.user)) {
                 state.user = userId;
                 state.expectedSeq = 1;
@@ -100,6 +101,7 @@ public class IntegrityService {
             long seq = rs.getLong("seq");
             String prev = rs.getString("prev_hash");
             String hash = rs.getString("hash");
+            // 2. A linha só vale se a seq não pula, o prev_hash é o hash da anterior, o HMAC recalculado bate e o saldo fecha.
             boolean valid = seq == state.expectedSeq
                     && IntegrityKey.same(prev, state.prevHash)
                     && IntegrityKey.same(hash, IntegrityKey.sign(mac, ChainHashes.ledger(seq, prev, row)))

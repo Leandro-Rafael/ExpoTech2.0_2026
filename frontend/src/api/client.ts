@@ -212,6 +212,7 @@ async function toApiError(res: Response): Promise<ApiError> {
     fieldErrors: Array.isArray(problem.errors) ? problem.errors : [],
     retryAfter,
   });
+  // 423: avisa o InspectionGuard para mostrar a tela de bloqueio.
   if (code === 'ACCOUNT_LOCKED') lockedListeners.forEach((fn) => fn(err));
   return err;
 }
@@ -247,9 +248,12 @@ function defaultCode(status: number): string {
 
 type Body = unknown;
 
+// Caminho de toda requisição. `retried` garante que ela se repete no máximo uma vez.
 async function send(method: string, path: string, body: Body | undefined, opts: RequestOptions, retried = false): Promise<Response> {
+  // 1. Se a requisição altera dados, garante o cookie CSRF antes.
   if (MUTATING.has(method)) await ensureCsrf();
 
+  // 2. Monta cabeçalhos (com o token CSRF) e o corpo: FormData para arquivo, JSON para o resto.
   const headers: Record<string, string> = { Accept: 'application/json', ...csrfHeaders(method), ...opts.headers };
   let payload: BodyInit | undefined;
   if (body instanceof FormData) {
@@ -260,6 +264,7 @@ async function send(method: string, path: string, body: Body | undefined, opts: 
   }
   if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
 
+  // 3. Envia com os cookies de sessão; falha de rede vira ApiError NETWORK_ERROR.
   let res: Response;
   const sentAt = performance.now();
   try {
@@ -269,6 +274,7 @@ async function send(method: string, path: string, body: Body | undefined, opts: 
     throw new ApiError({ status: 0, code: 'NETWORK_ERROR', title: 'Sem conexão', detail: errorCodeMessage.NETWORK_ERROR });
   }
 
+  // 4. 401: renova a sessão uma vez e repete; se não der, avisa o AuthProvider para deslogar.
   if (res.status === 401 && !opts.skipRefresh && !retried) {
     // Enviada antes de uma renovação que já terminou? Só repete com o cookie novo.
     if (sentAt < lastRefreshOkAt) return send(method, path, body, opts, true);
@@ -279,6 +285,7 @@ async function send(method: string, path: string, body: Body | undefined, opts: 
     emitUnauthorized();
   }
 
+  // 5. 403 de CSRF vencido: pega um token novo e repete.
   // CSRF inválido/expirado: renova o cookie e tenta uma vez.
   if (res.status === 403 && MUTATING.has(method) && !retried) {
     const clone = res.clone();

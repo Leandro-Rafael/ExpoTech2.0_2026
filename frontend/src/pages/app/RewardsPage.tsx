@@ -24,14 +24,18 @@ export default function RewardsPage() {
   const [voucher, setVoucher] = useState<Redemption | null>(null);
   const balanceRef = useCountUpText<HTMLSpanElement>(user.points, (v) => formatNumber(v), { duration: 900 });
 
+  // 1. Catálogo: só recompensas ativas, da mais barata para a mais cara; a próxima que o morador
+  //    ainda não alcança vira a "meta" da barra de progresso.
   const catalog = useMemo(() => [...(rewards.data ?? [])].filter((r) => r.active).sort((a, b) => a.costPoints - b.costPoints), [rewards.data]);
   const nextGoal = catalog.find((r) => r.costPoints > user.points && r.stock > 0);
   const available = catalog.filter((r) => r.costPoints <= user.points && r.stock > 0).length;
-  // Códigos ainda válidos ficam no item do catálogo; o resto (usados ou de recompensas que saíram) vai para o histórico.
+  // 2. Códigos ainda válidos ficam no item do catálogo; o resto (usados ou de recompensas que saíram) vai para o histórico.
   const inCatalog = new Set(catalog.map((r) => r.id));
   const activeCodes = (rewardId: string) => (redemptions.data ?? []).filter((r) => r.reward.id === rewardId && r.status === 'ISSUED');
   const past = (redemptions.data ?? []).filter((r) => r.status !== 'ISSUED' || !inCatalog.has(r.reward.id));
 
+  // 3. Resgate: depois da confirmação, o servidor desconta os pontos e gera o código do voucher,
+  //    que aparece num modal e passa a ficar também no item do catálogo.
   const doRedeem = () => {
     if (!confirm) return;
     redeem.mutate(confirm.id, {

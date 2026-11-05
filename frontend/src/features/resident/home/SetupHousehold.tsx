@@ -27,6 +27,7 @@ const joinSchema = z.object({
 });
 type JoinValues = z.infer<typeof joinSchema>;
 
+/ Aparece em "Minha casa" para quem ainda não tem residência: criar uma nova ou entrar com um código.
 export function SetupHousehold() {
   return (
     <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.25fr_1fr] lg:gap-16">

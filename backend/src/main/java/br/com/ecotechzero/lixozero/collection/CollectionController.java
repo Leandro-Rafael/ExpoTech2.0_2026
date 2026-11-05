@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+/** Endpoints do morador para listar ecopontos e pedir, listar ou cancelar coletas. */
 @RestController
 public class CollectionController {
 

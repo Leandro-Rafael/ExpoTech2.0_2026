@@ -1,3 +1,4 @@
+// Planejamento de coletas (aba "Planejar") e lista de rotas criadas (aba "Rotas").
 import { useEffect, useMemo, useState } from 'react';
 import { Crosshair, Cpu, MapPinned, RotateCcw, Sparkles, User, Warehouse } from 'lucide-react';
 import { errorMessage } from '@/api/client';
@@ -48,6 +49,7 @@ export default function AdminCollectionsPage({ tab }: { tab: 'plan' | 'routes' }
     return c;
   }, [all.data]);
 
+  // 1. Lista as solicitações (de moradores ou de lixeiras cheias), das mais urgentes para as menos.
   const rows = useMemo(() => {
     const s = search.trim().toLocaleLowerCase('pt-BR');
     return (all.data ?? []).filter((r) =>
@@ -64,6 +66,8 @@ export default function AdminCollectionsPage({ tab }: { tab: 'plan' | 'routes' }
     setSelected((s) => { const n = new Set([...s].filter((id) => valid.has(id))); return n.size === s.size ? s : n; });
   }, [all.data]);
 
+  // 2. O admin marca quais vai atender. Se mudar a seleção, a central ou a capacidade depois de otimizar,
+  //    o resultado fica "desatualizado" (stale) e precisa otimizar de novo.
   const selectedReqs = useMemo(() => (all.data ?? []).filter((r) => selected.has(r.id)), [all.data, selected]);
   const selectedKg = selectedReqs.reduce((s, r) => s + r.estimatedKg, 0);
   const selectionKey = `${[...selected].sort().join(',')}|${depot.latitude},${depot.longitude}|${capacity}`;
@@ -81,6 +85,8 @@ export default function AdminCollectionsPage({ tab }: { tab: 'plan' | 'routes' }
     return n;
   });
 
+  // 3. Otimizar: o servidor divide as paradas em viagens que cabem no caminhão e ordena cada uma
+  //    para percorrer a menor distância, saindo e voltando da central.
   const capacityValid = capacity != null && capacity >= 10 && capacity <= 50_000;
   const run = () => {
     if (!selected.size) { toast.error('Selecione ao menos uma solicitação.'); return; }
@@ -199,6 +205,7 @@ export default function AdminCollectionsPage({ tab }: { tab: 'plan' | 'routes' }
             </div>
           </div>
 
+          {/* 4. Resultado (comparação com a ordem de chegada) e formulário que cria as rotas para os coletores. */}
           {result && (
             <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
               <OptimizationResult result={result.data} capacityKg={result.capacity} showNaive={showNaive} onShowNaive={setShowNaive}

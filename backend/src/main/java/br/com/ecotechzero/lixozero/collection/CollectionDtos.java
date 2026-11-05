@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+/** Objetos de entrada e saída de ecopontos e solicitações de coleta. */
 public final class CollectionDtos {
 
     private CollectionDtos() {

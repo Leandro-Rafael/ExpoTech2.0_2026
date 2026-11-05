@@ -65,8 +65,10 @@ public class PointsService {
         if (amount <= 0) {
             throw new IllegalArgumentException("amount deve ser positivo");
         }
+        // 1. Trava o usuário e soma ao saldo.
         User user = lockUser(userId);
         user.earn(amount);
+        // 2. Grava no fim da corrente HMAC do usuário (cada lançamento assina junto o hash do anterior).
         // append() faz flush: um 2º crédito na mesma transação (ex.: dois bônus de desafio) relê o saldo JÁ
         // atualizado no lockUser(); antes, o refresh descartava o crédito anterior ainda não gravado
         return ledger.append(userId, type.name(), amount, user.getPoints(), description,
@@ -76,12 +78,14 @@ public class PointsService {
     /** Debita pontos de um resgate. Verifica o saldo com a linha travada (sem condição de corrida). */
     @Transactional(propagation = Propagation.MANDATORY)
     public UUID debit(UUID userId, int cost, String description, Redemption redemption, Instant at) {
+        // 1. Com a linha travada, confere o saldo; dois resgates ao mesmo tempo não passam juntos.
         User user = lockUser(userId);
         if (user.getPoints() < cost) {
             throw new ApiException(ErrorCode.INSUFFICIENT_POINTS,
                     "Saldo insuficiente: você tem " + user.getPoints() + " pontos e a recompensa custa " + cost + ".");
         }
         user.spend(cost);
+        // 2. O débito entra como lançamento negativo (REDEEM) na mesma corrente.
         return ledger.append(userId, PointTransactionType.REDEEM.name(), -cost, user.getPoints(), description,
                 null, null, redemption == null ? null : redemption.getId(), at);
     }

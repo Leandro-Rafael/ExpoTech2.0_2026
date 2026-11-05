@@ -74,6 +74,7 @@ const pct = (p: number) => `${Math.round(p * 100)}%`;
 
 /** Agrega as probabilidades do top-k por categoria e explica a decisão em português. */
 export function mapPredictions(preds: { className: string; probability: number }[]): LocalGuess {
+  // 1. Soma as probabilidades dos rótulos que caem na mesma categoria (ex.: "jar" + "beer bottle" = Vidro).
   const totals = new Map<CategoryCode, { sum: number; best: { className: string; probability: number } }>();
   for (const p of preds) {
     const code = matchCategory(p.className);
@@ -84,6 +85,7 @@ export function mapPredictions(preds: { className: string; probability: number }
   }
   const ranked = [...totals.entries()].sort((a, b) => b[1].sum - a[1].sum);
   const top = preds[0];
+  // 2. Nenhum rótulo reconhecido: sugere Rejeito com confiança baixa, para o morador corrigir.
   if (!ranked.length) {
     return {
       code: 'REJEITO',
@@ -94,6 +96,7 @@ export function mapPredictions(preds: { className: string; probability: number }
       labels: preds,
     };
   }
+  // 3. Fica com a categoria de maior soma.
   const [code, info] = ranked[0];
   // Confiança: probabilidade agregada, com teto para não parecer certeza absoluta.
   const confidence = Math.max(0.05, Math.min(0.97, info.sum));

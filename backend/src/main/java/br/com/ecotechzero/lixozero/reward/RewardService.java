@@ -62,13 +62,17 @@ public class RewardService {
 
     @Transactional
     public RedemptionDto redeem(UUID userId, UUID rewardId) {
+        // 1. Limite de frequência por usuário.
         limiter.check(TokenBucketRateLimiter.Policy.REDEEM_USER, userId.toString());
+        // 2. Trava o usuário e depois a recompensa: dois resgates ao mesmo tempo não gastam o mesmo saldo
+        //    nem a última unidade do estoque.
         User user = points.lockUser(userId); // 1º lock: usuário
         Reward reward = em.find(Reward.class, rewardId);
         if (reward == null) {
             throw ApiException.notFound("Recompensa não encontrada.");
         }
         em.refresh(reward, LockModeType.PESSIMISTIC_WRITE); // 2º lock: recompensa
+        // 3. Confere se está ativa, se tem estoque e se o saldo cobre o custo.
         if (!reward.isActive()) {
             throw ApiException.notFound("Recompensa não encontrada.");
         }
@@ -79,8 +83,10 @@ public class RewardService {
             throw new ApiException(ErrorCode.INSUFFICIENT_POINTS,
                     "Saldo insuficiente: você tem " + user.getPoints() + " pontos e a recompensa custa " + reward.getCostPoints() + ".");
         }
+        // 4. Baixa o estoque e grava o resgate com um código de voucher único (LZ50-XXXX-XXXX).
         reward.decrementStock();
         Redemption redemption = redemptions.save(new Redemption(user, reward, reward.getCostPoints(), newVoucherCode()));
+        // 5. Debita os pontos no extrato e registra na auditoria.
         points.debit(userId, reward.getCostPoints(), "Resgate: " + reward.getName(), redemption, clock.instant());
         audit.record(AuditAction.REWARD_REDEEMED, "Redemption", redemption.getId(), reward.getName() + " (" + reward.getCostPoints() + " pts)");
         return RedemptionDto.of(redemption);

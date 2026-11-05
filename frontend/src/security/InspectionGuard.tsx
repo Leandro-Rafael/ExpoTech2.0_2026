@@ -69,16 +69,21 @@ export function InspectionGuard() {
     retry.current = null;
   }, []);
 
+  // Cada tentativa vai para o servidor, que conta os avisos e decide o bloqueio (o navegador só mostra o resultado).
   const report = useCallback(async (trigger: InspectionTrigger, isRetry = false) => {
+    // 1. Se já está bloqueado, não manda mais nada.
     if (lockedRef.current) return;
     try {
+      // 2. Envia a tentativa e mostra "Aviso N de 3" ou a tela de bloqueio, conforme a resposta.
       applyResult(await securityApi.reportInspection(trigger));
     } catch (e) {
+      // 3. 423 = a conta já estava bloqueada.
       if (e instanceof ApiError && e.code === 'ACCOUNT_LOCKED') {
         lock(Date.now() + (e.retryAfter ?? DEFAULT_LOCK_S) * 1000);
         return;
       }
       if (isRetry) return;
+      // 4. Sem resposta do servidor: avisa localmente e reenvia uma vez depois.
       // Falhou (sem rede?): avisa mesmo assim e tenta enviar UMA vez de novo.
       const now = Date.now();
       if (now - lastLocalCount.current > DEDUPE_MS) {

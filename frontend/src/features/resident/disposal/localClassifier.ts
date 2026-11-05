@@ -13,6 +13,7 @@ let modelPromise: Promise<mobilenet.MobileNet> | null = null;
 let lastProgress = 0;
 const listeners = new Set<(p: number) => void>();
 
+// Usa a placa de vídeo (WebGL) quando existe; senão roda no processador, mais devagar.
 async function pickBackend() {
   try {
     if (await tf.setBackend('webgl')) return;
@@ -47,8 +48,11 @@ function loadModel(onProgress?: (p: number) => void): Promise<mobilenet.MobileNe
 }
 
 export async function classify(image: HTMLCanvasElement | HTMLImageElement, onProgress?: (p: number) => void): Promise<LocalGuess> {
+  // 1. Carrega o modelo (só baixa na primeira vez; depois fica em memória).
   const model = await loadModel(onProgress);
+  // 2. O MobileNet devolve os 5 objetos do ImageNet mais prováveis (ex.: "water bottle", 62%).
   const preds = await model.classify(image, 5);
+  // 3. Traduz esses rótulos para uma categoria nossa (Plástico, Vidro...) com confiança e explicação.
   return mapPredictions(preds);
 }
 

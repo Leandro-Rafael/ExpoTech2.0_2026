@@ -1,3 +1,4 @@
+// Registrar descarte: Foto -> Material (IA sugere, morador confirma) -> Detalhes -> resultado.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,6 +36,7 @@ function toLocalInput(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Data limitada aos últimos 7 dias e nunca no futuro, para não registrar descarte antigo só pelos pontos.
 const schema = z.object({
   categoryId: z.string({ required_error: 'Escolha a categoria do material' }).min(1, 'Escolha a categoria do material'),
   quantityKg: z.number({ required_error: 'Informe a quantidade', invalid_type_error: 'Informe a quantidade' }).min(0.01, 'O mínimo é 0,01 kg'),
@@ -67,8 +69,10 @@ export default function NewDisposalPage() {
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [result, setResult] = useState<Disposal | null>(null);
   // Uma chave por intenção de registro: re-tentativas reaproveitam a mesma.
+  // Assim o servidor não cria o mesmo descarte duas vezes se a rede falhar e o morador reenviar.
   const [idemKey, setIdemKey] = useState(() => newIdempotencyKey());
   const lastFile = useRef<File | null>(null);
+  // Se o morador trocar de foto no meio da análise, o resultado da foto antiga é descartado.
   const runId = useRef(0);
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -106,6 +110,7 @@ export default function NewDisposalPage() {
   }, [categories, setValue]);
 
   const analyze = useCallback(async (file: File) => {
+    // 1. Começa uma análise nova e limpa o resultado anterior.
     const id = ++runId.current;
     lastFile.current = file;
     setPhotoError(null);
@@ -113,6 +118,7 @@ export default function NewDisposalPage() {
     setUploaded(null);
     setPhase('preparing');
     let prepared: PreparedPhoto;
+    // 2. Reduz a foto e gera a miniatura no próprio navegador.
     try {
       prepared = await preparePhoto(file);
     } catch (e) {
@@ -125,6 +131,7 @@ export default function NewDisposalPage() {
     if (id !== runId.current) return;
     setPhoto(prepared);
     setPhase('uploading');
+    // 3. Envia a foto; o servidor avisa se ela parece repetida e pode rodar a IA dele.
     let up: PhotoUpload;
     try {
       up = await upload.mutateAsync(new File([prepared.blob], 'descarte.jpg', { type: 'image/jpeg' }));
@@ -137,6 +144,7 @@ export default function NewDisposalPage() {
     if (id !== runId.current) return;
     setUploaded(up);
 
+    // 4. Se a IA do servidor respondeu, usa a sugestão dela (verified = confirmada, dá bônus).
     if (up.ai.available && up.ai.categoryCode) {
       applySuggestion({ code: up.ai.categoryCode, confidence: up.ai.confidence ?? 0.5, reasoning: up.ai.reasoning, source: up.ai.source ?? 'CLAUDE', verified: up.ai.verified === true });
       setPhase('done');
@@ -144,6 +152,7 @@ export default function NewDisposalPage() {
       return;
     }
     // IA do servidor indisponível → modelo local no navegador (lazy, offline).
+    // 5. Carrega o MobileNet só agora e classifica a miniatura.
     try {
       const mod = await import('@/features/resident/disposal/localClassifier');
       if (!mod.isModelLoaded()) setPhase('loading-model');
@@ -159,6 +168,7 @@ export default function NewDisposalPage() {
       if (id !== runId.current) return;
       setSuggestion(null); // segue com escolha manual
     }
+    // 6. Com ou sem sugestão, vai para a etapa Material, onde o morador confirma ou corrige.
     setPhase('done');
     goTo(1);
   }, [upload, applySuggestion, goTo]);
@@ -184,14 +194,17 @@ export default function NewDisposalPage() {
   };
 
   const onSubmit = form.handleSubmit(async (v) => {
+    // 1. Cada material tem um teto de kg por descarte, contra exageros.
     const cat = categories.find((c) => c.id === v.categoryId);
     if (!cat) { setError('categoryId', { message: 'Escolha a categoria' }); goTo(1); return; }
     if (v.quantityKg > cat.maxKgPerDisposal) {
       setError('quantityKg', { message: `Máximo de ${formatNumber(cat.maxKgPerDisposal, 2)} kg por descarte de ${cat.name}` });
       return;
     }
+    // 2. Registra de onde veio o material: IA do servidor, IA local ou manual.
     const source: AiSource = suggestion ? suggestion.source : 'MANUAL';
     try {
+      // 3. Envia com a chave de idempotência.
       const d = await create.mutateAsync({
         idempotencyKey: idemKey,
         body: {
@@ -208,10 +221,12 @@ export default function NewDisposalPage() {
           notes: v.notes?.trim() || null,
         },
       });
+      // 4. Mostra o resultado; se já foi aprovado na hora, atualiza o saldo.
       setResult(d);
       if (d.status === 'APPROVED') refreshMe(qc);
       requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
     } catch (e) {
+      // 5. Erros do servidor vão para o campo certo (caso especial: foto já usada).
       const touched = applyServerErrors(e, setError, { knownFields: ['categoryId', 'quantityKg', 'disposedAt', 'collectionPointId', 'notes'] });
       if (!touched && e instanceof ApiError && e.fieldErrors.some((f) => f.field === 'photoId')) {
         setError('root.server', { message: 'Esta foto já foi usada em outro descarte. Tire uma nova foto do resíduo.' });
@@ -219,6 +234,7 @@ export default function NewDisposalPage() {
     }
   });
 
+  // Outro descarte = outra chave de idempotência.
   const restart = () => {
     resetPhoto();
     form.reset({ categoryId: '', quantityKg: undefined, disposedAt: toLocalInput(new Date()), shareLocation, collectionPointId: '', notes: '' });

@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/** Objetos de entrada e saída de residências, lixeiras inteligentes e leituras dos sensores. */
 public final class HouseholdDtos {
 
     private HouseholdDtos() {

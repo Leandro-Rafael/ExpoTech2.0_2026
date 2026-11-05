@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Clock;
 import java.time.LocalDate;
 
+/** Endpoints de impacto: números públicos, resumo de impacto e simulador de 2050. */
 @RestController
 public class ImpactController {
 

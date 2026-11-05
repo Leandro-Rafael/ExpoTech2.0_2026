@@ -62,6 +62,7 @@ public class SecurityConfig {
             "base-uri 'self'",
             "form-action 'self'");
 
+    // Antes desta cadeia já rodaram nossos filtros com @Order: RequestId, SignedProxy, limite de corpo e limite por IP.
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, UserRepository users,
                                                    ProblemResponseWriter problems, AppProperties props, Clock clock) throws Exception {
@@ -69,9 +70,11 @@ public class SecurityConfig {
         csrfRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/"));
 
         http
+                // 1. CSRF: o front devolve o cookie XSRF-TOKEN no header. O IoT fica de fora porque usa a chave do dispositivo.
                 .csrf(csrf -> csrf.spa()
                         .csrfTokenRepository(csrfRepository)
                         .ignoringRequestMatchers("/api/iot/readings"))
+                // 2. Nada de sessão no servidor: quem diz quem é o usuário é o JWT no cookie.
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -84,6 +87,7 @@ public class SecurityConfig {
                                 ex instanceof CsrfException
                                         ? "Token CSRF ausente ou inválido. Recarregue a página e tente novamente."
                                         : "Você não tem permissão para acessar este recurso.", null)))
+                // 3. Cabeçalhos de segurança para o navegador (CSP, proibição de iframe, HSTS).
                 .headers(h -> h
                         .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
                         .frameOptions(f -> f.deny())
@@ -93,6 +97,7 @@ public class SecurityConfig {
                         .addHeaderWriter(new StaticHeadersWriter("Cross-Origin-Opener-Policy", "same-origin"))
                         // fotos e respostas da API não podem ser embutidas por outros sites
                         .addHeaderWriter(new StaticHeadersWriter("Cross-Origin-Resource-Policy", "same-origin")))
+                // 4. Permissão por rota. Vale a primeira regra que bater, então a ordem importa.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
@@ -104,6 +109,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
                         .anyRequest().permitAll())
+                // 5. Coloca na fila o filtro que lê o JWT e identifica o usuário logado.
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService, users, problems, clock), UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
 

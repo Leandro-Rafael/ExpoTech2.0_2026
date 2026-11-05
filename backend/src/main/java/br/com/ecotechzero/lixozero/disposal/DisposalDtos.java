@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/** Objetos de entrada e saída da API de descartes (as anotações já barram valores fora do limite). */
 public final class DisposalDtos {
 
     private DisposalDtos() {

@@ -82,6 +82,7 @@ async function handle(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const method = req.method.toUpperCase();
   try {
+    // 1. Acha a rota registrada pelos handlers (404/405 se não existir).
     const candidates = routes.filter((r) => r.pattern.test(url.pathname));
     if (!candidates.length) throw fail.notFound(`Rota ${url.pathname} não existe.`);
     const def = candidates.find((r) => r.method === method);
@@ -92,6 +93,7 @@ async function handle(req: Request): Promise<Response> {
     const fingerprint = () => `${d.audit.length}:${d.userBadges.length}:${d.transactions.length}:${d.collectionRequests.length}`;
     const before = fingerprint();
 
+    // 2. Mesmas checagens do servidor real: CSRF, bloqueio por inspeção (423), login (401) e perfil (403).
     if (MUTATING.has(method) && def.csrf && !csrfValid(req.headers)) throw fail.csrf();
 
     const match = def.pattern.exec(url.pathname)!;
@@ -112,11 +114,13 @@ async function handle(req: Request): Promise<Response> {
       if (Array.isArray(def.access) && !def.access.includes(me.role)) throw fail.forbidden();
     }
 
+    // 3. Lê o corpo, executa o handler e salva o "banco" no localStorage se algo mudou.
     const { body, form } = await parseBody(req);
     const ctx: MockRequest = { method, path: url.pathname, params, query: url.searchParams, headers: req.headers, body, form };
     const result = await def.handler({ ...ctx, me: me!, user: me });
     if (MUTATING.has(method) || binsChanged || fingerprint() !== before) save();
     return toResponse(result);
+  // 4. Erros viram a mesma resposta de erro (RFC 7807) que o back-end Java devolve.
   } catch (e) {
     if (e instanceof HttpError) {
       if (MUTATING.has(method)) save(); // ex.: contador de tentativas de login
@@ -145,6 +149,7 @@ export function installInterceptor() {
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const raw = input instanceof Request ? input.url : String(input);
     const url = new URL(raw, location.href);
+    // Só /api/ do próprio site é simulado; o resto (fontes, mapas) vai para a rede de verdade.
     if (url.origin !== location.origin || !url.pathname.startsWith('/api/')) return realFetch(input, init);
 
     const req = new Request(input, init);

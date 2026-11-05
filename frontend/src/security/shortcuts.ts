@@ -1,3 +1,4 @@
+// Reconhece os atalhos que abrem as ferramentas do desenvolvedor (usado pelo InspectionGuard).
 import type { InspectionTrigger } from '@/api/types';
 
 /**

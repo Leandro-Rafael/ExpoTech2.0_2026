@@ -11,6 +11,7 @@ import { RouteMap } from './RouteMap';
 
 type Filter = RouteStatus | 'ALL';
 
+// Aba "Rotas": todas as rotas já criadas, com filtro por status e o mapa de cada uma.
 export function RoutesTab({ highlight }: { highlight?: Set<string> }) {
   const routes = useAdminRoutes();
   const [filter, setFilter] = useState<Filter>('ALL');

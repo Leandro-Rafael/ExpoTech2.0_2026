@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+/** Endpoints da residência: criar, entrar por convite, sair e gerenciar as lixeiras inteligentes. */
 @RestController
 @RequestMapping("/api/household")
 public class HouseholdController {

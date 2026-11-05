@@ -40,6 +40,7 @@ export function levelFor(totalEarned: number): Level {
 // ---------------------------------------------------------------- cálculo
 
 const AI_CONFIRMED_BONUS = 0.1;
+// Bônus de 10% só quando a IA do servidor confirma a categoria; o palpite do navegador poderia ser forjado.
 function computePoints(category: Pick<Category, 'pointsPerKg'>, kg: number, aiConfirmed: boolean): number {
   if (kg <= 0) return 0;
   if (category.pointsPerKg <= 0) return 1;
@@ -68,6 +69,7 @@ function credit(d: MockDb, userId: string, amount: number, type: TxRec['type'], 
 export function debit(d: MockDb, userId: string, cost: number, description: string, at: string): TxRec {
   const user = d.users.find((u) => u.id === userId);
   if (!user) throw fail.notFound('Usuário não encontrado.');
+  // Resgate só com saldo suficiente. O nível usa totalEarned, então gastar pontos não faz a pessoa cair de nível.
   if (user.points < cost) {
     throw fail.insufficientPoints(`Saldo insuficiente: você tem ${user.points} pontos e a recompensa custa ${cost}.`);
   }
@@ -81,14 +83,18 @@ const kgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximum
 
 /** Aprova um descarte e credita os pontos UMA vez. Retorna os pontos concedidos. */
 export function approveDisposal(d: MockDb, disposal: DisposalRec, at: string): number {
+  // 1. Já aprovado não credita de novo; recusado não pode virar aprovado.
   if (disposal.status === 'APPROVED') return disposal.pointsAwarded; // nunca credita duas vezes
   if (disposal.status === 'REJECTED') throw fail.conflict('Este descarte já foi recusado e não pode ser aprovado.');
+  // 2. Pontos = kg × pontos por kg da categoria (mínimo 1).
   const category = d.categories.find((c) => c.id === disposal.categoryId)!;
   const awarded = computePoints(category, disposal.quantityKg, aiConfirmed(disposal, category));
+  // 3. Marca como aprovado e lança a transação no extrato do morador.
   disposal.status = 'APPROVED';
   disposal.pointsAwarded = awarded;
   disposal.reviewedAt = at;
   credit(d, disposal.userId, awarded, 'EARN', `Descarte aprovado: ${kgFmt.format(disposal.quantityKg)} kg de ${category.name}`, at, disposal.id);
+  // 4. Confere se o descarte completou algum desafio ou liberou medalha.
   evaluateChallenges(d, disposal.userId, at);
   evaluateBadges(d, disposal.userId, at);
   return awarded;

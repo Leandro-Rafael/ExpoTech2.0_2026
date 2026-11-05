@@ -12,6 +12,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
+/** Objetos de entrada e saída das categorias de material. */
 public final class CategoryDtos {
 
     private CategoryDtos() {

@@ -1,3 +1,4 @@
+// Modo demo: junta as rotas falsas de cada assunto (auth, descartes, admin...) no roteador de mocks/server.ts.
 import { registerAdminRoutes } from './admin';
 import { registerAuthRoutes } from './auth';
 import { registerCollectionRoutes } from './collection';

@@ -1,6 +1,7 @@
 /**
  * Navegação do app (sidebar, bottom nav e menu mobile). Para adicionar uma página
  * ao menu, inclua um item aqui; `roles` define quais perfis veem a seção.
+ * O menu só esconde o que o perfil não usa; o acesso é barrado pelas rotas e pelo servidor.
  */
 import {
   BadgeCheck, Boxes, ClipboardList, Gift, Home, LayoutDashboard, MapPinned, Recycle,

@@ -65,12 +65,14 @@ public class InspectionService {
     @Transactional
     public InspectionEventResult report(UUID userId, Trigger trigger) {
         limiter.check(TokenBucketRateLimiter.Policy.INSPECTION_EVENT_USER, userId.toString());
+        // 1. Trava a linha do usuário para avisos de várias abas contarem um de cada vez.
         User user = em.find(User.class, userId);
         if (user == null) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "Sessão inválida.");
         }
         em.refresh(user, LockModeType.PESSIMISTIC_WRITE); // eventos simultâneos (várias abas) contam em sequência
         Instant now = clock.instant();
+        // 2. Se já está bloqueado, ou o aviso veio a menos de 5 s do anterior (mesmo gesto), não conta de novo.
         user.clearExpiredSecurityLock(now);
         if (user.isSecurityLocked(now)) {
             return result(user, now);
@@ -79,9 +81,11 @@ public class InspectionService {
         if (last != null && last.plus(DEDUPE_WINDOW).isAfter(now)) {
             return result(user, now); // mesmo gesto (ex.: F12 + DevTools aberto): já contado
         }
+        // 3. Conta o aviso e audita; o 3º bloqueia por 30 minutos.
         boolean lockedNow = user.registerSecurityWarning(now, MAX_WARNINGS, LOCK_DURATION);
         audit.record(AuditAction.SECURITY_INSPECTION_WARNING, "User", userId,
                 "aviso " + user.getSecurityWarnings() + " de " + MAX_WARNINGS + " (" + trigger + ")");
+        // 4. No bloqueio, derruba todas as sessões do usuário.
         if (lockedNow) {
             refreshTokens.revokeAllForUser(userId, RefreshToken.REASON_SECURITY);
             audit.record(AuditAction.SECURITY_INSPECTION_LOCK, "User", userId,

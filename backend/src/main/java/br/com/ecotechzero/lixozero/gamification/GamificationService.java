@@ -134,6 +134,7 @@ public class GamificationService {
                 .map(c -> toDto(c, Numbers.round2(progress(userId, c)), done.contains(c.getId())))
                 .toList();
 
+        // nível usa o total já ganho, não o saldo: trocar pontos por recompensa não derruba o nível
         List<LevelRef> levels = LevelCatalog.LEVELS.stream().map(l -> new LevelRef(l.index(), l.name(), l.minPoints())).toList();
         return new GamificationSummary(user.getPoints(), user.getTotalEarned(), LevelCatalog.levelFor(user.getTotalEarned()),
                 levels, badgeDtos, challengeDtos, streakDays(userId));

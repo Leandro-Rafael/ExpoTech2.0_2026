@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+/** Consultas dos refresh tokens: busca pelo hash e revogação em lote. */
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
 
     /** Lock pessimista: duas renovações simultâneas do mesmo token são serializadas. */

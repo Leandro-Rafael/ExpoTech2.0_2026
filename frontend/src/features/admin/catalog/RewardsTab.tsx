@@ -13,6 +13,7 @@ import { formatNumber } from '@/lib/format';
 import { AdminTable, type AdminColumn } from '../ui';
 import { IconPicker, FormNumber } from '../formControls';
 
+/ Aba do catálogo: recompensas que os moradores trocam por pontos (custo, estoque, parceiro).
 export function RewardsTab() {
   const q = useAdminRewards();
   const [editing, setEditing] = useState<Reward | 'new' | null>(null);

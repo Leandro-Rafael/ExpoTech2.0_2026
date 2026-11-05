@@ -1,5 +1,6 @@
 package br.com.ecotechzero.lixozero.organization;
 
+/** Tipos de organização que aparecem como subtítulo no ranking. */
 public enum OrganizationType {
     TURMA, EMPRESA, CONDOMINIO, ESCOLA;
 

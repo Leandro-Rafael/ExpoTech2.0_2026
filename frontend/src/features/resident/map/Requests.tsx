@@ -35,6 +35,7 @@ const schema = z.object({
 });
 type Values = z.infer<typeof schema>;
 
+/ Pedido de coleta em casa (volumes grandes). Esses pedidos entram no planejamento de rotas do admin.
 export function RequestForm({ onCreated }: { onCreated: () => void }) {
   const categories = useCategories();
   const create = useCreateCollectionRequest();

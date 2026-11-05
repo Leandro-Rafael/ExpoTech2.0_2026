@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/** Rotas de /api/auth (cadastro, login, refresh, logout e sessão atual); a lógica fica no AuthService. */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

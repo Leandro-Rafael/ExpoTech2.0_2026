@@ -70,6 +70,8 @@ function PublicLayout() {
   );
 }
 
+// Públicas na raiz; /app exige login; /app/coletor e /app/admin exigem perfil.
+// `moved` redireciona endereços antigos para a aba equivalente de um hub.
 export const router = createBrowserRouter([
   {
     errorElement: <RouteErrorPage />,

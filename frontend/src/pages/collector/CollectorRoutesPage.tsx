@@ -1,3 +1,4 @@
+// Tela do coletor: escolhe a rota do dia e segue as paradas na ordem que a otimização definiu.
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,6 +19,7 @@ import { googleMapsDir } from '@/features/admin/routing/shared';
 
 const sortStops = (r: Route) => [...r.stops].sort((a, b) => a.sequence - b.sequence);
 
+// 1. Abre direto na rota em andamento; se não houver, na próxima planejada.
 function pickDefault(routes: Route[]): string | null {
   return (routes.find((r) => r.status === 'IN_PROGRESS') ?? routes.find((r) => r.status === 'PLANNED') ?? routes[0])?.id ?? null;
 }
@@ -82,6 +84,7 @@ function RouteView({ route }: { route: Route }) {
   const [completing, setCompleting] = useState<RouteStop | null>(null);
   const [focusStop, setFocusStop] = useState<string | null>(null);
   const stops = useMemo(() => sortStops(route), [route]);
+  // 2. A próxima parada é a primeira pendente na sequência otimizada.
   const next = stops.find((s) => s.status === 'PENDING') ?? null;
   const done = stops.filter((s) => s.status === 'DONE');
   const doneKg = done.reduce((s, x) => s + x.estimatedKg, 0);
@@ -93,6 +96,7 @@ function RouteView({ route }: { route: Route }) {
   const { status: geoStatus, request: geoRequest } = geo;
   useEffect(() => { if (inProgress && geoStatus === 'idle') geoRequest(); }, [inProgress, geoStatus, geoRequest]);
 
+  // 3. "Iniciar rota" muda o status para em andamento e liga o GPS para mostrar o coletor no mapa.
   const onStart = () => start.mutate(route.id, {
     onSuccess: () => { toast.success('Rota iniciada. Boa coleta!'); geo.request(); },
     onError: (e) => toast.error(errorMessage(e)),
@@ -203,6 +207,7 @@ const schema = z.object({
 });
 type Values = z.infer<typeof schema>;
 
+// 4. Em cada endereço o coletor informa o peso coletado; ao concluir a última parada, o servidor finaliza a rota.
 function CompleteStopDrawer({ route, stop, onClose }: { route: Route; stop: RouteStop | null; onClose: () => void }) {
   const complete = useCompleteStop();
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { collectedKg: undefined } });

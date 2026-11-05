@@ -20,6 +20,7 @@ function loginPath(from: string) {
 /** Lê ?redirect= de forma segura (apenas caminhos internos). */
 export function safeRedirect(search: string, fallback = '/app'): string {
   const target = new URLSearchParams(search).get('redirect');
+  // Só caminhos internos: um "//outro-site.com" mandaria a pessoa para fora depois do login.
   if (target && target.startsWith('/') && !target.startsWith('//') && !target.startsWith('/\\')) return target;
   return fallback;
 }
@@ -27,13 +28,17 @@ export function safeRedirect(search: string, fallback = '/app'): string {
 export function RequireAuth({ children }: { children?: ReactNode }) {
   const { status } = useAuth();
   const location = useLocation();
+  // 1. Enquanto o servidor não responde quem está logado, mostra o carregamento.
   if (status === 'loading') return <FullscreenLoader label="Verificando sua sessão…" />;
+  // 2. Sem login: vai para /entrar, guardando a tela pedida em ?redirect=.
   if (status === 'anonymous') {
     return <Navigate to={loginPath(location.pathname + location.search)} replace />;
   }
+  // 3. Logado: mostra a tela.
   return children ?? <Outlet />;
 }
 
+// Esconder a tela é só para o usuário; quem barra de verdade é o servidor, em cada rota da API.
 export function RequireRole({ roles, children }: { roles: Role[]; children?: ReactNode }) {
   const { user } = useAuth();
   if (!user || !roles.includes(user.role)) {

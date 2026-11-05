@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/** Endpoints da tela "Meu progresso" (nível, medalhas, desafios) e do ranking. */
 @RestController
 public class GamificationController {
 

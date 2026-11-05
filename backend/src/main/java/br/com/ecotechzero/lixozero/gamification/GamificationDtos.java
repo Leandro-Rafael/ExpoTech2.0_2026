@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+/** Objetos de entrada e saída da gamificação: desafios, medalhas, níveis e ranking. */
 public final class GamificationDtos {
 
     private GamificationDtos() {

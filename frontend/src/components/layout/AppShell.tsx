@@ -1,3 +1,4 @@
+// Moldura da área logada (/app): menu lateral, barra do celular, topo com pontos e o vigia de inspeção.
 import { Suspense, useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { motion } from 'motion/react';

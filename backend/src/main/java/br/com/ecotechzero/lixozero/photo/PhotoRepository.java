@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/** Consultas de fotos usadas pelo antifraude (hashes e conteúdo repetido). */
 public interface PhotoRepository extends JpaRepository<Photo, UUID> {
 
     /** Hashes recentes (projeção sem os bytes) para detectar fotos parecidas. */

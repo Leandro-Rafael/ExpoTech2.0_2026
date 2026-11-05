@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+/** Objetos de entrada e saída das rotas: pedido de otimização, resultado e paradas. */
 public final class RouteDtos {
 
     private RouteDtos() {

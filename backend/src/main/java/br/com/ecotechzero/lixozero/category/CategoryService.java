@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+/** Consulta e cadastro de categorias; o admin cria e edita, com registro na auditoria. */
 @Service
 public class CategoryService {
 

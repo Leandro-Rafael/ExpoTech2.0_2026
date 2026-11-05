@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/** Consultas de descartes, usadas também pela gamificação, antifraude e relatórios. */
 public interface DisposalRepository extends JpaRepository<Disposal, UUID> {
 
     @EntityGraph(attributePaths = {"category", "collectionPoint"})

@@ -1,3 +1,4 @@
+// Moderação de descartes: fila à esquerda, revisão do item à direita (ou numa gaveta no celular).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, BadgeCheck, ImageOff, Inbox, Sparkles } from 'lucide-react';
@@ -35,6 +36,7 @@ export default function AdminDisposalsPage() {
   const [rejecting, setRejecting] = useState<Disposal | null>(null);
   const approveFn = useRef<(() => void) | null>(null);
 
+  // 1. Busca a fila no servidor (por padrão, só os pendentes; "Só suspeitos" filtra os sinalizados pelo antifraude).
   const params: AdminDisposalsParams = useMemo(
     () => ({ status: status === 'ALL' ? undefined : status, flagged: flagged || undefined, page, size: SIZE }),
     [status, flagged, page],
@@ -52,6 +54,7 @@ export default function AdminDisposalsPage() {
     return list.filter((d) => [d.user?.name, d.user?.email, d.category.name].some((x) => x?.toLocaleLowerCase('pt-BR').includes(s)));
   }, [q.data, search]);
 
+  // 2. O admin escolhe um item, com o mouse ou pelos atalhos J/K.
   // Seleção: no desktop sempre há um item selecionado (o primeiro da fila).
   const selected = rows.find((d) => d.id === selectedId) ?? (desktop ? rows[0] : undefined) ?? null;
   const selectedIndex = selected ? rows.findIndex((d) => d.id === selected.id) : -1;
@@ -70,6 +73,7 @@ export default function AdminDisposalsPage() {
     select(rows[i]);
   }, [rows, selectedIndex, select]);
 
+  // 3. Ao aprovar/recusar, o item sai da fila na hora, sem esperar o servidor; se a API der erro, volta.
   /** Atualização otimista: tira o item da fila (ou muda o status) e devolve se a API falhar. */
   const optimistic = useCallback(async (d: Disposal, next: Disposal['status'], patch: Partial<Disposal> = {}) => {
     const key = qk.admin.disposals(params);
@@ -89,6 +93,7 @@ export default function AdminDisposalsPage() {
     return () => { if (prev) qc.setQueryData(key, prev); setSelectedId(d.id); };
   }, [qc, params, rows, selectedIndex, desktop]);
 
+  // 4. Aprovar: o servidor credita os pontos ao morador (o admin pode corrigir categoria/peso antes).
   const doApprove = useCallback(async (d: Disposal, c: ApproveCorrection) => {
     const rollback = await optimistic(d, 'APPROVED');
     approve.mutate({ id: d.id, ...c }, {
@@ -97,6 +102,7 @@ export default function AdminDisposalsPage() {
     });
   }, [approve, optimistic]);
 
+  // 5. Recusar: exige um motivo, que o morador vê no histórico dele; nenhum ponto é creditado.
   const doReject = useCallback(async (d: Disposal, reason: string) => {
     setRejecting(null);
     const rollback = await optimistic(d, 'REJECTED', { rejectionReason: reason });

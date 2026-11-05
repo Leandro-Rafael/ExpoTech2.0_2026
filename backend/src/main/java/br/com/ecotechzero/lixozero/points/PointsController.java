@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/** Extrato de pontos do usuário logado (GET /api/points/transactions). */
 @RestController
 public class PointsController {
 

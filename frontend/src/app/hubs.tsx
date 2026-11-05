@@ -1,4 +1,5 @@
 /** Telas que reúnem, em abas, conteúdos de um mesmo assunto. */
+// O router aponta /app/descartes, /app/recompensas e /app/admin/* para estes hubs; ?aba= escolhe a aba.
 import { lazy } from 'react';
 import { useAdminCollectionRequests, useAdminRoutes } from '@/api/queries';
 import { TabbedPage } from '@/components/layout/TabbedPage';

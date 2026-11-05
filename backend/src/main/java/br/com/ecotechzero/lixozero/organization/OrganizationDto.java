@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
 
+/** Dados de uma organização (turma, escola, empresa ou condomínio) usados no cadastro e no ranking. */
 public record OrganizationDto(UUID id, String name, OrganizationType type) {
 
     public static OrganizationDto of(Organization o) {

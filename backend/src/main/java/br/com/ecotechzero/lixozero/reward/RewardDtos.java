@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
 
+/** Objetos de entrada e saída do catálogo de recompensas e dos resgates. */
 public final class RewardDtos {
 
     private RewardDtos() {

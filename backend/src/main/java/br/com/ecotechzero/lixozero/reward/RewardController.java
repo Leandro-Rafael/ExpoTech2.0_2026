@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+/** Endpoints do morador para ver o catálogo, resgatar recompensas e ver os próprios resgates. */
 @RestController
 public class RewardController {
 

@@ -1,3 +1,4 @@
+// Tela de login, com atalhos para as contas de demonstração usadas na feira.
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
@@ -21,6 +22,7 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+// Contas de demonstração (uma por perfil), só para apresentar o sistema.
 const DEMO = [
   { role: 'Administrador', icon: ShieldCheck, email: 'admin@ecotechzero.com.br', password: 'EcoTech@2050' },
   { role: 'Coletor', icon: Truck, email: 'coletor@ecotechzero.com.br', password: 'Coleta@2050' },
@@ -41,13 +43,17 @@ export default function LoginPage() {
   const { register, handleSubmit, setValue, setError, formState: { errors, isSubmitting } } = form;
 
   const onSubmit = handleSubmit(async (values) => {
+    // 1. Envia e-mail e senha; se der certo, o AuthProvider guarda a sessão.
     setLocked(null);
     try {
       const user = await login(values);
       clearLockNotice();
       toast.success(`Bem-vindo(a) de volta, ${user.name.split(' ')[0]}!`);
+      // 2. Volta para a página que a pessoa tentava abrir (safeRedirect só aceita endereços do próprio site).
       navigate(safeRedirect(location.search), { replace: true });
     } catch (e) {
+      // 3. Erros tratados um a um: conta bloqueada após muitas tentativas, excesso de pedidos (espera
+      //    alguns segundos), conta desativada e senha errada (sem dizer qual dos dois campos errou).
       if (e instanceof ApiError && e.code === 'ACCOUNT_LOCKED') {
         setLocked(errorMessage(e));
         if (e.retryAfter) cooldown.start(e.retryAfter);

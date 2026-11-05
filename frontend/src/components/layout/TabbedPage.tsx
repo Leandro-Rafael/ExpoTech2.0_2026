@@ -1,3 +1,4 @@
+// Tela com abas usada pelos hubs (app/hubs.tsx). A aba aberta fica na URL (?aba=), então o link pode ser compartilhado.
 import { Suspense, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { PageSkeleton, TabPanel, Tabs } from '@/components/ui';
@@ -19,11 +20,14 @@ export function useSetTab() {
 
 /** Junta conteúdos relacionados em uma tela só; a aba aberta fica na URL (?aba=). */
 export function TabbedPage({ idBase, label, tabs }: { idBase: string; label: string; tabs: PageTab[] }) {
+  // 1. Lê o ?aba= da URL.
   const [params] = useSearchParams();
   const setTab = useSetTab();
   const aba = params.get('aba') ?? '';
+  // 2. Acha a aba (aceita nomes antigos em `aliases`); se não achar, abre a primeira.
   const current = tabs.find((t) => t.value === aba || t.aliases?.includes(aba)) ?? tabs[0];
 
+  // 3. Clicar numa aba só muda a URL; a página redesenha com a nova aba (carregada sob demanda).
   return (
     <>
       <Tabs idBase={idBase} aria-label={label} variant="underline" className="mb-8"

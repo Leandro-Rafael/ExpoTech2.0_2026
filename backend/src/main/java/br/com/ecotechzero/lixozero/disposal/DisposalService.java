@@ -98,6 +98,7 @@ public class DisposalService {
 
     @Transactional
     public DisposalDto create(AuthUser me, CreateDisposalRequest in, String idempotencyKey) {
+        // 1. Mesma Idempotency-Key = mesmo descarte (clique duplo ou reenvio); depois, limite de frequência.
         Optional<DisposalDto> existing = findByIdempotencyKey(me.id(), idempotencyKey);
         if (existing.isPresent()) {
             return existing.get();
@@ -105,6 +106,7 @@ public class DisposalService {
         limiter.check(TokenBucketRateLimiter.Policy.DISPOSAL_USER, me.id().toString());
         Instant now = clock.instant();
 
+        // 2. Valida categoria, peso, localização e data (até 7 dias atrás).
         Category category = categories.requireActive(in.categoryId(), "categoryId");
         double kg = Numbers.round(in.quantityKg(), 3);
         if (kg < 0.01) {
@@ -124,6 +126,7 @@ public class DisposalService {
             throw ApiException.field("disposedAt", "só é possível registrar descartes dos últimos 7 dias");
         }
 
+        // 3. Confere foto e ecoponto, se vieram.
         PhotoMeta photo = null;
         if (in.photoId() != null) {
             // foto de outra pessoa = 404 (não revela que existe); reuso também é barrado pelo UNIQUE(photo_id) no banco
@@ -153,11 +156,13 @@ public class DisposalService {
         boolean bonusEligible = serverAi && photo.createdAt() != null
                 && !photo.createdAt().isBefore(now.minus(PointsCalculator.AI_PHOTO_MAX_AGE));
 
+        // 4. Calcula o risco de fraude (regras do pacote fraud/).
         var fraud = fraudEngine.assess(new FraudContext(me.id(), category.getCode(), category.getMaxKgPerDisposal(), kg, photo,
                 in.latitude(), in.longitude(), disposedAt,
                 serverAi ? photo.aiCode() : null, serverAi ? photo.aiConfidence() : null,
                 hintCode, hintConfidence, hintSource, now, props.zoneId()));
 
+        // 5. Monta e grava o descarte como PENDENTE, com os pontos só estimados.
         Disposal disposal = new Disposal(users.getReferenceById(me.id()), category, kg, disposedAt);
         disposal.setLocation(in.latitude(), in.longitude());
         disposal.setCollectionPoint(point);
@@ -174,6 +179,7 @@ public class DisposalService {
         disposal.setEstimatedPoints(PointsCalculator.points(category.getPointsPerKg(), kg, disposal.aiBonusApplies()));
         disposals.saveAndFlush(disposal);
 
+        // 6. Suspeito vai para a auditoria; baixo risco pode ser aprovado na hora se APP_AUTO_APPROVE estiver ligado.
         if (fraud.flagged()) {
             audit.record(AuditAction.DISPOSAL_FLAGGED, "Disposal", disposal.getId(), "risco " + fraud.score() + ": " + String.join("; ", fraud.flags()));
         } else if (props.autoApprove() && fraud.score() < AUTO_APPROVE_MAX_SCORE && kg <= AUTO_APPROVE_MAX_KG && photo != null) {

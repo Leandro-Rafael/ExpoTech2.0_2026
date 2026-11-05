@@ -21,6 +21,7 @@ export default function AchievementsPage() {
   const earned = s.badges.filter((b) => b.earned).length;
   const active = s.challenges.filter((c) => c.active && !c.completed);
   const done = s.challenges.filter((c) => c.completed);
+  // Medalhas conquistadas primeiro; dentro de cada grupo, da mais rara (diamante) para a mais comum.
   const badges = [...s.badges].sort((a, b) => Number(b.earned) - Number(a.earned) || TIER_ORDER[a.tier] - TIER_ORDER[b.tier]);
 
   return (
@@ -28,6 +29,7 @@ export default function AchievementsPage() {
       <PageHeader eyebrow="Meu progresso" title="Níveis, medalhas e desafios"
         description="Seu nível sobe com o total de pontos já ganhos — resgatar recompensas não faz você cair de nível." />
 
+      {/* 1. Nível: calculado pelo total de pontos já ganhos (totalEarned), não pelo saldo atual. */}
       <section aria-labelledby="lv-h" className="surface rounded-2xl p-6 sm:p-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -46,6 +48,7 @@ export default function AchievementsPage() {
         <LevelLadder s={s} />
       </section>
 
+      {/* 2. Medalhas */}
       <section aria-labelledby="bd-h" className="mt-12">
         <SectionHeading id="bd-h" title="Medalhas" description={`${earned} de ${s.badges.length} conquistadas · bronze, prata, ouro e diamante.`} />
         {s.badges.length === 0 ? <EmptyState compact icon={Medal} title="Nenhuma medalha disponível" /> : (
@@ -55,6 +58,7 @@ export default function AchievementsPage() {
         )}
       </section>
 
+      {/* 3. Desafios: primeiro os em andamento, depois os concluídos. */}
       <section aria-labelledby="ch-h" className="mt-12">
           <SectionHeading id="ch-h" title="Desafios"
             description={s.challenges.length ? `${done.length} de ${s.challenges.length} concluídos · cada desafio com prazo rende pontos bônus.` : 'Metas com prazo que rendem pontos bônus ao serem concluídas.'} />
@@ -79,6 +83,7 @@ export default function AchievementsPage() {
           )}
       </section>
 
+      {/* 4. Extrato de pontos (paginado, carregado à parte). */}
       <section aria-labelledby="lg-h" className="mt-12">
         <SectionHeading id="lg-h" title="Extrato de pontos" description="De onde vieram seus pontos e onde foram usados." />
         <Ledger />
@@ -154,6 +159,7 @@ function BadgeRow({ b }: { b: Badge }) {
   );
 }
 
+// Extrato: cada ganho ou gasto de pontos, com o saldo logo depois da movimentação, 15 por página.
 function Ledger() {
   const [page, setPage] = useState(0);
   const q = usePointTransactions({ page, size: 15 });

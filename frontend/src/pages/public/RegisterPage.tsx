@@ -1,3 +1,4 @@
+// Tela de cadastro de morador.
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +14,8 @@ import { useCooldown } from '@/features/auth/useCooldown';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { emailSchema, nameSchema, passwordNotContainingEmail, passwordSchema } from '@/lib/validation';
 
+// 1. Validação no navegador: senha forte, sem conter o e-mail, confirmação igual e termos aceitos.
+//    O servidor valida tudo de novo; isto aqui é só para avisar o usuário mais rápido.
 const schema = z
   .object({
     name: nameSchema,
@@ -46,10 +49,12 @@ export default function RegisterPage() {
 
   const onSubmit = handleSubmit(async ({ name, email, password }) => {
     try {
+      // 2. Cria a conta no servidor; ele já devolve o usuário logado.
       const user = await registerUser({ name: name.trim(), email: email.trim(), password });
       toast.success(`Conta criada! Bem-vindo(a), ${user.name.split(' ')[0]}.`);
       navigate(safeRedirect(location.search), { replace: true });
     } catch (e) {
+      // 3. Erros: muitas tentativas seguidas (espera) ou e-mail já cadastrado.
       if (e instanceof ApiError && e.isRateLimited) {
         cooldown.start(e.retryAfter ?? 30);
         setError('root.server', { message: errorMessage(e) });

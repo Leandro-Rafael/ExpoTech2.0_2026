@@ -71,17 +71,22 @@ public class DisposalReviewService {
 
     @Transactional
     public DisposalDto approve(AuthUser admin, UUID id, ApproveRequest request) {
+        // 1. Trava a linha do descarte: se dois admins clicarem juntos, um espera o outro.
         Disposal disposal = lock(id);
+        // 2. Se já foi aprovado, devolve como está (não pontua de novo); recusado não pode virar aprovado.
         if (disposal.getStatus() == DisposalStatus.APPROVED) {
             return DisposalDto.of(disposal, true); // idempotente: não pontua de novo
         }
         if (disposal.getStatus() == DisposalStatus.REJECTED) {
             throw ApiException.conflict("Este descarte já foi recusado e não pode ser aprovado.");
         }
+        // 3. Admin não pode aprovar o próprio descarte.
         if (disposal.getUser().getId().equals(admin.id())) {
             throw ApiException.business("Você não pode aprovar o seu próprio descarte.");
         }
+        // 4. Aplica a correção de categoria/kg feita pelo admin, se houver.
         String correction = applyCorrection(disposal, request);
+        // 5. Aprova, credita os pontos e registra na auditoria.
         int awarded = approveInternal(disposal, users.getReferenceById(admin.id()));
         audit.record(AuditAction.DISPOSAL_APPROVED, "Disposal", id, "+" + awarded + " pontos" + correction);
         return DisposalDto.of(disposal, true);
@@ -89,17 +94,21 @@ public class DisposalReviewService {
 
     @Transactional
     public DisposalDto reject(AuthUser admin, UUID id, String reason) {
+        // 1. Mesma trava da aprovação.
         Disposal disposal = lock(id);
+        // 2. Já aprovado não pode ser recusado (os pontos já foram dados).
         if (disposal.getStatus() == DisposalStatus.REJECTED) {
             return DisposalDto.of(disposal, true);
         }
         if (disposal.getStatus() == DisposalStatus.APPROVED) {
             throw ApiException.conflict("Este descarte já foi aprovado e não pode ser recusado.");
         }
+        // 3. Motivo é obrigatório: o morador vê no histórico.
         String cleanReason = Text.clean(reason);
         if (cleanReason == null || cleanReason.length() < 3) {
             throw ApiException.field("reason", "informe o motivo da recusa");
         }
+        // 4. Marca como recusado e registra na auditoria.
         disposal.reject(Text.truncate(cleanReason, 300), users.getReferenceById(admin.id()), clock.instant());
         audit.record(AuditAction.DISPOSAL_REJECTED, "Disposal", id, cleanReason);
         return DisposalDto.of(disposal, true);
@@ -116,6 +125,7 @@ public class DisposalReviewService {
         // bônus reavaliado AGORA, com a categoria final (o admin pode ter corrigido)
         int awarded = PointsCalculator.points(category.getPointsPerKg(), disposal.getQuantityKg(), disposal.aiBonusApplies());
         disposal.approve(awarded, reviewer, now);
+        // o extrato de pontos é encadeado por HMAC (assinatura que denuncia se alguém alterar o histórico)
         String description = String.format(Locale.forLanguageTag("pt-BR"), "Descarte aprovado: %.2f kg de %s",
                 disposal.getQuantityKg(), category.getName());
         points.credit(disposal.getUser().getId(), awarded, PointTransactionType.EARN, description, disposal, null, now);
@@ -139,6 +149,7 @@ public class DisposalReviewService {
         return note;
     }
 
+    // lock pessimista (SELECT ... FOR UPDATE): ninguém mais altera a linha até a transação terminar
     private Disposal lock(UUID id) {
         Disposal disposal = disposals.findById(id).orElseThrow(() -> ApiException.notFound("Descarte não encontrado."));
         em.refresh(disposal, LockModeType.PESSIMISTIC_WRITE);

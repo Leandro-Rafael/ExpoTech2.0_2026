@@ -72,6 +72,7 @@ public class AuthService {
     }
 
     public UserMe register(AuthDtos.RegisterRequest req, HttpServletRequest request, HttpServletResponse response) {
+        // 1. Limita cadastros por IP e valida nome e força da senha.
         limiter.check(Policy.REGISTER_IP, RequestContext.clientIp(request));
         String email = Text.normalizeEmail(req.email());
         String name = Text.clean(req.name());
@@ -79,18 +80,22 @@ public class AuthService {
             throw ApiException.field("name", "informe seu nome");
         }
         passwordPolicy.validate("password", req.password(), email);
+        // 2. Cria a conta como morador (USER); no banco vai só o hash da senha.
         User user = userService.createUser(name, email, encoder.encode(req.password()), Role.USER);
         audit.recordAs(user.getId(), label(user), AuditAction.USER_REGISTERED, "User", user.getId(), null);
+        // 3. Já abre a sessão, então a pessoa sai do cadastro logada.
         startSession(user, request, response);
         return userService.getMe(user.getId());
     }
 
     public UserMe login(AuthDtos.LoginRequest req, HttpServletRequest request, HttpServletResponse response) {
+        // 1. Limite de tentativas por IP e por e-mail, para frear robô testando senha.
         String ip = RequestContext.clientIp(request);
         limiter.check(Policy.LOGIN_IP, ip);
         String email = Text.normalizeEmail(req.email());
         limiter.check(Policy.LOGIN_EMAIL, email);
 
+        // 2. Se o e-mail já está bloqueado por erros anteriores, nem confere a senha.
         Optional<User> found = users.findByEmail(email);
         User user = found.orElse(null);
         loginAttempts.lockRemaining(email, user).ifPresent(this::throwLocked);
@@ -103,6 +108,7 @@ public class AuthService {
             passwordOk = false;
         }
 
+        // 3. Senha errada conta uma falha; ao chegar no limite a conta fica bloqueada por um tempo.
         if (!passwordOk) {
             boolean lockedNow = loginAttempts.recordFailure(email, user);
             audit.recordAs(user == null ? null : user.getId(), Text.truncate(email, 160), AuditAction.LOGIN_FAILED, "User",
@@ -114,6 +120,7 @@ public class AuthService {
             }
             throw new ApiException(ErrorCode.BAD_CREDENTIALS, BAD_CREDENTIALS);
         }
+        // 4. Mesmo com a senha certa, conta desativada ou bloqueada por inspeção não entra.
         if (!user.isEnabled()) {
             audit.recordAs(user.getId(), label(user), AuditAction.LOGIN_DISABLED_ACCOUNT, "User", user.getId(), null);
             throw new ApiException(ErrorCode.FORBIDDEN, "Esta conta está desativada. Procure o administrador.");
@@ -125,6 +132,7 @@ public class AuthService {
                     "bloqueado até " + user.getSecurityLockedUntil());
             throw InspectionService.lockedException(user.getSecurityLockedUntil(), now);
         }
+        // 5. Deu certo: zera as falhas, grava os cookies da sessão e registra na auditoria.
         loginAttempts.recordSuccess(email, user);
         startSession(user, request, response);
         audit.recordAs(user.getId(), label(user), AuditAction.LOGIN_SUCCESS, "User", user.getId(), null);
@@ -135,12 +143,14 @@ public class AuthService {
         limiter.check(Policy.REFRESH_IP, RequestContext.clientIp(request));
         String raw = AuthCookies.read(request, AuthCookies.REFRESH)
                 .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, "Sessão expirada. Faça login novamente."));
+        // 1. O JWT de acesso dura pouco. Aqui o refresh token do cookie é trocado por um novo (cada um só vale uma vez).
         RefreshTokenService.Rotation rotation = refreshTokens.rotate(raw);
         Instant now = clock.instant();
         if (rotation.user() != null && rotation.user().isSecurityLocked(now)) {
             cookies.clear(request, response);
             throw InspectionService.lockedException(rotation.user().getSecurityLockedUntil(), now);
         }
+        // 2. Se um token já usado aparece de novo, provavelmente foi roubado: a família toda é revogada e auditada.
         switch (rotation.outcome()) {
             case ROTATED -> {
                 User user = rotation.user();

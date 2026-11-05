@@ -50,6 +50,7 @@ public class SignedProxyFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        // 1. Sem assinatura válida do Netlify (ex.: alguém chamando o Render direto), responde 403.
         String token = request.getHeader(SIGNATURE_HEADER);
         try {
             if (token == null) {
@@ -60,6 +61,7 @@ public class SignedProxyFilter extends OncePerRequestFilter {
             problems.write(response, ErrorCode.FORBIDDEN, 403, "Acesso permitido apenas pelo site oficial.", null);
             return;
         }
+        // 2. Assinatura ok: troca o IP do proxy pelo IP real do visitante e segue a fila.
         String clientIp = clientIp(request);
         chain.doFilter(clientIp == null ? request : new HttpServletRequestWrapper(request) {
             @Override

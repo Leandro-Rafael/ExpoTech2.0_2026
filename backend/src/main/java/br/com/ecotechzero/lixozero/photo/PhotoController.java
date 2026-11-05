@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Duration;
 import java.util.UUID;
 
+/** Envio de fotos dos descartes e exibição (só para quem tem permissão de ver). */
 @RestController
 public class PhotoController {
 

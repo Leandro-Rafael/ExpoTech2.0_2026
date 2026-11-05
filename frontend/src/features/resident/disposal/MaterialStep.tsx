@@ -1,3 +1,4 @@
+// Etapa 2 do registro de descarte: sugestão da IA, escolha da categoria e dicas de como descartar.
 import { BrainCircuit, CheckCircle2, Info, Recycle, Trash2 } from 'lucide-react';
 import type { AiSource, Category, CategoryCode } from '@/api/types';
 import { CategoryIcon } from '@/components/CategoryIcon';

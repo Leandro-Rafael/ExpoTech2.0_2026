@@ -1,3 +1,4 @@
+// Se uma tela quebrar, mostra uma mensagem com botão de tentar de novo em vez de deixar a página em branco.
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { isRouteErrorResponse, useRouteError } from 'react-router';
 import { Bug, RefreshCw } from 'lucide-react';

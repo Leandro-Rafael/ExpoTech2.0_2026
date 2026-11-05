@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
+/** Endpoints do morador para registrar e consultar os próprios descartes; a regra fica no DisposalService. */
 @RestController
 @RequestMapping("/api/disposals")
 public class DisposalController {

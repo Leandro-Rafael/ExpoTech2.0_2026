@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // CSRF no boot (não bloqueia a renderização).
   useEffect(() => { void ensureCsrf(); }, []);
 
+  // 1. Ao abrir o site, pergunta ao servidor quem está logado (GET /api/auth/session).
   const meQuery = useQuery({
     queryKey: qk.me,
     queryFn: fetchMe,
@@ -57,8 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     qc.removeQueries({ predicate: (q) => !['public', 'categories', 'auth'].includes(String(q.queryKey[0])) });
   }, [qc]);
 
+  // 2. Se a API avisar que a sessão acabou, limpa o usuário e os dados privados do cache.
   useEffect(() => onUnauthorized(clearSession), [clearSession]);
 
+  // 3. Login e cadastro guardam o usuário devolvido e trocam o CSRF (o token muda após autenticar).
   const login = useCallback(async (input: LoginInput) => {
     const user = await authApi.login(input);
     qc.setQueryData(qk.me, user);
@@ -79,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void ensureCsrf(true);
   }, [clearSession]);
 
+  // 4. Status que os guardas de rota usam: 'loading', 'authenticated' ou 'anonymous'.
   const user = meQuery.data ?? null;
   const status: AuthStatus = meQuery.isPending ? 'loading' : user ? 'authenticated' : 'anonymous';
 

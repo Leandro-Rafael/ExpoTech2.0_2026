@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/** Lista e cadastro de organizações pelo admin (nome não pode repetir). */
 @Service
 public class OrganizationService {
 

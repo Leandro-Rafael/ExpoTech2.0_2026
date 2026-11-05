@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** Lista as categorias de material (plástico, papel, vidro...) usadas no app. */
 @RestController
 public class CategoryController {
 

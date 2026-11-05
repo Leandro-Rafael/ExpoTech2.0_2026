@@ -1,3 +1,4 @@
+// Painel em que o admin revisa um descarte: foto, IA x categoria declarada, risco de fraude e aprovar/recusar.
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +15,8 @@ import { formatDateTime, formatKg, formatNumber, formatPercent, formatRelative }
 import { aiSource, categoryFallback, disposalStatus } from '@/lib/labels';
 import { Detail, Kbd, Meter } from '../ui';
 
+// Risco de fraude (0 a 100) é a soma dos sinais que o servidor encontrou (foto repetida, peso alto, muitos envios...).
+// A partir de 40 o descarte fica sinalizado como suspeito; a partir de 70 aparece em vermelho.
 const FLAG_THRESHOLD = 40;
 
 function fraudTone(score: number): 'danger' | 'warning' | 'neutral' {
@@ -22,6 +25,7 @@ function fraudTone(score: number): 'danger' | 'warning' | 'neutral' {
   return 'neutral';
 }
 
+// A IA sugeriu um material diferente do que o morador declarou: vale olhar a foto com mais cuidado.
 export function aiMismatch(d: Disposal): boolean {
   return !!d.ai?.suggestedCode && d.ai.suggestedCode !== d.category.code;
 }
@@ -91,6 +95,8 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
   const corrected = catId !== d.category.id || (kg != null && Math.abs(kg - d.quantityKg) > 1e-9);
   const previewPoints = chosen && kg ? Math.round(kg * chosen.pointsPerKg) : d.estimatedPoints;
 
+  // Aprovar: sem correção manda vazio; com correção manda só o que mudou (categoria e/ou peso),
+  // e o servidor recalcula os pontos com esses valores.
   const submitApprove = form.handleSubmit((v) => {
     if (!corrected) return onApprove({});
     onApprove({ categoryId: v.categoryId !== d.category.id ? v.categoryId : undefined, quantityKg: Math.abs(v.quantityKg - d.quantityKg) > 1e-9 ? v.quantityKg : undefined });

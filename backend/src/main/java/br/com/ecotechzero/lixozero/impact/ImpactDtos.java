@@ -12,6 +12,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
+/** Objetos de entrada e saída do painel de impacto, das metas e do simulador de cenários. */
 public final class ImpactDtos {
 
     private ImpactDtos() {

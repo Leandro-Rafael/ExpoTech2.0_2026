@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.util.UUID;
 
+/** Leitura do extrato de pontos (a gravação passa pelo LedgerChain). */
 public interface PointTransactionRepository extends JpaRepository<PointTransaction, UUID> {
 
     Page<PointTransaction> findByUserId(UUID userId, Pageable pageable);

@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+/** Formatos de dados trocados com o painel do administrador. */
 public final class AdminDtos {
 
     private AdminDtos() {

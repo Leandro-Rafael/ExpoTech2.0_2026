@@ -93,12 +93,15 @@ public class RankingService {
 
     @Transactional(readOnly = true)
     public Ranking ranking(UUID meId, RankingScope scope, RankingPeriod period) {
+        // 1. Converte o período escolhido em uma data de início.
         Instant since = switch (period) {
             case WEEK -> clock.instant().minus(Duration.ofDays(7));
             case MONTH -> clock.instant().minus(Duration.ofDays(30));
             case YEAR -> clock.instant().minus(Duration.ofDays(365));
             case ALL -> Instant.EPOCH;
         };
+        // 2. Escolhe a consulta do agrupamento (pessoa, residência, bairro ou organização) e roda no banco,
+        //    que já devolve tudo ordenado por pontos e, no empate, por kg.
         String sql = switch (scope) {
             case USER -> BY_USER;
             case HOUSEHOLD -> BY_HOUSEHOLD;
@@ -109,6 +112,7 @@ public class RankingService {
                 rs.getString("id"), rs.getString("name"), subtitle(scope, rs.getString("subtitle")),
                 rs.getLong("points"), Numbers.round2(rs.getDouble("kg"))));
 
+        // 3. Numera as posições, guarda só o top 10 e acha a linha do "eu" mesmo se estiver fora do top 10.
         String myKey = myKey(meId, scope);
         List<RankingEntry> entries = new ArrayList<>();
         RankingEntry me = null;
@@ -123,6 +127,7 @@ public class RankingService {
                 me = entry;
             }
         }
+        // 4. Quem ainda não pontuou no período aparece como último, com zero.
         if (me == null && myKey != null) {
             me = new RankingEntry(rows.size() + 1, myKey, myName(meId, scope), null, 0, 0, true);
         }

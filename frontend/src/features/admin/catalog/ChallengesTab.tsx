@@ -22,6 +22,7 @@ function phase(c: Challenge): { label: string; tone: 'success' | 'info' | 'neutr
   return { label: 'Em andamento', tone: 'success' };
 }
 
+/ Aba do catálogo: desafios com prazo que dão pontos bônus aos moradores.
 export function ChallengesTab() {
   const q = useAdminChallenges();
   const [editing, setEditing] = useState<Challenge | 'new' | null>(null);

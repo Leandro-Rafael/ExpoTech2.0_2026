@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+/** Leitura da auditoria para o painel admin (a gravação passa pelo AuditChain). */
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
     List<AuditLog> findTop10ByOrderByCreatedAtDesc();

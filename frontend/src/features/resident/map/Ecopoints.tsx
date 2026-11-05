@@ -13,6 +13,7 @@ import { categoryFallback, CATEGORY_CODES } from '@/lib/labels';
 
 const RADII = [1, 3, 5, 10, 25];
 
+/ Mapa e lista de ecopontos, filtrando por material e ordenando pela distância de quem está usando.
 export function Ecopoints() {
   const geo = useGeolocation();
   const categories = useCategories();

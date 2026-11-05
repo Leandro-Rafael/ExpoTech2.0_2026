@@ -25,6 +25,9 @@ import java.util.UUID;
  * Para medir o ganho, comparamos com uma rota "ingênua": paradas na ordem em que as solicitações
  * foram criadas, dividindo por capacidade na mesma ordem. Escolhemos sempre o melhor dos dois planos,
  * então a economia nunca é negativa.
+ * <p>
+ * Em palavras simples: o caminhão sempre vai para a casa mais perto que ainda cabe na carga, volta quando
+ * enche, e no fim a gente "desembaraça" o caminho para não ficar indo e voltando.
  */
 public final class RouteOptimizer {
 
@@ -54,17 +57,21 @@ public final class RouteOptimizer {
         if (stops.isEmpty()) {
             return new Plan(List.of(), 0, 0, 0);
         }
+        // 1. Calcula uma vez a distância entre todos os pontos (garagem + paradas).
         double[][] dist = distanceMatrix(depot, stops);
 
+        // 2. Plano ingênuo, só para comparar.
         // Plano ingênuo: ordem de criação, dividida por capacidade na mesma ordem
         List<List<Integer>> naiveTrips = splitInOrder(stops, capacityKg);
         double naiveTotal = naiveTrips.stream().mapToDouble(t -> tourLength(dist, t)).sum();
 
+        // 3. Plano otimizado.
         // Plano otimizado: vizinho mais próximo (com PriorityQueue) + 2-opt em cada viagem
         List<List<Integer>> optimized = nearestNeighbour(dist, stops, capacityKg);
         optimized.replaceAll(trip -> twoOpt(dist, trip));
         double optimizedTotal = optimized.stream().mapToDouble(t -> tourLength(dist, t)).sum();
 
+        // 4. Fica com o melhor dos dois.
         // Garantia: se a divisão em ordem + 2-opt for ainda melhor, usamos ela
         List<List<Integer>> naiveImproved = new ArrayList<>(naiveTrips.stream().map(t -> twoOpt(dist, t)).toList());
         double naiveImprovedTotal = naiveImproved.stream().mapToDouble(t -> tourLength(dist, t)).sum();
@@ -73,6 +80,7 @@ public final class RouteOptimizer {
             optimizedTotal = naiveImprovedTotal;
         }
 
+        // 5. Monta cada viagem com km, tempo estimado e carga, e calcula a economia em %.
         List<PlannedRoute> routes = new ArrayList<>();
         for (List<Integer> trip : optimized) {
             List<Stop> ordered = trip.stream().map(i -> stops.get(i - 1)).toList();

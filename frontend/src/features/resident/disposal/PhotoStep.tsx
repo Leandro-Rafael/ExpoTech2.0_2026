@@ -1,3 +1,4 @@
+// Etapa 1 do registro de descarte: escolher/tirar a foto e acompanhar a análise da IA.
 import { useRef, useState, type DragEvent } from 'react';
 import { AlertTriangle, Camera, ImagePlus, RefreshCw, ScanSearch } from 'lucide-react';
 import { Button, ProgressBar } from '@/components/ui';

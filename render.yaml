@@ -1,0 +1,32 @@
+# Back-end no Render (Blueprint). Os valores com `sync: false` são pedidos no painel ao criar o serviço.
+services:
+  - type: web
+    name: lixozero-api
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: DB_URL
+        value: jdbc:postgresql://aws-1-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+      - key: DB_USER
+        value: postgres.cnkjxooxhkvzpbkzffiz
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_PASSWORD
+        sync: false
+      - key: APP_JWT_SECRET
+        sync: false
+      - key: APP_INTEGRITY_KEY
+        sync: false
+      - key: APP_PROXY_SIGNING_SECRET
+        sync: false
+      - key: APP_COOKIE_SECURE
+        value: "true"
+      - key: APP_DATA_DIR
+        value: /tmp/lixozero
+      - key: APP_DEMO_SEED
+        value: "false"

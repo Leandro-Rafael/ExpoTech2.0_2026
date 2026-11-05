@@ -86,6 +86,9 @@ app:
   integrity:
     key: ${APP_INTEGRITY_KEY:}
   cors-origins: ${APP_CORS_ORIGINS:}
+  # Segredo do proxy assinado do Netlify (produção). Vazio = API aceita acesso direto (uso local).
+  proxy:
+    signing-secret: ${APP_PROXY_SIGNING_SECRET:}
   embedded-db:
     port: ${APP_EMBEDDED_DB_PORT:54329}
     clean: false

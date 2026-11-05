@@ -31,6 +31,7 @@ public class SignedProxyFilter extends OncePerRequestFilter {
 
     static final String SIGNATURE_HEADER = "x-nf-sign";
     static final String CLIENT_IP_HEADER = "x-nf-client-connection-ip";
+    static final String HEALTH_PATH = "/actuator/health";
 
     private final SecretKey key;
     private final ProblemResponseWriter problems;
@@ -40,9 +41,10 @@ public class SignedProxyFilter extends OncePerRequestFilter {
         this.problems = problems;
     }
 
+    /** Assinatura exigida em tudo; só a checagem de saúde do Render fica de fora (caminho já decodificado). */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return key == null || !request.getRequestURI().startsWith("/api/");
+        return key == null || HEALTH_PATH.equals(request.getServletPath());
     }
 
     @Override
@@ -67,13 +69,12 @@ public class SignedProxyFilter extends OncePerRequestFilter {
         }, response);
     }
 
-    /** IP real do visitante, enviado pelo Netlify; na falta dele, o primeiro endereço de X-Forwarded-For. */
+    /**
+     * IP real do visitante, definido pelo próprio Netlify. X-Forwarded-For não é usado: o visitante
+     * pode preenchê-lo e burlar os limites. Sem o cabeçalho, mantém o IP da conexão.
+     */
     static String clientIp(HttpServletRequest request) {
         String ip = request.getHeader(CLIENT_IP_HEADER);
-        if (ip == null || ip.isBlank()) {
-            String forwarded = request.getHeader("X-Forwarded-For");
-            ip = forwarded == null ? null : forwarded.split(",")[0];
-        }
         return ip == null || ip.isBlank() ? null : ip.trim();
     }
 }

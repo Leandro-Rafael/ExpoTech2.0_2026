@@ -49,11 +49,11 @@ class SignedProxyFilterTest {
     }
 
     @Test
-    void fallsBackToFirstForwardedForAddress() throws Exception {
+    void ignoresForgeableForwardedForHeader() throws Exception {
         MockHttpServletRequest req = apiRequest();
         req.addHeader(SignedProxyFilter.SIGNATURE_HEADER, sign(SECRET, "netlify", Instant.now().plusSeconds(60)));
-        req.addHeader("X-Forwarded-For", "189.4.5.6, 10.0.0.9");
-        assertThat(run(new SignedProxyFilter(SECRET, problems), req, new MockHttpServletResponse())).isEqualTo("189.4.5.6");
+        req.addHeader("X-Forwarded-For", "1.2.3.4, 10.0.0.9"); // valor escolhido pelo visitante
+        assertThat(run(new SignedProxyFilter(SECRET, problems), req, new MockHttpServletResponse())).isEqualTo("10.0.0.9");
     }
 
     @Test
@@ -75,10 +75,22 @@ class SignedProxyFilterTest {
     }
 
     @Test
-    void disabledWithoutSecretAndIgnoresNonApiPaths() throws Exception {
+    void disabledWithoutSecretAndOnlyHealthCheckIsExempt() throws Exception {
         assertThat(run(new SignedProxyFilter("", problems), apiRequest(), new MockHttpServletResponse())).isEqualTo("10.0.0.9");
         MockHttpServletRequest health = new MockHttpServletRequest("GET", "/actuator/health");
+        health.setServletPath("/actuator/health");
         health.setRemoteAddr("10.0.0.9");
         assertThat(run(new SignedProxyFilter(SECRET, problems), health, new MockHttpServletResponse())).isEqualTo("10.0.0.9");
+    }
+
+    @Test
+    void pathVariationsCannotSkipTheSignature() throws Exception {
+        for (String uri : new String[] {"/API/auth/me", "//api/auth/me", "/actuator/env", "/"}) {
+            MockHttpServletRequest req = new MockHttpServletRequest("GET", uri);
+            req.setServletPath(uri);
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            assertThat(run(new SignedProxyFilter(SECRET, problems), req, res)).as(uri).isNull();
+            assertThat(res.getStatus()).as(uri).isEqualTo(403);
+        }
     }
 }

@@ -192,7 +192,7 @@ export interface RankingEntry {
 export interface Ranking {
   scope: RankingScope;
   period: RankingPeriod;
-  entries: RankingEntry[];  // top 50
+  entries: RankingEntry[];  // top 10 (quem está fora vem em `me`)
   me: RankingEntry | null;
 }
 

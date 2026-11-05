@@ -91,7 +91,7 @@ export const router = createBrowserRouter([
           { path: 'descartar', element: <NewDisposalPage /> },
           { path: 'descartes', element: <DisposalsHub /> },
           { path: 'recompensas', element: <RewardsHub /> },
-          moved('conquistas', '/app/recompensas?aba=conquistas'),
+          moved('conquistas', '/app/recompensas?aba=progresso'),
           moved('ranking', '/app/recompensas?aba=ranking'),
           moved('impacto', '/app/descartes?aba=impacto'),
           { path: 'mapa', element: <MapPage /> },

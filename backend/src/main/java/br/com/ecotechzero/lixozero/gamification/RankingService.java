@@ -29,7 +29,7 @@ import java.util.UUID;
 @Service
 public class RankingService {
 
-    static final int TOP = 50;
+    static final int TOP = 10;
 
     private final NamedParameterJdbcTemplate jdbc;
     private final UserRepository users;

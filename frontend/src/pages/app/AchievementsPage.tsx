@@ -1,20 +1,22 @@
-import { Check, Flame, Lock, Medal, Target } from 'lucide-react';
-import { useGamificationSummary } from '@/api/queries';
+import { useState } from 'react';
+import { Check, Flame, Lock, Medal, ReceiptText, ScanLine, Target } from 'lucide-react';
+import { useGamificationSummary, usePointTransactions } from '@/api/queries';
 import type { Badge, GamificationSummary } from '@/api/types';
 import { iconByName } from '@/components/icons';
-import { EmptyState, ErrorState, PageHeader, PageSkeleton, ProgressBar } from '@/components/ui';
+import { ButtonLink, EmptyState, ErrorState, PageHeader, PageSkeleton, Pagination, ProgressBar, SkeletonText } from '@/components/ui';
 import { ChallengeRow, SectionHeading } from '@/features/resident/shared';
 import { cn } from '@/lib/cn';
 import { hexAlpha } from '@/lib/category';
-import { formatDateShort, formatNumber } from '@/lib/format';
-import { badgeTier } from '@/lib/labels';
+import { formatDateShort, formatDateTime, formatNumber, formatRelative } from '@/lib/format';
+import { badgeTier, pointTransactionType } from '@/lib/labels';
 
 const TIER_ORDER = { DIAMANTE: 0, OURO: 1, PRATA: 2, BRONZE: 3 } as const;
 
+/** Meu progresso: nível e medalhas no topo, desafios logo abaixo e o extrato de pontos no fim. */
 export default function AchievementsPage() {
   const q = useGamificationSummary();
   if (q.isPending) return <PageSkeleton />;
-  if (q.error) return (<><PageHeader eyebrow="Conquistas" title="Níveis, medalhas e desafios" /><ErrorState error={q.error} onRetry={q.refetch} /></>);
+  if (q.error) return (<><PageHeader eyebrow="Meu progresso" title="Níveis, medalhas e desafios" /><ErrorState error={q.error} onRetry={q.refetch} /></>);
   const s = q.data;
   const earned = s.badges.filter((b) => b.earned).length;
   const active = s.challenges.filter((c) => c.active && !c.completed);
@@ -23,7 +25,7 @@ export default function AchievementsPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Conquistas" title="Níveis, medalhas e desafios"
+      <PageHeader eyebrow="Meu progresso" title="Níveis, medalhas e desafios"
         description="Seu nível sobe com o total de pontos já ganhos — resgatar recompensas não faz você cair de nível." />
 
       <section aria-labelledby="lv-h" className="surface rounded-2xl p-6 sm:p-8">
@@ -44,9 +46,18 @@ export default function AchievementsPage() {
         <LevelLadder s={s} />
       </section>
 
-      <div className="mt-12 grid grid-cols-1 gap-12 lg:grid-cols-[1fr_1.15fr]">
-        <section aria-labelledby="ch-h">
-          <SectionHeading id="ch-h" title="Desafios" description="Metas com prazo que rendem pontos bônus ao serem concluídas." />
+      <section aria-labelledby="bd-h" className="mt-12">
+        <SectionHeading id="bd-h" title="Medalhas" description={`${earned} de ${s.badges.length} conquistadas · bronze, prata, ouro e diamante.`} />
+        {s.badges.length === 0 ? <EmptyState compact icon={Medal} title="Nenhuma medalha disponível" /> : (
+          <ul className="grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
+            {badges.map((b) => <BadgeRow key={b.code} b={b} />)}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="ch-h" className="mt-12">
+          <SectionHeading id="ch-h" title="Desafios"
+            description={s.challenges.length ? `${done.length} de ${s.challenges.length} concluídos · cada desafio com prazo rende pontos bônus.` : 'Metas com prazo que rendem pontos bônus ao serem concluídas.'} />
           {active.length === 0 && done.length === 0 ? (
             <EmptyState compact icon={Target} title="Sem desafios no momento" description="Novos desafios são publicados pela coordenação do programa." />
           ) : (
@@ -66,17 +77,12 @@ export default function AchievementsPage() {
               )}
             </>
           )}
-        </section>
+      </section>
 
-        <section aria-labelledby="bd-h">
-          <SectionHeading id="bd-h" title="Medalhas" description={`${earned} de ${s.badges.length} conquistadas · bronze, prata, ouro e diamante.`} />
-          {s.badges.length === 0 ? <EmptyState compact icon={Medal} title="Nenhuma medalha disponível" /> : (
-            <ul className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
-              {badges.map((b) => <BadgeRow key={b.code} b={b} />)}
-            </ul>
-          )}
-        </section>
-      </div>
+      <section aria-labelledby="lg-h" className="mt-12">
+        <SectionHeading id="lg-h" title="Extrato de pontos" description="De onde vieram seus pontos e onde foram usados." />
+        <Ledger />
+      </section>
     </>
   );
 }
@@ -145,5 +151,38 @@ function BadgeRow({ b }: { b: Badge }) {
         <p className="mt-1 font-mono text-[11px] text-subtle tabular">{b.earned ? `Conquistada em ${formatDateShort(b.awardedAt)}/${(b.awardedAt ?? '').slice(2, 4)}` : 'Bloqueada'}</p>
       </div>
     </li>
+  );
+}
+
+function Ledger() {
+  const [page, setPage] = useState(0);
+  const q = usePointTransactions({ page, size: 15 });
+  if (q.isPending) return <SkeletonText lines={8} />;
+  if (q.error) return <ErrorState error={q.error} onRetry={q.refetch} />;
+  if (q.data.content.length === 0) {
+    return <EmptyState icon={ReceiptText} title="Sem movimentações" description="Pontos ganhos com descartes aprovados, bônus de desafios e resgates aparecem aqui."
+      action={<ButtonLink to="/app/descartar" variant="secondary" leftIcon={ScanLine}>Registrar descarte</ButtonLink>} />;
+  }
+  return (
+    <>
+      <div className="mb-2 hidden grid-cols-[1fr_120px_120px] gap-4 px-0.5 font-mono text-[11px] tracking-wider text-subtle uppercase sm:grid">
+        <span>Movimentação</span><span className="text-right">Pontos</span><span className="text-right">Saldo após</span>
+      </div>
+      <ul className={cn('divide-y divide-line border-y border-line', q.isPlaceholderData && 'opacity-60')}>
+        {q.data.content.map((t) => (
+          <li key={t.id} className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 py-3.5 sm:grid-cols-[1fr_120px_120px] sm:items-center">
+            <div className="min-w-0">
+              <p className="truncate text-sm text-fg">{t.description}</p>
+              <p className="text-xs text-subtle"><span title={formatDateTime(t.createdAt)}>{formatRelative(t.createdAt)}</span> · {pointTransactionType[t.type].label}</p>
+            </div>
+            <p className={cn('text-right font-mono text-sm tabular', t.amount >= 0 ? 'text-success' : 'text-fg-soft')}>{t.amount >= 0 ? '+' : '−'}{formatNumber(Math.abs(t.amount))}</p>
+            <p className="col-start-2 text-right font-mono text-xs text-subtle tabular sm:col-start-auto sm:text-sm sm:text-muted">
+              <span className="sm:hidden">saldo </span>{formatNumber(t.balanceAfter)}
+            </p>
+          </li>
+        ))}
+      </ul>
+      <Pagination className="mt-6" page={q.data.page} totalPages={q.data.totalPages} totalElements={q.data.totalElements} size={q.data.size} onChange={setPage} />
+    </>
   );
 }

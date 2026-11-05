@@ -68,7 +68,7 @@ export function computeRanking(d: MockDb, me: UserRec, scope: RankingScope, peri
   const toEntry = (r: Row, i: number): RankingEntry => ({
     position: i + 1, id: r.id, name: r.name, subtitle: r.subtitle, points: r.points, kg: r.kg, isMe: r.id === myKey,
   });
-  const entries = rows.slice(0, 50).map(toEntry);
+  const entries = rows.slice(0, 10).map(toEntry);
   let mine: RankingEntry | null = null;
   if (myKey) {
     const idx = rows.findIndex((r) => r.id === myKey);

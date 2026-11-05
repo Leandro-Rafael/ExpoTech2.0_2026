@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Building2, Crown, Home, MapPinned, Trophy, Users } from 'lucide-react';
 import { useRanking } from '@/api/queries';
 import type { RankingEntry, RankingPeriod, RankingScope } from '@/api/types';
@@ -21,21 +21,13 @@ export default function RankingPage() {
   const [scope, setScope] = useState<RankingScope>('USER');
   const [period, setPeriod] = useState<RankingPeriod>('MONTH');
   const q = useRanking(scope, period);
-  const meRowRef = useRef<HTMLLIElement | null>(null);
-  const [meVisible, setMeVisible] = useState(true);
 
-  useEffect(() => {
-    const el = meRowRef.current;
-    if (!el) { setMeVisible(false); return; }
-    const io = new IntersectionObserver(([e]) => setMeVisible(e.isIntersecting), { rootMargin: '-64px 0px -96px 0px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [q.data]);
-
-  const entries = q.data?.entries ?? [];
+  // Só o top 10; quem está fora dele vê a própria posição logo abaixo da lista.
+  const entries = (q.data?.entries ?? []).slice(0, 10);
   const podium = entries.slice(0, 3);
   const rest = entries.slice(3);
   const me = q.data?.me ?? null;
+  const meOutside = !!me && !entries.some((e) => e.isMe);
   const ScopeIcon = SCOPES.find((s) => s.value === scope)!.icon;
 
   return (
@@ -65,21 +57,17 @@ export default function RankingPage() {
               </div>
               <ol className="divide-y divide-line border-y border-line">
                 {rest.map((e) => (
-                  <li key={String(e.id)} ref={e.isMe ? meRowRef : undefined}>
-                    <Row e={e} scope={scope} icon={ScopeIcon} />
-                  </li>
+                  <li key={String(e.id)}><Row e={e} scope={scope} icon={ScopeIcon} /></li>
                 ))}
               </ol>
             </>
           )}
 
-          {me && !meVisible && !podium.some((p) => p.isMe) && (
-            <div className="sticky bottom-24 z-20 mt-4 lg:bottom-6">
-              <div className="surface-raised rounded-xl">
-                <p className="sr-only">Sua posição</p>
-                <Row e={me} scope={scope} icon={ScopeIcon} sticky />
-              </div>
-            </div>
+          {meOutside && (
+            <section aria-label="Sua posição" className="mt-4">
+              <p aria-hidden className="py-1 text-center font-mono text-xs text-subtle">···</p>
+              <div className="surface-raised rounded-xl"><Row e={me} scope={scope} icon={ScopeIcon} sticky /></div>
+            </section>
           )}
           {!me && (
             <p className="mt-6 text-sm text-muted">

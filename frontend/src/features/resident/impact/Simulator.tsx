@@ -27,7 +27,7 @@ const PRESETS: { id: string; label: string; v: Values }[] = [
   { id: 'escola', label: 'Uma escola', v: { population: 1_200, kgPerCapitaDay: 0.3, currentRate: 10, targetRate: 70, targetYear: 2030, growth: 0 } },
 ];
 
-/ Simulador de 2050: o servidor projeta quanto lixo vai para o aterro no ritmo atual e com a meta escolhida.
+// Simulador de 2050: o servidor projeta quanto lixo vai para o aterro no ritmo atual e com a meta escolhida.
 export function Simulator() {
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: PRESETS[0].v, mode: 'onChange' });
   const { control, reset, formState: { errors } } = form;

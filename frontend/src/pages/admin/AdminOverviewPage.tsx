@@ -15,6 +15,7 @@ import { IntegrityCard } from '@/features/admin/overview/IntegrityCard';
 
 type Metric = 'count' | 'kg';
 
+// Painel inicial do admin: pendências, números gerais, gráfico de 14 dias, integridade e relatório CSV.
 export default function AdminOverviewPage() {
   const q = useAdminOverview();
   const [report, setReport] = useState(false);

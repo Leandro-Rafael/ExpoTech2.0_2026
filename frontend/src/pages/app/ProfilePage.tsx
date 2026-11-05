@@ -16,6 +16,7 @@ import { nameSchema, passwordChecks, passwordSchema } from '@/lib/validation';
 const profileSchema = z.object({ name: nameSchema, organizationId: z.string() });
 type ProfileValues = z.infer<typeof profileSchema>;
 
+// Perfil: dados pessoais, organização com que o morador pontua no ranking e troca de senha.
 export default function ProfilePage() {
   const user = useUser();
   return (

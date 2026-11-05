@@ -34,6 +34,7 @@ function Delta({ now, prev, unit }: { now: number; prev: number; unit: string })
   );
 }
 
+// Início do morador: saldo, nível, sequência de dias, impacto e últimos descartes.
 export default function DashboardPage() {
   const user = useUser();
   const first = user.name.split(' ')[0];

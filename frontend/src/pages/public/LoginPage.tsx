@@ -22,7 +22,6 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-// Contas de demonstração (uma por perfil), só para apresentar o sistema.
 const DEMO = [
   { role: 'Administrador', icon: ShieldCheck, email: 'admin@ecotechzero.com.br', password: 'EcoTech@2050' },
   { role: 'Coletor', icon: Truck, email: 'coletor@ecotechzero.com.br', password: 'Coleta@2050' },

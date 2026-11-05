@@ -28,6 +28,7 @@ const EMPTY: Record<Filter, { title: string; description: string }> = {
 };
 const PAGE_SIZE = 12;
 
+// Histórico de descartes do morador, com o status da análise e o motivo quando foi recusado.
 export default function DisposalsPage() {
   const [filter, setFilter] = useState<Filter>('ALL');
   const [page, setPage] = useState(0);

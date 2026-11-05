@@ -11,6 +11,7 @@ import { formatCompact, formatKg, formatMonth, formatNumber, formatPercent } fro
 
 type Scope = 'ME' | 'COMMUNITY';
 
+// Impacto ambiental calculado a partir dos descartes aprovados, mais o simulador de 2050.
 export default function ImpactPage() {
   const [scope, setScope] = useState<Scope>('ME');
   const q = useImpactSummary(scope, 12);

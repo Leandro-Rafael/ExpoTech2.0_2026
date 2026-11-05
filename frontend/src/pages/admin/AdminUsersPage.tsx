@@ -19,6 +19,7 @@ const ROLE_OPTIONS: { value: Role; label: string; description: string }[] = [
   { value: 'ADMIN', label: 'Administrador', description: 'Acesso total: moderação, catálogo, usuários e rotas.' },
 ];
 
+// Gestão de usuários: perfil de acesso, ativar/desativar contas e desbloquear quem errou a senha demais.
 export default function AdminUsersPage() {
   const me = useUser();
   const [search, setSearch] = useState('');

@@ -14,7 +14,7 @@ import { CATEGORY_CODES, categoryFallback } from '@/lib/labels';
 import { AdminTable, type AdminColumn } from '../ui';
 import { ColorPicker, IconPicker, ListEditor, FormNumber } from '../formControls';
 
-/ Aba do catálogo: categorias de material, com pontos por kg, limite de kg por descarte e fator de CO2.
+// Aba do catálogo: categorias de material, com pontos por kg, limite de kg por descarte e fator de CO2.
 export function CategoriesTab() {
   const q = useCategories({ all: true });
   const [editing, setEditing] = useState<Category | 'new' | null>(null);

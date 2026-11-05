@@ -17,6 +17,7 @@ import { SetupHousehold } from '@/features/resident/home/SetupHousehold';
 import { BinGauge, CopyButton, SectionHeading } from '@/features/resident/shared';
 import { formatKg, formatNumber } from '@/lib/format';
 
+// "Minha casa": residência do morador e suas lixeiras inteligentes (que pedem coleta sozinhas quando enchem).
 export default function HomePage() {
   const q = useHousehold();
   if (q.isPending) return <PageSkeleton />;

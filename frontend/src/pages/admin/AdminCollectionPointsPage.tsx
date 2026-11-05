@@ -17,7 +17,7 @@ import { CategoryCodesPicker, FormNumber } from '@/features/admin/formControls';
 type ActiveFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 const HOURS_PRESETS = ['Seg a sex, 8h às 17h', 'Seg a sáb, 8h às 18h', 'Todos os dias, 24 horas', 'Seg a sex, 7h às 19h; sáb, 8h às 12h'];
 
-/ Cadastro dos ecopontos que aparecem no mapa dos moradores.
+// Cadastro dos ecopontos que aparecem no mapa dos moradores.
 export default function AdminCollectionPointsPage() {
   const points = useAdminCollectionPoints();
   const categories = useCategories();

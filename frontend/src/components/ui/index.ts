@@ -1,11 +1,9 @@
-/** UI kit — importe sempre daqui: `import { Button, Card, Field } from '@/components/ui';` */
+/** UI kit — importe sempre daqui: `import { Button, Field } from '@/components/ui';` */
 export * from './Avatar';
 export * from './Badge';
 export * from './Button';
-export * from './Card';
 export * from './Checkbox';
 export * from './ConfirmDialog';
-export * from './DataTable';
 export * from './Drawer';
 export * from './EmptyState';
 export * from './ErrorState';

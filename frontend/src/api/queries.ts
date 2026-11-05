@@ -12,7 +12,6 @@ import {
   keepPreviousData, useMutation, useQuery, useQueryClient,
   type QueryClient, type UseQueryOptions,
 } from '@tanstack/react-query';
-import { authApi } from './auth';
 import { adminApi, type AdminDisposalsParams, type AdminUsersParams, type AuditQuery, type CreateRoutesInput, type OptimizeRoutesInput } from './admin';
 import { categoriesApi } from './catalog';
 import { collectionApi, type CollectionPointParams } from './collection';

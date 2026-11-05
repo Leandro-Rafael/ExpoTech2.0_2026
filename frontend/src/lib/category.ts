@@ -1,5 +1,4 @@
 import type { CategoryCode } from '@/api/types';
-import type { CSSProperties } from 'react';
 import { categoryFallback } from './labels';
 
 /** Cor hex da categoria (usa a cor da API se houver, senão o fallback local). */

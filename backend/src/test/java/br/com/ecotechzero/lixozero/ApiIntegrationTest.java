@@ -33,6 +33,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * Cada "cliente" guarda seus cookies como um navegador faria.
  */
 @SpringBootTest(properties = {
+        // Sempre o banco embutido, mesmo que o backend/.env aponte para o Supabase.
+        "DB_URL=",
         "app.demo-seed=false",
         "app.iot.simulator=false",
         "app.data-dir=target/test-data",

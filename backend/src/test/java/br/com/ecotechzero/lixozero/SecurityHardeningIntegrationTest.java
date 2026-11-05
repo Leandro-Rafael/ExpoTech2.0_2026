@@ -40,6 +40,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * (o Spring reaproveita o contexto e o PostgreSQL embarcado).
  */
 @SpringBootTest(properties = {
+        // Sempre o banco embutido, mesmo que o backend/.env aponte para o Supabase.
+        "DB_URL=",
         "app.demo-seed=false",
         "app.iot.simulator=false",
         "app.data-dir=target/test-data",

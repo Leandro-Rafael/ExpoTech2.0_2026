@@ -19,7 +19,7 @@ export const securityApi = {
   integrity: () => api.get<IntegrityReport>('/admin/integrity'),
 };
 
-export const securityKeys = {
+const securityKeys = {
   integrity: ['admin', 'integrity'] as const,
 };
 

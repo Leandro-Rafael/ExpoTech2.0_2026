@@ -9,7 +9,7 @@ export const FLAG_THRESHOLD = 40;
 export interface FraudAssessment { score: number; flags: string[] }
 
 /** Distância de Hamming entre dois aHash (hex). */
-export function hashDistance(a: string, b: string): number {
+function hashDistance(a: string, b: string): number {
   let dist = 0;
   for (let i = 0; i < Math.min(a.length, b.length); i++) {
     let x = parseInt(a[i], 16) ^ parseInt(b[i], 16);

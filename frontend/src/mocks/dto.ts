@@ -37,11 +37,11 @@ export function toUserMe(d: MockDb, u: UserRec): UserMe {
   };
 }
 
-export function categoryRef(c: Category): CategoryRef {
+function categoryRef(c: Category): CategoryRef {
   return { id: c.id, code: c.code, name: c.name, color: c.color, icon: c.icon };
 }
 
-export function photoUrlFor(d: MockDb, photoId: string | null): string | null {
+function photoUrlFor(d: MockDb, photoId: string | null): string | null {
   if (!photoId) return null;
   const p = d.photos.find((x) => x.id === photoId);
   // <img> não passa pelo fetch interceptado: devolvemos a própria imagem como data: URL

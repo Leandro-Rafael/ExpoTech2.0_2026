@@ -1,8 +1,8 @@
 // Contrato da API (fonte da verdade). Espelha os DTOs do back-end Java (pacote ...api.dto).
 
 export type UUID = string;
-export type ISODateTime = string;
-export type ISODate = string;
+type ISODateTime = string;
+type ISODate = string;
 
 export type Role = 'USER' | 'COLLECTOR' | 'ADMIN';
 export type DisposalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -15,7 +15,7 @@ export type RankingPeriod = 'WEEK' | 'MONTH' | 'YEAR' | 'ALL';
 export type CollectionRequestStatus = 'REQUESTED' | 'SCHEDULED' | 'IN_ROUTE' | 'COLLECTED' | 'CANCELLED';
 export type CollectionSource = 'USER' | 'SMART_BIN';
 export type RouteStatus = 'PLANNED' | 'IN_PROGRESS' | 'DONE';
-export type StopStatus = 'PENDING' | 'DONE';
+type StopStatus = 'PENDING' | 'DONE';
 export type RedemptionStatus = 'ISSUED' | 'USED' | 'CANCELLED';
 export type OrganizationType = 'TURMA' | 'EMPRESA' | 'CONDOMINIO' | 'ESCOLA';
 export type ChallengeMetric = 'KG' | 'COUNT';
@@ -81,7 +81,7 @@ export interface Category {
 }
 export type CategoryRef = Pick<Category, 'id' | 'code' | 'name' | 'color' | 'icon'>;
 
-export interface AiSuggestion {
+interface AiSuggestion {
   available: boolean;     // false => IA de servidor indisponível, usar modelo local no navegador
   categoryCode: CategoryCode | null;
   confidence: number | null;  // 0..1
@@ -303,7 +303,7 @@ export interface RouteOptimization {
   depot: GeoPoint;
 }
 
-export interface HouseholdMember { id: UUID; name: string; points: number; isOwner: boolean }
+interface HouseholdMember { id: UUID; name: string; points: number; isOwner: boolean }
 export interface Household {
   id: UUID;
   name: string;

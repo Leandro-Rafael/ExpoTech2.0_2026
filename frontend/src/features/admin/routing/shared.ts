@@ -5,7 +5,7 @@ export const DEFAULT_DEPOT: GeoPoint = { latitude: -23.6019, longitude: -46.7526
 export const DEFAULT_CAPACITY_KG = 1000;
 
 /** Paleta de dados para distinguir viagens no mapa (contraste sobre tiles escuros). */
-export const ROUTE_COLORS = ['#34d399', '#7cc4f0', '#f5b544', '#c4a7f5', '#f28b82', '#5eead4'];
+const ROUTE_COLORS = ['#34d399', '#7cc4f0', '#f5b544', '#c4a7f5', '#f28b82', '#5eead4'];
 export const routeColor = (i: number) => ROUTE_COLORS[i % ROUTE_COLORS.length];
 
 export type Tuple = [number, number];

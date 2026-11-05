@@ -4,8 +4,8 @@
  */
 import { z } from 'zod';
 
-export const PASSWORD_MIN = 10;
-export const PASSWORD_MAX = 128;
+const PASSWORD_MIN = 10;
+const PASSWORD_MAX = 128;
 
 const COMMON = new Set([
   '1234567890', '12345678910', '0123456789', 'senha12345', 'senha123456', 'password123', 'password1234',

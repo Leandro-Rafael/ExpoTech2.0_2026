@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
-export interface TabItem<V extends string = string> { value: V; label: ReactNode; icon?: LucideIcon; count?: number; disabled?: boolean }
+interface TabItem<V extends string = string> { value: V; label: ReactNode; icon?: LucideIcon; count?: number; disabled?: boolean }
 
 export interface TabsProps<V extends string> {
   items: TabItem<V>[];

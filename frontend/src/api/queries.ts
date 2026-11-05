@@ -83,7 +83,7 @@ type QOpts<T> = Omit<UseQueryOptions<T, ApiError>, 'queryKey' | 'queryFn'>;
 export function refreshMe(qc: QueryClient) {
   return qc.invalidateQueries({ queryKey: qk.me });
 }
-export function setMe(qc: QueryClient, user: UserMe | null) {
+function setMe(qc: QueryClient, user: UserMe | null) {
   qc.setQueryData(qk.me, user);
 }
 
@@ -313,6 +313,3 @@ export const useSaveGoal = () =>
 export const useOptimizeRoutes = () => useMutation<Awaited<ReturnType<typeof adminApi.optimizeRoutes>>, ApiError, OptimizeRoutesInput>({ mutationFn: adminApi.optimizeRoutes });
 export const useCreateRoutes = () =>
   useAdminMutation((b: CreateRoutesInput) => adminApi.createRoutes(b), [qk.admin.routes, ['admin', 'collection-requests'], qk.collectorRoutes]);
-
-/** Exposto para o AuthProvider. */
-export { authApi };

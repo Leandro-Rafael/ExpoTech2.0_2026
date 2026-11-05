@@ -10,13 +10,13 @@ import { haversineKm } from './geo';
 import { round } from './random';
 
 export const ALGORITHM = 'Vizinho mais próximo + 2-opt (com capacidade)';
-export const AVERAGE_SPEED_KMH = 25;
-export const SERVICE_MINUTES_PER_STOP = 5;
+const AVERAGE_SPEED_KMH = 25;
+const SERVICE_MINUTES_PER_STOP = 5;
 export const DEFAULT_CAPACITY_KG = 1000;
 const MAX_TWO_OPT_PASSES = 50;
 
 export interface StopInput { id: string; latitude: number; longitude: number; kg: number }
-export interface PlannedTrip<S extends StopInput> { stops: S[]; distanceKm: number; naiveDistanceKm: number; estimatedMinutes: number; loadKg: number }
+interface PlannedTrip<S extends StopInput> { stops: S[]; distanceKm: number; naiveDistanceKm: number; estimatedMinutes: number; loadKg: number }
 export interface Plan<S extends StopInput> { trips: PlannedTrip<S>[]; totalDistanceKm: number; naiveTotalDistanceKm: number; savingsPercent: number }
 
 export function optimize<S extends StopInput>(depot: GeoPoint, stops: S[], capacityKg = DEFAULT_CAPACITY_KG): Plan<S> {

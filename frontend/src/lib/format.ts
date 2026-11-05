@@ -29,11 +29,6 @@ export function formatKg(value: number | null | undefined, opts: { tons?: boolea
   return `${formatNumber(value, digits ?? (Math.abs(value) < 10 ? 2 : 1))} kg`;
 }
 
-export function formatTons(value: number | null | undefined, digits = 1): string {
-  if (value == null || Number.isNaN(value)) return '—';
-  return `${formatNumber(value, digits)} t`;
-}
-
 /** Fração 0..1 → "42,5%" */
 export function formatPercent(fraction: number | null | undefined, digits = 0): string {
   if (fraction == null || Number.isNaN(fraction)) return '—';
@@ -43,10 +38,6 @@ export function formatPercent(fraction: number | null | undefined, digits = 0): 
 export function formatPoints(value: number | null | undefined): string {
   if (value == null) return '—';
   return `${formatNumber(value)} pts`;
-}
-
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'BRL' }).format(value);
 }
 
 export function formatDistanceKm(km: number | null | undefined): string {
@@ -130,6 +121,3 @@ export function initials(name: string | null | undefined): string {
   return (first + last).toUpperCase() || '?';
 }
 
-export function pluralize(n: number, singular: string, plural: string): string {
-  return `${formatNumber(n)} ${n === 1 ? singular : plural}`;
-}

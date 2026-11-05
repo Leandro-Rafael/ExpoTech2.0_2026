@@ -18,8 +18,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByEmail(String email);
 
-    long countByRole(Role role);
-
     List<User> findByRoleAndEnabledTrueOrderByName(Role role);
 
     List<User> findByHouseholdIdOrderByCreatedAt(UUID householdId);

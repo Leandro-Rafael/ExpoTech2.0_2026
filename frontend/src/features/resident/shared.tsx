@@ -1,7 +1,7 @@
 /** Peças compartilhadas pelas páginas do morador (sem bibliotecas pesadas). */
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ArrowUpRight, Battery, BatteryLow, BatteryWarning, Check, ChevronRight, Copy, WifiOff } from 'lucide-react';
+import { Battery, BatteryLow, BatteryWarning, Check, ChevronRight, Copy, WifiOff } from 'lucide-react';
 import type { Challenge, Disposal, SmartBin, SmartBinStatus } from '@/api/types';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { ProgressBar, StatusPill, toast } from '@/components/ui';
@@ -9,7 +9,7 @@ import { Sparkline } from '@/components/charts/Sparkline';
 import { cn } from '@/lib/cn';
 import { categoryColor } from '@/lib/category';
 import { formatDate, formatKg, formatNumber, formatPoints, formatRelative } from '@/lib/format';
-import { categoryFallback, disposalStatus, smartBinStatus } from '@/lib/labels';
+import { disposalStatus, smartBinStatus } from '@/lib/labels';
 
 // ------------------------------------------------------------------ copiar
 
@@ -100,7 +100,7 @@ export function DisposalRow({ d, onClick, compact }: { d: Disposal; onClick?: ()
 
 // ------------------------------------------------------------------ desafio
 
-export function challengeDaysLeft(c: Challenge): number {
+function challengeDaysLeft(c: Challenge): number {
   const [y, m, d] = c.endsAt.split('-').map(Number);
   const end = new Date(y, m - 1, d, 23, 59, 59).getTime();
   return Math.max(0, Math.ceil((end - Date.now()) / 86_400_000));
@@ -136,14 +136,14 @@ export function ChallengeRow({ c, dense }: { c: Challenge; dense?: boolean }) {
 
 // ------------------------------------------------------------------ lixeira inteligente
 
-export const binTone: Record<SmartBinStatus, string> = {
+const binTone: Record<SmartBinStatus, string> = {
   OK: '#10b981',
   ATTENTION: '#f5b544',
   FULL: '#f28b82',
   OFFLINE: '#4b544e',
 };
 
-export function BatteryIndicator({ level, className }: { level: number; className?: string }) {
+function BatteryIndicator({ level, className }: { level: number; className?: string }) {
   const Icon = level <= 15 ? BatteryWarning : level <= 35 ? BatteryLow : Battery;
   return (
     <span className={cn('inline-flex items-center gap-1 font-mono text-xs tabular', level <= 15 ? 'text-danger' : level <= 35 ? 'text-warning' : 'text-muted', className)}>
@@ -235,10 +235,3 @@ export function BinGauge({ bin, actions }: { bin: SmartBin; actions?: ReactNode 
   );
 }
 
-export function ExternalLinkIcon() {
-  return <ArrowUpRight className="size-3.5" aria-hidden />;
-}
-
-export function categoryLabel(code: keyof typeof categoryFallback) {
-  return categoryFallback[code].name;
-}

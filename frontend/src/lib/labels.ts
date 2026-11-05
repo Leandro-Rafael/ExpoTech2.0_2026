@@ -5,11 +5,7 @@
  *   import { disposalStatus } from '@/lib/labels';
  *   disposalStatus.PENDING.label // "Pendente"
  */
-import type {
-  AiSource, BadgeTier, CategoryCode, ChallengeMetric, CollectionRequestStatus, CollectionSource,
-  DisposalStatus, OrganizationType, PointTransactionType, RankingPeriod, RankingScope,
-  RedemptionStatus, Role, RouteStatus, SmartBinStatus, StopStatus,
-} from '@/api/types';
+import type { AiSource, BadgeTier, CategoryCode, CollectionRequestStatus, CollectionSource, DisposalStatus, OrganizationType, PointTransactionType, RankingPeriod, RedemptionStatus, Role, RouteStatus, SmartBinStatus } from '@/api/types';
 
 export type Tone = 'neutral' | 'brand' | 'lime' | 'success' | 'warning' | 'danger' | 'info';
 export interface EnumMeta { label: string; tone: Tone; description?: string }
@@ -40,13 +36,6 @@ export const pointTransactionType: EnumMap<PointTransactionType> = {
   ADJUST: { label: 'Ajuste', tone: 'neutral' },
 };
 
-export const rankingScope: EnumMap<RankingScope> = {
-  USER: { label: 'Pessoas', tone: 'brand' },
-  HOUSEHOLD: { label: 'Residências', tone: 'brand' },
-  NEIGHBORHOOD: { label: 'Bairros', tone: 'brand' },
-  ORGANIZATION: { label: 'Turmas e empresas', tone: 'brand' },
-};
-
 export const rankingPeriod: EnumMap<RankingPeriod> = {
   WEEK: { label: 'Semana', tone: 'neutral' },
   MONTH: { label: 'Mês', tone: 'neutral' },
@@ -73,11 +62,6 @@ export const routeStatus: EnumMap<RouteStatus> = {
   DONE: { label: 'Concluída', tone: 'success' },
 };
 
-export const stopStatus: EnumMap<StopStatus> = {
-  PENDING: { label: 'Pendente', tone: 'warning' },
-  DONE: { label: 'Coletado', tone: 'success' },
-};
-
 export const redemptionStatus: EnumMap<RedemptionStatus> = {
   ISSUED: { label: 'Disponível', tone: 'success' },
   USED: { label: 'Utilizado', tone: 'neutral' },
@@ -89,11 +73,6 @@ export const organizationType: EnumMap<OrganizationType> = {
   EMPRESA: { label: 'Empresa', tone: 'brand' },
   CONDOMINIO: { label: 'Condomínio', tone: 'lime' },
   ESCOLA: { label: 'Escola', tone: 'warning' },
-};
-
-export const challengeMetric: EnumMap<ChallengeMetric> = {
-  KG: { label: 'Quilos', tone: 'neutral' },
-  COUNT: { label: 'Descartes', tone: 'neutral' },
 };
 
 export const badgeTier: EnumMap<BadgeTier> & Record<BadgeTier, { color: string }> = {

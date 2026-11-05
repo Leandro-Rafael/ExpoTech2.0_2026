@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import type { EnumMeta, Tone } from '@/lib/labels';
 
-export const toneClasses: Record<Tone, string> = {
+const toneClasses: Record<Tone, string> = {
   neutral: 'bg-white/5 text-fg-soft border-white/10',
   brand: 'bg-brand-500/12 text-brand-300 border-brand-400/25',
   lime: 'bg-white/[0.06] text-fg border-line-strong',

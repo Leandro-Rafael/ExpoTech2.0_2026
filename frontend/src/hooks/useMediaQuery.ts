@@ -15,4 +15,3 @@ export function useMediaQuery(query: string): boolean {
 
 /** Breakpoints alinhados ao Tailwind (sm 640, md 768, lg 1024, xl 1280). */
 export const useIsDesktop = () => useMediaQuery('(min-width: 1024px)');
-export const useIsMobile = () => !useMediaQuery('(min-width: 768px)');

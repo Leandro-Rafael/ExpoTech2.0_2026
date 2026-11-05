@@ -11,11 +11,11 @@ export const CO2_KG_PER_TREE_YEAR = 22;
 const ENERGY_KWH_PER_KG: Record<CategoryCode, number> = { PAPEL: 4.1, PLASTICO: 5.8, VIDRO: 0.42, METAL: 4.5, ELETRONICO: 3.0, ORGANICO: 0.1, REJEITO: 0 };
 const WATER_L_PER_KG: Record<CategoryCode, number> = { PAPEL: 26, PLASTICO: 2.5, VIDRO: 1.5, METAL: 6, ELETRONICO: 3, ORGANICO: 0, REJEITO: 0 };
 
-export const trees = (co2Kg: number) => co2Kg / CO2_KG_PER_TREE_YEAR;
+const trees = (co2Kg: number) => co2Kg / CO2_KG_PER_TREE_YEAR;
 
 interface CategoryTotal { code: CategoryCode; name: string; color: string; recyclable: boolean; kg: number; co2: number; count: number }
 
-export function totals(d: MockDb, userId: string | null, from = 0, to = Number.MAX_SAFE_INTEGER): CategoryTotal[] {
+function totals(d: MockDb, userId: string | null, from = 0, to = Number.MAX_SAFE_INTEGER): CategoryTotal[] {
   const map = new Map<string, CategoryTotal & { factor: number }>();
   for (const c of d.categories) {
     map.set(c.id, { code: c.code, name: c.name, color: c.color, recyclable: c.recyclable, kg: 0, co2: 0, count: 0, factor: c.co2FactorKg });
@@ -74,7 +74,7 @@ export function goalDto(d: MockDb, g: GoalRec, now = Date.now()): Goal {
   };
 }
 
-export function goalDtos(d: MockDb): Goal[] {
+function goalDtos(d: MockDb): Goal[] {
   return [...d.goals].sort((a, b) => a.year - b.year || a.title.localeCompare(b.title)).map((g) => goalDto(d, g));
 }
 

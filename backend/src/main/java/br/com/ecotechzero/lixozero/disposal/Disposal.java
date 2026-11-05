@@ -129,11 +129,6 @@ public class Disposal extends BaseEntity {
         this.quantityKg = quantityKg;
         this.disposedAt = disposedAt;
     }
-
-    public boolean isPending() {
-        return status == DisposalStatus.PENDING;
-    }
-
     /** Aprova e registra os pontos concedidos. Só é chamado para descartes pendentes. */
     public void approve(int points, User reviewer, Instant at) {
         if (status != DisposalStatus.PENDING) {

@@ -7,8 +7,8 @@ import type { CollectionRequestRec, MockDb, SmartBinRec } from '../db';
 import { audit } from './audit';
 import { round } from './random';
 
-export const READING_INTERVAL_MS = 30 * 60_000;
-export const OFFLINE_AFTER_MS = 6 * 3600_000;
+const READING_INTERVAL_MS = 30 * 60_000;
+const OFFLINE_AFTER_MS = 6 * 3600_000;
 const MAX_READINGS = 48;
 const DENSITY_KG_PER_LITER: Record<CategoryCode, number> = {
   PLASTICO: 0.04, PAPEL: 0.08, VIDRO: 0.3, METAL: 0.06, ORGANICO: 0.45, ELETRONICO: 0.25, REJEITO: 0.15,

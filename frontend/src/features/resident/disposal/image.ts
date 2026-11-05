@@ -4,10 +4,10 @@
  *  - reduz para no máx. 1600 px no maior lado e re-codifica em JPEG ~0,85
  *    (remove metadados como GPS embutido e garante < 5 MB).
  */
-export const MAX_SIDE = 1600;
-export const JPEG_QUALITY = 0.85;
+const MAX_SIDE = 1600;
+const JPEG_QUALITY = 0.85;
 /** Limite do arquivo ORIGINAL (antes da compressão). */
-export const MAX_SOURCE_BYTES = 30 * 1024 * 1024;
+const MAX_SOURCE_BYTES = 30 * 1024 * 1024;
 
 export interface PreparedPhoto {
   blob: Blob;

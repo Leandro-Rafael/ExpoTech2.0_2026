@@ -25,7 +25,7 @@ import { LINKS } from './hero';
 // ------------------------------------------------------------------ primitivas
 
 /** "01 / Como funciona" + hairline. */
-export function SectionLabel({ index, children }: { index: string; children: ReactNode }) {
+function SectionLabel({ index, children }: { index: string; children: ReactNode }) {
   return (
     <div className="mb-10 flex items-center gap-4 lg:mb-14" data-reveal>
       <p className="label-mono shrink-0"><span className="text-fg-soft">{index}</span> / {children}</p>

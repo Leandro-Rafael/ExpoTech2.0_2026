@@ -30,16 +30,13 @@ export const DEFAULT_CENTER: LatLngTuple = [-23.609, -46.758];
 
 const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY as string | undefined;
 /** true = tiles já escuros (CARTO); false = OSM claro invertido por CSS. */
-export const TILES_DARK = !!CARTO_KEY;
-export const TILE_URL = CARTO_KEY
+const TILES_DARK = !!CARTO_KEY;
+const TILE_URL = CARTO_KEY
   ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=${encodeURIComponent(CARTO_KEY)}`
   : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-export const TILE_ATTRIBUTION = CARTO_KEY
+const TILE_ATTRIBUTION = CARTO_KEY
   ? '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>'
   : '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
-
-/** Converte {latitude, longitude} → [lat, lon]. */
-export const toLatLng = (p: LatLon): LatLngTuple => [p.latitude, p.longitude];
 
 export interface MapViewProps {
   center?: LatLngTuple;

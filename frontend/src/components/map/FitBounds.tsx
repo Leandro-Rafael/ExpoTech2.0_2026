@@ -87,10 +87,3 @@ export function FitBounds({ points, padding = 48, maxZoom = 16, animate = true }
   return null;
 }
 
-export function useFitBounds() {
-  const map = useMap();
-  return useCallback((points: LatLngTuple[], opts: { padding?: number; maxZoom?: number; animate?: boolean } = {}) => {
-    const { padding = 48, maxZoom = 16, animate = true } = opts;
-    fitNow(map, points, padding, maxZoom, animate);
-  }, [map]);
-}

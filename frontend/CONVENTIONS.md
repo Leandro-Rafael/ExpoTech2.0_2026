@@ -22,8 +22,9 @@ Alias `@/` = `src/`.
 
 ## Adicionar / substituir uma página
 
-1. As rotas já existem em `app/router.tsx`; os arquivos em `pages/` são placeholders (`PagePlaceholder`). Substitua o conteúdo mantendo `export default`.
-2. Página nova: crie o arquivo, registre com `page(() => import(...))` no router e, se tiver menu, em `app/navigation.ts` (com `roles` quando restrita).
+1. As rotas ficam em `app/router.tsx`; cada arquivo em `pages/` exporta a página com `export default`.
+2. Página nova: crie o arquivo, registre com `page(() => import(...))` no router e, se tiver menu, em `app/navigation.ts` (`roles` define quais perfis veem a seção).
+   Conteúdo do mesmo assunto vira aba de uma tela existente: acrescente-o em `app/hubs.tsx` (`TabbedPage`, aba na URL `?aba=`) e, se a rota antiga existia, mantenha-a com `moved()` no router.
 3. Comece sempre com `<PageHeader eyebrow="Seção" title="..." description="..." actions={...} />` (ele também define o título da aba).
 4. Estados obrigatórios: carregando (`Skeleton`/`PageSkeleton`), vazio (`EmptyState`), erro (`ErrorState error={q.error} onRetry={q.refetch}`).
 
@@ -71,18 +72,17 @@ const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema), de
 |---|---|
 | `Button` / `ButtonLink` | `variant` primary · secondary · ghost · outline · danger · link; `size` sm · md(44px) · lg(48px) · xl; `loading`, `leftIcon`, `rightIcon` |
 | `IconButton` | só ícone; `label` obrigatório (aria-label) |
-| `Card`, `CardHeader`, `CardFooter` | superfície padrão (único estilo de cartão) |
 | `Input`, `PasswordInput`, `NumberInput`, `Textarea`, `Select`, `Checkbox`, `Switch` | controles; `invalid` ou via `Field` |
 | `Field`, `FormError` | rótulo + dica + erro; erro geral do form |
 | `Badge`, `StatusPill` | `<StatusPill map={disposalStatus} value={d.status} />` (mapas em `lib/labels`) |
-| `Modal`/`Dialog`, `Drawer`, `ConfirmDialog` | foco preso, Esc, scroll travado; Drawer `side="bottom"` no celular |
+| `Modal`, `Drawer`, `ConfirmDialog` | foco preso, Esc, scroll travado; Drawer `side="bottom"` no celular |
 | `Tabs` + `TabPanel` | setas/Home/End; `idBase` liga aba ↔ painel |
 | `Tooltip` | hover + foco |
 | `Skeleton`, `SkeletonText`, `SkeletonCard`, `PageSkeleton`, `Spinner` | carregamento |
 | `EmptyState`, `ErrorState` | vazio / erro com "Tentar novamente" |
 | `StatTile` | KPI com número em mono e contagem animada (`variant="plain"` para grupos com divisórias) |
-| `ProgressBar`, `ProgressRing` | valor 0..1 (mesma convenção da API) |
-| `Avatar`, `Pagination` (base 0), `DataTable` (tabela ≥ md, cartões no celular), `PageHeader` | — |
+| `ProgressBar` | valor 0..1 (mesma convenção da API) |
+| `Avatar`, `Pagination` (base 0), `PageHeader` · tabelas do admin: `AdminTable` (`features/admin/ui`) | — |
 | `toast` | re-export do sonner: `toast.success/error` |
 | `CategoryIcon` | `<CategoryIcon icon={c.icon} color={c.color} code={c.code} />` (ícones em `components/icons.ts`) |
 

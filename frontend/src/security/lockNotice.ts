@@ -4,7 +4,7 @@
  */
 const KEY = 'ez:inspection-lock';
 
-export const INSPECTION_LOCK_MESSAGE = 'Acesso bloqueado por 30 minutos por tentativa de inspeção do sistema.';
+const INSPECTION_LOCK_MESSAGE = 'Acesso bloqueado por 30 minutos por tentativa de inspeção do sistema.';
 
 export function saveLockNotice(lockedUntil: number) {
   try { sessionStorage.setItem(KEY, String(lockedUntil)); } catch { /* armazenamento indisponível */ }

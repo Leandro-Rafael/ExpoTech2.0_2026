@@ -6,10 +6,10 @@ import type { SimulationInput, SimulationResult, SimulationYear } from '@/api/ty
 import { CO2_KG_PER_TREE_YEAR } from './impact';
 import { round } from './random';
 
-export const CO2_TONS_PER_RECYCLED_TON = 0.9;
-export const TRUCK_CAPACITY_TONS = 10;
-export const JOBS_PER_1000_TONS = 2;
-export const HORIZON_YEAR = 2050;
+const CO2_TONS_PER_RECYCLED_TON = 0.9;
+const TRUCK_CAPACITY_TONS = 10;
+const JOBS_PER_1000_TONS = 2;
+const HORIZON_YEAR = 2050;
 
 export function simulate(input: SimulationInput, baseYear: number): SimulationResult {
   const generated = (input.population * input.kgPerCapitaDay * 365) / 1000;

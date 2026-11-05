@@ -39,10 +39,8 @@ export function levelFor(totalEarned: number): Level {
 
 // ---------------------------------------------------------------- cálculo
 
-export const AI_CONFIRMED_BONUS = 0.1;
-export const AI_MIN_CONFIDENCE = 0.6;
-
-export function computePoints(category: Pick<Category, 'pointsPerKg'>, kg: number, aiConfirmed: boolean): number {
+const AI_CONFIRMED_BONUS = 0.1;
+function computePoints(category: Pick<Category, 'pointsPerKg'>, kg: number, aiConfirmed: boolean): number {
   if (kg <= 0) return 0;
   if (category.pointsPerKg <= 0) return 1;
   let base = Math.round(kg * category.pointsPerKg);
@@ -51,13 +49,13 @@ export function computePoints(category: Pick<Category, 'pointsPerKg'>, kg: numbe
 }
 
 /** Sempre false no modo demonstração: a sugestão enviada pelo cliente é só um palpite e não pode gerar bônus. */
-export function aiConfirmed(_d: DisposalRec, _category: Category): boolean {
+function aiConfirmed(_d: DisposalRec, _category: Category): boolean {
   return false;
 }
 
 // ---------------------------------------------------------------- transações
 
-export function credit(d: MockDb, userId: string, amount: number, type: TxRec['type'], description: string, at: string, disposalId: string | null = null): TxRec {
+function credit(d: MockDb, userId: string, amount: number, type: TxRec['type'], description: string, at: string, disposalId: string | null = null): TxRec {
   const user = d.users.find((u) => u.id === userId);
   if (!user) throw fail.notFound('Usuário não encontrado.');
   user.points += amount;
@@ -132,7 +130,7 @@ export function challengeProgress(d: MockDb, userId: string, c: ChallengeRec): n
 }
 
 /** Conclui desafios atingidos e credita o bônus (uma vez por desafio). */
-export function evaluateChallenges(d: MockDb, userId: string, at: string) {
+function evaluateChallenges(d: MockDb, userId: string, at: string) {
   const today = localDate(at);
   for (const c of d.challenges) {
     if (!c.active || today < c.startsAt || today > c.endsAt) continue;
@@ -184,7 +182,7 @@ export const BADGES: BadgeDef[] = [
   { code: 'GUARDIAO_2050', name: 'Guardião 2050', description: 'Alcançou 8.000 pontos acumulados.', icon: 'shield-check', tier: 'DIAMANTE', earned: (s) => s.totalEarned >= 8000 },
 ];
 
-export function badgeStats(d: MockDb, userId: string, at: string): BadgeStats {
+function badgeStats(d: MockDb, userId: string, at: string): BadgeStats {
   const user = d.users.find((u) => u.id === userId)!;
   const mine = d.disposals.filter((x) => x.userId === userId && x.status === 'APPROVED');
   const kgByCategory: Partial<Record<CategoryCode, number>> = {};

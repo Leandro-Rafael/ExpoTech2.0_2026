@@ -9,11 +9,11 @@ import { expireInspectionLock, inspectionLockRemaining } from '../logic/security
 import { clearSession, currentUser, issueCsrfCookie, refreshSession, sessionUserId, startSession } from '../session';
 import { route } from '../server';
 
-export const MAX_FAILED_LOGINS = 5;
-export const LOCK_MS = 15 * 60_000;
-export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const MAX_FAILED_LOGINS = 5;
+const LOCK_MS = 15 * 60_000;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-export function normalizeEmail(v: unknown): string {
+function normalizeEmail(v: unknown): string {
   return typeof v === 'string' ? v.trim().toLowerCase() : '';
 }
 

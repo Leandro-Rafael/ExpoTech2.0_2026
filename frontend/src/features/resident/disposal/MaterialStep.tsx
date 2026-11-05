@@ -16,7 +16,7 @@ export interface Suggestion {
   labels?: { className: string; probability: number }[];
 }
 
-export function confidenceWord(c: number) {
+function confidenceWord(c: number) {
   return c >= 0.75 ? 'alta' : c >= 0.45 ? 'média' : 'baixa';
 }
 

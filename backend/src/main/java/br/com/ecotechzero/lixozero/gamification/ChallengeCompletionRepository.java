@@ -8,6 +8,4 @@ import java.util.UUID;
 public interface ChallengeCompletionRepository extends JpaRepository<ChallengeCompletion, UUID> {
 
     List<ChallengeCompletion> findByUserId(UUID userId);
-
-    boolean existsByUserIdAndChallengeId(UUID userId, UUID challengeId);
 }

@@ -25,7 +25,7 @@ export function isModelLoaded() {
 }
 
 /** Carrega (uma vez) o modelo; `onProgress` recebe 0..1 do download dos pesos. */
-export function loadModel(onProgress?: (p: number) => void): Promise<mobilenet.MobileNet> {
+function loadModel(onProgress?: (p: number) => void): Promise<mobilenet.MobileNet> {
   if (onProgress) { listeners.add(onProgress); onProgress(lastProgress); }
   if (!modelPromise) {
     modelPromise = (async () => {
@@ -52,6 +52,3 @@ export async function classify(image: HTMLCanvasElement | HTMLImageElement, onPr
   return mapPredictions(preds);
 }
 
-export function backendName(): string {
-  return tf.getBackend() ?? 'cpu';
-}

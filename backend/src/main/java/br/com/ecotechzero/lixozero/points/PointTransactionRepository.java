@@ -11,8 +11,6 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
 
     Page<PointTransaction> findByUserId(UUID userId, Pageable pageable);
 
-    boolean existsByDisposalIdAndType(UUID disposalId, PointTransactionType type);
-
     @Query("""
             select coalesce(sum(t.amount), 0) from PointTransaction t
             where t.type in (br.com.ecotechzero.lixozero.points.PointTransactionType.EARN,

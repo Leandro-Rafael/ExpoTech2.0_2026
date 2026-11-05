@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn';
 import { controlClasses } from './Input';
 import { useFieldA11y } from './Field';
 
-export interface SelectOption { value: string; label: string; disabled?: boolean }
+interface SelectOption { value: string; label: string; disabled?: boolean }
 
 export interface SelectProps extends Omit<ComponentPropsWithRef<'select'>, 'size'> {
   options?: SelectOption[];

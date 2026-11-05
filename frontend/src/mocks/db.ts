@@ -9,7 +9,7 @@ import type {
 } from '@/api/types';
 import { seedDatabase } from './seed';
 
-export const STORAGE_KEY = 'lixozero2050.mockdb';
+const STORAGE_KEY = 'lixozero2050.mockdb';
 const SCHEMA_VERSION = 4;
 
 export interface UserRec {
@@ -85,7 +85,7 @@ export interface TxRec {
   disposalId: UUID | null;
 }
 
-export interface UserBadgeRec { userId: UUID; code: string; awardedAt: string }
+interface UserBadgeRec { userId: UUID; code: string; awardedAt: string }
 
 export interface ChallengeRec {
   id: UUID;
@@ -100,7 +100,7 @@ export interface ChallengeRec {
   active: boolean;
 }
 
-export interface CompletionRec { userId: UUID; challengeId: UUID; at: string }
+interface CompletionRec { userId: UUID; challengeId: UUID; at: string }
 
 export interface RedemptionRec {
   id: UUID;
@@ -133,7 +133,7 @@ export interface CollectionRequestRec {
   smartBinId: UUID | null;
 }
 
-export interface RouteStopRec extends RouteStop { collectedKg: number | null }
+interface RouteStopRec extends RouteStop { collectedKg: number | null }
 
 export interface RouteRec {
   id: UUID;
@@ -163,7 +163,7 @@ export interface HouseholdRec {
   createdAt: string;
 }
 
-export interface BinReadingRec { fillLevel: number; batteryLevel: number; at: string }
+interface BinReadingRec { fillLevel: number; batteryLevel: number; at: string }
 
 export interface SmartBinRec {
   id: UUID;
@@ -261,10 +261,6 @@ export function resetDb() {
   try { localStorage.removeItem(STORAGE_KEY); } catch { /* */ }
   current = seedDatabase(SCHEMA_VERSION, new Date());
   save();
-}
-
-export function newId(): UUID {
-  return crypto.randomUUID();
 }
 
 export function nowIso(): string {

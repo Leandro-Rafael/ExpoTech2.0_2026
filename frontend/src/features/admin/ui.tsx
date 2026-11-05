@@ -111,19 +111,6 @@ export function Meter({ value, tone = 'brand', mark, label, className, height = 
   );
 }
 
-/** Título de bloco dentro de página (h2 da página fica com Fraunces via CSS; aqui usamos h3). */
-export function BlockTitle({ title, meta, action, className }: { title: ReactNode; meta?: ReactNode; action?: ReactNode; className?: string }) {
-  return (
-    <div className={cn('mb-3 flex items-end justify-between gap-4', className)}>
-      <div className="min-w-0">
-        <h3 className="text-[15px] font-semibold text-fg">{title}</h3>
-        {meta && <p className="mt-0.5 text-[13px] text-muted">{meta}</p>}
-      </div>
-      {action && <div className="shrink-0">{action}</div>}
-    </div>
-  );
-}
-
 /** Par rótulo/valor compacto (detalhes). */
 export function Detail({ label, children, mono, className }: { label: ReactNode; children: ReactNode; mono?: boolean; className?: string }) {
   return (

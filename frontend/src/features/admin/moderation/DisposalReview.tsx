@@ -14,9 +14,9 @@ import { formatDateTime, formatKg, formatNumber, formatPercent, formatRelative }
 import { aiSource, categoryFallback, disposalStatus } from '@/lib/labels';
 import { Detail, Kbd, Meter } from '../ui';
 
-export const FLAG_THRESHOLD = 40;
+const FLAG_THRESHOLD = 40;
 
-export function fraudTone(score: number): 'danger' | 'warning' | 'neutral' {
+function fraudTone(score: number): 'danger' | 'warning' | 'neutral' {
   if (score >= 70) return 'danger';
   if (score >= FLAG_THRESHOLD) return 'warning';
   return 'neutral';
@@ -26,7 +26,7 @@ export function aiMismatch(d: Disposal): boolean {
   return !!d.ai?.suggestedCode && d.ai.suggestedCode !== d.category.code;
 }
 
-export function codeName(code: CategoryCode | null | undefined, categories?: Category[]): string {
+function codeName(code: CategoryCode | null | undefined, categories?: Category[]): string {
   if (!code) return '—';
   return categories?.find((c) => c.code === code)?.name ?? categoryFallback[code].name;
 }

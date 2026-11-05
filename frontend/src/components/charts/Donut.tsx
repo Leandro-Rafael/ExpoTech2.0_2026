@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn';
 import { ChartTooltip } from './ChartTooltip';
 import { chartTheme, type ValueFormatter } from './theme';
 
-export interface DonutDatum { name: string; value: number; color: string }
+interface DonutDatum { name: string; value: number; color: string }
 
 export interface DonutProps {
   data: DonutDatum[];

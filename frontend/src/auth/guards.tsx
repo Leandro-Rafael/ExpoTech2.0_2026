@@ -13,7 +13,7 @@ import { FullscreenLoader } from '@/components/layout/FullscreenLoader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ButtonLink } from '@/components/ui/Button';
 
-export function loginPath(from: string) {
+function loginPath(from: string) {
   return from && from !== '/' ? `/entrar?redirect=${encodeURIComponent(from)}` : '/entrar';
 }
 

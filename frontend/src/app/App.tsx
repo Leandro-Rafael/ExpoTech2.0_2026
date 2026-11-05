@@ -6,7 +6,7 @@ import { ApiError } from '@/api/client';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { router } from './router';
 
-export const queryClient = new QueryClient({
+const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,

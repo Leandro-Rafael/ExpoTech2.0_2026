@@ -5,7 +5,7 @@
  */
 import type { CategoryCode } from '@/api/types';
 
-export const LABEL_KEYWORDS: Record<Exclude<CategoryCode, 'REJEITO'>, string[]> = {
+const LABEL_KEYWORDS: Record<Exclude<CategoryCode, 'REJEITO'>, string[]> = {
   PLASTICO: [
     'water bottle', 'pop bottle', 'soda bottle', 'plastic bag', 'water jug', 'pill bottle', 'lotion', 'sunscreen',
     'packet', 'bucket', 'pail', 'shower cap', 'syringe', 'bubble', 'balloon', 'toothbrush', 'plunger', 'lighter',

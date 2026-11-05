@@ -9,7 +9,7 @@ import type { MockDb, UserRec } from './db';
 const SESSION_KEY = 'lixozero2050.mock.session';
 const ACCESS_TTL_MS = 15 * 60_000;
 const REFRESH_TTL_MS = 7 * 24 * 3600_000;
-export const CSRF_COOKIE = 'XSRF-TOKEN';
+const CSRF_COOKIE = 'XSRF-TOKEN';
 
 interface MockSession { sid: string; userId: string; epoch: number; accessExp: number; refreshExp: number }
 
@@ -67,7 +67,7 @@ export function refreshSession(d: MockDb): UserRec | null {
 
 // ---------------------------------------------------------------- CSRF
 
-export function readCsrfCookie(): string | null {
+function readCsrfCookie(): string | null {
   const m = document.cookie.split('; ').find((c) => c.startsWith(`${CSRF_COOKIE}=`));
   return m ? decodeURIComponent(m.slice(CSRF_COOKIE.length + 1)) : null;
 }

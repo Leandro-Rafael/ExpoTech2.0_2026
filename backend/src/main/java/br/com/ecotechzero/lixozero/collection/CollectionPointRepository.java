@@ -13,6 +13,4 @@ public interface CollectionPointRepository extends JpaRepository<CollectionPoint
 
     @EntityGraph(attributePaths = "categories")
     List<CollectionPoint> findAllByOrderByName();
-
-    long countByActiveTrue();
 }

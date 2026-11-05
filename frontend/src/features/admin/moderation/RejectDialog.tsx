@@ -7,7 +7,7 @@ import { Button, Field, Modal, Textarea } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatKg } from '@/lib/format';
 
-export const REJECT_PRESETS = [
+const REJECT_PRESETS = [
   'A foto não corresponde ao material declarado.',
   'Foto duplicada ou reaproveitada de outro envio.',
   'Quantidade incompatível com o que aparece na foto.',

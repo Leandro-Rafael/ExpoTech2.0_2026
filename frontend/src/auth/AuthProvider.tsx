@@ -12,7 +12,7 @@ import { authApi, type LoginInput, type RegisterInput } from '@/api/auth';
 import { qk } from '@/api/queries';
 import type { Role, UserMe } from '@/api/types';
 
-export type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
+type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 
 interface AuthContextValue {
   user: UserMe | null;

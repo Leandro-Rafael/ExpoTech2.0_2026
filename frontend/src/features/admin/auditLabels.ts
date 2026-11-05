@@ -81,8 +81,6 @@ export function auditMeta(action: string): { label: string; group: AuditGroup; t
   return { label: m[0], group: m[1], tone: m[2] ?? AUDIT_GROUPS[m[1]].tone };
 }
 
-export const KNOWN_ACTIONS = Object.keys(A);
-
 /**
  * Opções do filtro "ação" (para o filtro no servidor): códigos com o mesmo rótulo viram uma opção só
  * (ex.: SECURITY_INSPECTION_LOCK e INSPECTION_LOCKED). `value` = códigos separados por vírgula.

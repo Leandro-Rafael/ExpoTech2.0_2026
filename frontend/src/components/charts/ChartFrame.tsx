@@ -2,10 +2,10 @@ import { useId, useState, type ReactNode } from 'react';
 import { Table2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
-export interface LegendItem { label: string; color: string; dashed?: boolean }
+interface LegendItem { label: string; color: string; dashed?: boolean }
 
 /** Legenda em HTML: amostra colorida + texto em tinta neutra (texto nunca usa a cor da série). */
-export function ChartLegend({ items, className }: { items: LegendItem[]; className?: string }) {
+function ChartLegend({ items, className }: { items: LegendItem[]; className?: string }) {
   if (items.length < 2) return null;
   return (
     <ul className={cn('flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted', className)}>
@@ -23,7 +23,7 @@ export function ChartLegend({ items, className }: { items: LegendItem[]; classNa
   );
 }
 
-export interface ChartTable {
+interface ChartTable {
   columns: string[];
   rows: (string | number)[][];
 }

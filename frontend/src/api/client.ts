@@ -14,10 +14,10 @@
 import type { ApiProblem } from './types';
 import { errorCodeMessage } from '@/lib/labels';
 
-export const API_BASE = '/api';
+const API_BASE = '/api';
 
-export type QueryValue = string | number | boolean | null | undefined;
-export type QueryParams = Record<string, QueryValue | QueryValue[]>;
+type QueryValue = string | number | boolean | null | undefined;
+type QueryParams = Record<string, QueryValue | QueryValue[]>;
 
 export interface RequestOptions {
   query?: QueryParams;
@@ -109,7 +109,7 @@ export function onAccountLocked(fn: LockedListener): () => void {
 
 // ---------------------------------------------------------------- CSRF
 
-export function readCookie(name: string): string | null {
+function readCookie(name: string): string | null {
   const match = document.cookie.split('; ').find((c) => c.startsWith(`${name}=`));
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
 }
@@ -172,7 +172,7 @@ function csrfHeaders(method: string): Record<string, string> {
   return token ? { 'X-XSRF-TOKEN': token } : {};
 }
 
-export function buildUrl(path: string, query?: QueryParams): string {
+function buildUrl(path: string, query?: QueryParams): string {
   const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
   if (!query) return url;
   const sp = new URLSearchParams();

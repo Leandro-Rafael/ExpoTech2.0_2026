@@ -28,6 +28,3 @@ export function addDays(date: string, days: number): string {
 export const HOUR = 3600_000;
 export const DAY = 24 * HOUR;
 
-export function isoMinus(base: Date, ms: number): string {
-  return new Date(base.getTime() - ms).toISOString();
-}

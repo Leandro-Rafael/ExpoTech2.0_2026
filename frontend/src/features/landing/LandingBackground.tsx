@@ -25,7 +25,7 @@ function AmbientGlow() {
  * Usado na primeira pintura, com movimento reduzido e como fallback sem WebGL/GPU fraca:
  * o visual é o mesmo da cena animada.
  */
-export function StaticBackdrop({ className }: { className?: string }) {
+function StaticBackdrop({ className }: { className?: string }) {
   return (
     <picture aria-hidden className={cn('absolute inset-0', className)}>
       <source media="(max-width: 767px)" srcSet="/scene/ring-mobile.webp" type="image/webp" />

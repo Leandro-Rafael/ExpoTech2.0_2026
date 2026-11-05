@@ -28,7 +28,7 @@ const RESIZE_DEBOUNCE_MS = 250;
 
 interface Sample { dh: number; ow: number; oh: number; dpr: number }
 
-export function isDesktopPointer(): boolean {
+function isDesktopPointer(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
   const fine = window.matchMedia('(pointer: fine)').matches;
   const coarse = window.matchMedia('(any-pointer: coarse)').matches;

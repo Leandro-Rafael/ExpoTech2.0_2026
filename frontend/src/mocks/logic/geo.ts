@@ -14,7 +14,7 @@ export function haversineKm(a: GeoPoint, b: GeoPoint): number {
 export const DEFAULT_DEPOT: GeoPoint = { latitude: -23.6019, longitude: -46.7526 };
 
 /** Coordenadas aproximadas dos bairros usados na demo. */
-export const NEIGHBORHOODS: Record<string, GeoPoint> = {
+const NEIGHBORHOODS: Record<string, GeoPoint> = {
   'Jardim Maria Rosa': { latitude: -23.6040, longitude: -46.7555 },
   'Parque Pinheiros': { latitude: -23.6125, longitude: -46.7680 },
   'Centro': { latitude: -23.6225, longitude: -46.7835 },
@@ -29,7 +29,7 @@ export const NEIGHBORHOODS: Record<string, GeoPoint> = {
   'Jardim Umarizal': { latitude: -23.6285, longitude: -46.7485 },
 };
 
-export const CITY_CENTER: GeoPoint = { latitude: -23.6090, longitude: -46.7580 };
+const CITY_CENTER: GeoPoint = { latitude: -23.6090, longitude: -46.7580 };
 
 export function neighborhoodPoint(name: string): GeoPoint {
   return NEIGHBORHOODS[name] ?? CITY_CENTER;

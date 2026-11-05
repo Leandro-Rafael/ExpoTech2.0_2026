@@ -21,11 +21,3 @@ export function hexAlpha(hex: string, alpha: number): string {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
-/** Estilo pronto para "chip" de categoria: fundo tingido + borda + texto. */
-export function categoryChipStyle(color: string): CSSProperties {
-  return {
-    backgroundColor: hexAlpha(color, 0.14),
-    borderColor: hexAlpha(color, 0.35),
-    color,
-  };
-}

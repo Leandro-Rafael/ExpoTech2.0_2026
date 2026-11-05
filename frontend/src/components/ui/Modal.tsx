@@ -87,5 +87,3 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   );
 }
 
-/** Alias semântico. */
-export const Dialog = Modal;

@@ -11,7 +11,7 @@ import { inspectionLockRemaining } from './logic/security';
 import { csrfValid, currentUser, sessionUserId } from './session';
 
 /** `public` = sem login; `user` = qualquer usuário logado; demais = papéis permitidos. */
-export type Access = 'public' | 'user' | Role[];
+type Access = 'public' | 'user' | Role[];
 
 interface RouteDef {
   method: string;
@@ -78,7 +78,7 @@ async function parseBody(req: Request): Promise<{ body: unknown; form: FormData 
 }
 
 /** Despacha uma requisição para o handler correspondente. */
-export async function handle(req: Request): Promise<Response> {
+async function handle(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const method = req.method.toUpperCase();
   try {

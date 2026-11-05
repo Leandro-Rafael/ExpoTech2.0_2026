@@ -22,7 +22,7 @@ export interface FieldProps {
   children: ReactElement | ((a11y: FieldA11yProps) => ReactNode);
 }
 
-export interface FieldA11yProps {
+interface FieldA11yProps {
   id: string;
   'aria-invalid'?: true;
   'aria-describedby'?: string;

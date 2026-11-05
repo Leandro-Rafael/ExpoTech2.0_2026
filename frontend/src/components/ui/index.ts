@@ -23,6 +23,4 @@ export * from './Spinner';
 export * from './StatTile';
 export * from './Tabs';
 export * from './Textarea';
-export * from './Tooltip';
-export { useFocusTrap, useScrollLock } from './useFocusTrap';
-export { toast } from 'sonner';
+export * from './Tooltip';export { toast } from 'sonner';

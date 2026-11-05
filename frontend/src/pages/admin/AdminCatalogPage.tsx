@@ -1,37 +1,31 @@
-import { useState } from 'react';
-import { useSearchParams } from 'react-router';
-import { PageHeader, TabPanel, Tabs } from '@/components/ui';
+import type { ReactNode } from 'react';
+import { TabbedPage } from '@/components/layout/TabbedPage';
+import { PageHeader } from '@/components/ui';
 import { CategoriesTab } from '@/features/admin/catalog/CategoriesTab';
 import { RewardsTab } from '@/features/admin/catalog/RewardsTab';
 import { ChallengesTab } from '@/features/admin/catalog/ChallengesTab';
 import { GoalsTab, OrganizationsTab } from '@/features/admin/catalog/OrgsGoalsTabs';
+import { SectionHeading } from '@/features/resident/shared';
 
-const TABS = [
-  { value: 'categorias', label: 'Categorias' },
-  { value: 'recompensas', label: 'Recompensas' },
-  { value: 'desafios', label: 'Desafios' },
-  { value: 'organizacoes', label: 'Organizações' },
-  { value: 'metas', label: 'Metas' },
-] as const;
-type TabValue = (typeof TABS)[number]['value'];
+function Block({ title, children }: { title: string; children: ReactNode }) {
+  return <section aria-label={title}><SectionHeading title={title} />{children}</section>;
+}
 
 export default function AdminCatalogPage() {
-  const [params, setParams] = useSearchParams();
-  const initial = (TABS.find((t) => t.value === params.get('aba'))?.value ?? 'categorias') as TabValue;
-  const [tab, setTab] = useState<TabValue>(initial);
-  const change = (v: TabValue) => { setTab(v); setParams({ aba: v }, { replace: true }); };
-
   return (
     <>
       <PageHeader eyebrow="Administração" title="Catálogo" description="Materiais, recompensas, desafios, organizações e metas de reciclagem da plataforma." />
-      <Tabs<TabValue> idBase="cat" variant="underline" items={[...TABS]} value={tab} onChange={change} className="mb-6" aria-label="Seções do catálogo" />
-      <TabPanel idBase="cat" value={tab}>
-        {tab === 'categorias' && <CategoriesTab />}
-        {tab === 'recompensas' && <RewardsTab />}
-        {tab === 'desafios' && <ChallengesTab />}
-        {tab === 'organizacoes' && <OrganizationsTab />}
-        {tab === 'metas' && <GoalsTab />}
-      </TabPanel>
+      <TabbedPage idBase="cat" label="Seções do catálogo" tabs={[
+        { value: 'categorias', label: 'Categorias', element: <CategoriesTab /> },
+        {
+          value: 'recompensas', label: 'Recompensas e desafios', aliases: ['desafios'],
+          element: <div className="space-y-12"><Block title="Recompensas"><RewardsTab /></Block><Block title="Desafios"><ChallengesTab /></Block></div>,
+        },
+        {
+          value: 'organizacoes', label: 'Organizações e metas', aliases: ['metas'],
+          element: <div className="space-y-12"><Block title="Organizações"><OrganizationsTab /></Block><Block title="Metas"><GoalsTab /></Block></div>,
+        },
+      ]} />
     </>
   );
 }

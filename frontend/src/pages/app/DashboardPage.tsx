@@ -142,7 +142,7 @@ export default function DashboardPage() {
 
         {/* Desafios */}
         <section aria-labelledby="ch-h">
-          <SectionHeading id="ch-h" title="Desafios ativos" description="Bônus extra ao completar." action={<TextLink to="/app/conquistas">Conquistas</TextLink>} />
+          <SectionHeading id="ch-h" title="Desafios ativos" description="Bônus extra ao completar." action={<TextLink to="/app/recompensas?aba=conquistas">Conquistas</TextLink>} />
           {summary.isPending ? <SkeletonText lines={4} /> : summary.error ? (
             <ErrorState compact error={summary.error} onRetry={summary.refetch} />
           ) : activeChallenges.length === 0 ? (
@@ -197,8 +197,8 @@ export default function DashboardPage() {
             {[
               { to: '/app/mapa', icon: MapPinned, label: 'Ecoponto mais perto', hint: 'Mapa com horários e materiais aceitos' },
               { to: '/app/recompensas', icon: Gift, label: 'Trocar pontos', hint: `${formatNumber(user.points)} pts disponíveis` },
-              { to: '/app/ranking', icon: Trophy, label: 'Ranking do mês', hint: 'Pessoas, residências e bairros' },
-              { to: '/app/conquistas', icon: Medal, label: 'Medalhas e níveis', hint: `${summary.data?.badges.filter((b) => b.earned).length ?? '—'} medalhas conquistadas` },
+              { to: '/app/recompensas?aba=ranking', icon: Trophy, label: 'Ranking do mês', hint: 'Pessoas, residências e bairros' },
+              { to: '/app/recompensas?aba=conquistas', icon: Medal, label: 'Medalhas e níveis', hint: `${summary.data?.badges.filter((b) => b.earned).length ?? '—'} medalhas conquistadas` },
             ].map((a) => (
               <li key={a.to}>
                 <Link to={a.to} className="group flex items-center gap-4 py-3.5 transition-colors hover:bg-white/[0.015]">

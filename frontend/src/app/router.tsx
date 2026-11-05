@@ -4,7 +4,8 @@
  * e, se precisar de menu, adicione em src/app/navigation.ts.
  */
 import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
-import { createBrowserRouter, Outlet, useLocation } from 'react-router';
+import { createBrowserRouter, Navigate, Outlet, useLocation } from 'react-router';
+import { useUser } from '@/auth/AuthProvider';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole } from '@/auth/guards';
 import { AppShell } from '@/components/layout/AppShell';
 import { RouteErrorPage } from '@/components/layout/ErrorBoundary';
@@ -12,6 +13,9 @@ import { AuthSkeleton } from '@/features/auth/AuthSkeleton';
 
 type Loader = () => Promise<{ default: ComponentType }>;
 const page = (loader: Loader): LazyExoticComponent<ComponentType> => lazy(loader);
+const hub = (name: keyof typeof import('./hubs')) => page(() => import('./hubs').then((m) => ({ default: m[name] })));
+/** Endereço antigo que agora é uma aba de outra tela. */
+const moved = (path: string, to: string) => ({ path, element: <Navigate to={to} replace /> });
 
 // Públicas
 // Landing importada de imediato: primeira pintura sem loader (three/gsap/lenis e as seções
@@ -32,27 +36,28 @@ const NotFoundPage = page(() => import('@/pages/public/NotFoundPage'));
 // Morador
 const DashboardPage = page(() => import('@/pages/app/DashboardPage'));
 const NewDisposalPage = page(() => import('@/pages/app/NewDisposalPage'));
-const DisposalsPage = page(() => import('@/pages/app/DisposalsPage'));
-const RewardsPage = page(() => import('@/pages/app/RewardsPage'));
-const AchievementsPage = page(() => import('@/pages/app/AchievementsPage'));
-const RankingPage = page(() => import('@/pages/app/RankingPage'));
+const DisposalsHub = hub('DisposalsHub');
+const RewardsHub = hub('RewardsHub');
 const MapPage = page(() => import('@/pages/app/MapPage'));
 const HomePage = page(() => import('@/pages/app/HomePage'));
-const ImpactPage = page(() => import('@/pages/app/ImpactPage'));
 const ProfilePage = page(() => import('@/pages/app/ProfilePage'));
 
 // Coletor
 const CollectorRoutesPage = page(() => import('@/pages/collector/CollectorRoutesPage'));
 
 // Admin
-const AdminOverviewPage = page(() => import('@/pages/admin/AdminOverviewPage'));
-const AdminDisposalsPage = page(() => import('@/pages/admin/AdminDisposalsPage'));
-const AdminUsersPage = page(() => import('@/pages/admin/AdminUsersPage'));
-const AdminCollectionsPage = page(() => import('@/pages/admin/AdminCollectionsPage'));
-const AdminCollectionPointsPage = page(() => import('@/pages/admin/AdminCollectionPointsPage'));
+const AdminOverviewHub = hub('AdminOverviewHub');
+const AdminModerationHub = hub('AdminModerationHub');
+const AdminCollectionsHub = hub('AdminCollectionsHub');
 const AdminCatalogPage = page(() => import('@/pages/admin/AdminCatalogPage'));
-const AdminBinsPage = page(() => import('@/pages/admin/AdminBinsPage'));
-const AdminAuditPage = page(() => import('@/pages/admin/AdminAuditPage'));
+
+/** Tela inicial de cada perfil: coletor e admin começam na própria área. */
+function HomeByRole() {
+  const { role } = useUser();
+  if (role === 'COLLECTOR') return <Navigate to="/app/coletor" replace />;
+  if (role === 'ADMIN') return <Navigate to="/app/admin" replace />;
+  return <DashboardPage />;
+}
 
 /** Layout das páginas públicas (sem shell). */
 function PublicLayout() {
@@ -82,15 +87,15 @@ export const router = createBrowserRouter([
         path: 'app',
         element: <RequireAuth><AppShell /></RequireAuth>,
         children: [
-          { index: true, element: <DashboardPage /> },
+          { index: true, element: <HomeByRole /> },
           { path: 'descartar', element: <NewDisposalPage /> },
-          { path: 'descartes', element: <DisposalsPage /> },
-          { path: 'recompensas', element: <RewardsPage /> },
-          { path: 'conquistas', element: <AchievementsPage /> },
-          { path: 'ranking', element: <RankingPage /> },
+          { path: 'descartes', element: <DisposalsHub /> },
+          { path: 'recompensas', element: <RewardsHub /> },
+          moved('conquistas', '/app/recompensas?aba=conquistas'),
+          moved('ranking', '/app/recompensas?aba=ranking'),
+          moved('impacto', '/app/descartes?aba=impacto'),
           { path: 'mapa', element: <MapPage /> },
           { path: 'casa', element: <HomePage /> },
-          { path: 'impacto', element: <ImpactPage /> },
           { path: 'perfil', element: <ProfilePage /> },
           {
             path: 'coletor',
@@ -101,14 +106,14 @@ export const router = createBrowserRouter([
             path: 'admin',
             element: <RequireRole roles={['ADMIN']} />,
             children: [
-              { index: true, element: <AdminOverviewPage /> },
-              { path: 'descartes', element: <AdminDisposalsPage /> },
-              { path: 'usuarios', element: <AdminUsersPage /> },
-              { path: 'coletas', element: <AdminCollectionsPage /> },
-              { path: 'ecopontos', element: <AdminCollectionPointsPage /> },
+              { index: true, element: <AdminOverviewHub /> },
+              { path: 'descartes', element: <AdminModerationHub /> },
+              { path: 'coletas', element: <AdminCollectionsHub /> },
               { path: 'catalogo', element: <AdminCatalogPage /> },
-              { path: 'lixeiras', element: <AdminBinsPage /> },
-              { path: 'auditoria', element: <AdminAuditPage /> },
+              moved('auditoria', '/app/admin?aba=auditoria'),
+              moved('usuarios', '/app/admin/descartes?aba=usuarios'),
+              moved('ecopontos', '/app/admin/coletas?aba=ecopontos'),
+              moved('lixeiras', '/app/admin/coletas?aba=lixeiras'),
             ],
           },
           { path: '*', element: <NotFoundPage /> },

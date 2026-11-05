@@ -7,19 +7,18 @@ import { useUser } from '@/auth/AuthProvider';
 import { iconByName } from '@/components/icons';
 import {
   Button, ButtonLink, ConfirmDialog, EmptyState, ErrorState, Modal, PageHeader, Pagination, ProgressBar, SkeletonText,
-  StatusPill, TabPanel, Tabs, toast,
+  StatusPill, toast,
 } from '@/components/ui';
+import { useSetTab } from '@/components/layout/TabbedPage';
 import { CopyButton } from '@/features/resident/shared';
 import { useCountUpText } from '@/hooks/useCountUp';
 import { cn } from '@/lib/cn';
 import { formatDate, formatDateTime, formatNumber, formatRelative } from '@/lib/format';
 import { pointTransactionType, redemptionStatus } from '@/lib/labels';
 
-type View = 'catalog' | 'mine' | 'ledger';
-
-export default function RewardsPage() {
+export default function RewardsPage({ view }: { view: 'catalog' | 'mine' | 'ledger' }) {
   const user = useUser();
-  const [view, setView] = useState<View>('catalog');
+  const setTab = useSetTab();
   const rewards = useRewards();
   const redemptions = useRedemptions();
   const redeem = useRedeemReward();
@@ -30,7 +29,6 @@ export default function RewardsPage() {
   const catalog = useMemo(() => [...(rewards.data ?? [])].filter((r) => r.active).sort((a, b) => a.costPoints - b.costPoints), [rewards.data]);
   const nextGoal = catalog.find((r) => r.costPoints > user.points && r.stock > 0);
   const available = catalog.filter((r) => r.costPoints <= user.points && r.stock > 0).length;
-  const issued = redemptions.data?.filter((r) => r.status === 'ISSUED').length ?? 0;
 
   const doRedeem = () => {
     if (!confirm) return;
@@ -68,27 +66,17 @@ export default function RewardsPage() {
         </div>
       </section>
 
-      <Tabs idBase="rw" aria-label="Seções de recompensas" variant="underline" value={view} onChange={setView}
-        items={[
-          { value: 'catalog', label: 'Catálogo', count: catalog.length || undefined },
-          { value: 'mine', label: 'Meus resgates', count: issued || undefined },
-          { value: 'ledger', label: 'Extrato de pontos' },
-        ]} />
-
-      <TabPanel idBase="rw" value="catalog" className={cn('pt-6', view !== 'catalog' && 'hidden')}>
-        {rewards.isPending ? <SkeletonText lines={8} /> : rewards.error ? <ErrorState error={rewards.error} onRetry={rewards.refetch} /> :
+      {view === 'catalog' && (rewards.isPending ? <SkeletonText lines={8} /> : rewards.error ? <ErrorState error={rewards.error} onRetry={rewards.refetch} /> :
           catalog.length === 0 ? <EmptyState icon={Gift} title="Catálogo vazio no momento" description="Novas recompensas de parceiros chegam em breve." /> : (
             <ul className="grid grid-cols-1 gap-x-12 lg:grid-cols-2">
               {catalog.map((r) => <RewardRow key={r.id} r={r} balance={user.points} onRedeem={() => setConfirm(r)} />)}
             </ul>
-          )}
-      </TabPanel>
+          ))}
 
-      <TabPanel idBase="rw" value="mine" className={cn('pt-6', view !== 'mine' && 'hidden')}>
-        {redemptions.isPending ? <SkeletonText lines={5} /> : redemptions.error ? <ErrorState error={redemptions.error} onRetry={redemptions.refetch} /> :
+      {view === 'mine' && (redemptions.isPending ? <SkeletonText lines={5} /> : redemptions.error ? <ErrorState error={redemptions.error} onRetry={redemptions.refetch} /> :
           redemptions.data.length === 0 ? (
             <EmptyState icon={Ticket} title="Nenhum resgate ainda" description="Quando você trocar pontos, o código do voucher aparece aqui para usar no parceiro."
-              action={<Button variant="secondary" onClick={() => setView('catalog')}>Ver catálogo</Button>} />
+              action={<Button variant="secondary" onClick={() => setTab('catalogo')}>Ver catálogo</Button>} />
           ) : (
             <ul className="divide-y divide-line border-y border-line">
               {redemptions.data.map((r) => {
@@ -111,12 +99,9 @@ export default function RewardsPage() {
                 );
               })}
             </ul>
-          )}
-      </TabPanel>
+          ))}
 
-      <TabPanel idBase="rw" value="ledger" className={cn('pt-6', view !== 'ledger' && 'hidden')}>
-        {view === 'ledger' && <Ledger />}
-      </TabPanel>
+      {view === 'ledger' && <Ledger />}
 
       <ConfirmDialog
         open={!!confirm}
@@ -138,7 +123,7 @@ export default function RewardsPage() {
 
       <Modal open={!!voucher} onClose={() => setVoucher(null)} title="Seu voucher está pronto" size="sm"
         description={voucher ? voucher.reward.name : undefined}
-        footer={<><Button variant="ghost" onClick={() => { setVoucher(null); setView('mine'); }}>Ver meus resgates</Button><Button onClick={() => setVoucher(null)}>Concluir</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => { setVoucher(null); setTab('resgates'); }}>Ver meus resgates</Button><Button onClick={() => setVoucher(null)}>Concluir</Button></>}>
         {voucher && (
           <div className="text-center">
             <p className="label-mono">Código</p>

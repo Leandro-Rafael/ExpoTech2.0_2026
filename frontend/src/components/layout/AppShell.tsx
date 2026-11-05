@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router';
 import { motion } from 'motion/react';
 import { ScanLine } from 'lucide-react';
 import { titleForPath } from '@/app/navigation';
+import { useAuth } from '@/auth/AuthProvider';
 import { ButtonLink, PageSkeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -24,6 +25,7 @@ function readCollapsed() {
  */
 export function AppShell() {
   const location = useLocation();
+  const resident = useAuth().user?.role === 'USER';
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const title = titleForPath(location.pathname);
 
@@ -49,10 +51,14 @@ export function AppShell() {
               {title && <p className="hidden truncate text-sm font-medium text-fg-soft lg:block">{title}</p>}
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <ButtonLink to="/app/descartar" size="md" leftIcon={ScanLine} className="max-md:hidden">
-                Registrar descarte
-              </ButtonLink>
-              <PointsChip className="max-sm:hidden" />
+              {resident && (
+                <>
+                  <ButtonLink to="/app/descartar" size="md" leftIcon={ScanLine} className="max-md:hidden">
+                    Registrar descarte
+                  </ButtonLink>
+                  <PointsChip className="max-sm:hidden" />
+                </>
+              )}
               <UserMenu />
             </div>
           </div>

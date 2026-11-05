@@ -65,8 +65,8 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         ))}
       </nav>
 
-      {user && !collapsed && (
-        <Link to="/app/conquistas" className="mx-3 mb-3 block rounded-xl border border-line p-4 transition-colors hover:border-line-strong hover:bg-white/[0.02]">
+      {user?.role === 'USER' && !collapsed && (
+        <Link to="/app/recompensas?aba=conquistas" className="mx-3 mb-3 block rounded-xl border border-line p-4 transition-colors hover:border-line-strong hover:bg-white/[0.02]">
           <div className="mb-2.5 flex items-baseline justify-between">
             <span className="label-mono">Nível {user.level.index + 1}</span>
             <span className="text-sm font-medium text-fg">{user.level.name}</span>

@@ -51,7 +51,7 @@ function Queues({ d }: { d: AdminOverview | undefined }) {
     { to: '/app/admin/descartes', icon: BadgeCheck, label: 'Descartes pendentes', value: d?.pendingDisposals, context: 'aguardando moderação', urgent: (d?.pendingDisposals ?? 0) > 0 },
     { to: '/app/admin/descartes', icon: ShieldAlert, label: 'Suspeitas de fraude', value: d?.flaggedDisposals, context: 'risco ≥ 40 na fila', urgent: (d?.flaggedDisposals ?? 0) > 0, danger: true },
     { to: '/app/admin/coletas', icon: Truck, label: 'Coletas em aberto', value: d?.openCollectionRequests, context: 'solicitadas, agendadas ou em rota' },
-    { to: '/app/admin/lixeiras', icon: Trash2, label: 'Lixeiras para coletar', value: d?.binsNeedingCollection, context: 'acima do limite automático', urgent: (d?.binsNeedingCollection ?? 0) > 0 },
+    { to: '/app/admin/coletas?aba=lixeiras', icon: Trash2, label: 'Lixeiras para coletar', value: d?.binsNeedingCollection, context: 'acima do limite automático', urgent: (d?.binsNeedingCollection ?? 0) > 0 },
   ];
   return (
     <section aria-labelledby="q-title">
@@ -140,7 +140,7 @@ function RecentAudit({ d }: { d: AdminOverview | undefined }) {
     <section aria-labelledby="ra-title" className="surface flex min-w-0 flex-col rounded-2xl">
       <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3 sm:px-6">
         <h3 id="ra-title" className="text-[15px] font-semibold text-fg">Atividade recente</h3>
-        <Link to="/app/admin/auditoria" className="inline-flex items-center gap-1 text-[13px] text-muted transition-colors hover:text-fg">
+        <Link to="/app/admin?aba=auditoria" className="inline-flex items-center gap-1 text-[13px] text-muted transition-colors hover:text-fg">
           Auditoria <ArrowUpRight className="size-3.5" aria-hidden />
         </Link>
       </div>

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Crosshair, Cpu, MapPinned, RotateCcw, Sparkles, User, Warehouse } from 'lucide-react';
 import { errorMessage } from '@/api/client';
-import { useAdminCollectionRequests, useAdminRoutes, useCategories, useOptimizeRoutes } from '@/api/queries';
+import { useAdminCollectionRequests, useCategories, useOptimizeRoutes } from '@/api/queries';
 import type { CollectionRequest, CollectionRequestStatus, CollectionSource, GeoPoint, RouteOptimization } from '@/api/types';
-import { Button, EmptyState, ErrorState, NumberInput, PageHeader, Skeleton, StatusPill, TabPanel, Tabs, toast } from '@/components/ui';
+import { useSetTab } from '@/components/layout/TabbedPage';
+import { Button, EmptyState, ErrorState, NumberInput, PageHeader, Skeleton, StatusPill, toast } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatKg, formatRelative } from '@/lib/format';
 import { categoryFallback, collectionRequestStatus } from '@/lib/labels';
@@ -16,12 +17,11 @@ import { DEFAULT_CAPACITY_KG, DEFAULT_DEPOT, priorityTone } from '@/features/adm
 
 type StatusFilter = CollectionRequestStatus | 'OPEN' | 'ALL';
 type SourceFilter = CollectionSource | 'ALL';
-type Tab = 'plan' | 'routes';
 
 const OPEN: CollectionRequestStatus[] = ['REQUESTED', 'SCHEDULED', 'IN_ROUTE'];
 
-export default function AdminCollectionsPage() {
-  const [tab, setTab] = useState<Tab>('plan');
+export default function AdminCollectionsPage({ tab }: { tab: 'plan' | 'routes' }) {
+  const setTab = useSetTab();
   const [status, setStatus] = useState<StatusFilter>('REQUESTED');
   const [source, setSource] = useState<SourceFilter>('ALL');
   const [search, setSearch] = useState('');
@@ -37,7 +37,6 @@ export default function AdminCollectionsPage() {
 
   // Busca todas e filtra no cliente (contagens por status sem várias requisições).
   const all = useAdminCollectionRequests();
-  const routes = useAdminRoutes();
   const categories = useCategories();
   const optimize = useOptimizeRoutes();
 
@@ -105,14 +104,8 @@ export default function AdminCollectionsPage() {
         description="Escolha as solicitações em aberto, otimize o trajeto dos caminhões e transforme o plano em rotas para os coletores."
       />
 
-      <Tabs<Tab> idBase="col" variant="underline" value={tab} onChange={setTab} className="mb-6"
-        items={[
-          { value: 'plan', label: 'Planejamento', count: counts.REQUESTED },
-          { value: 'routes', label: 'Rotas', count: routes.data?.length },
-        ]} />
-
       {tab === 'plan' && (
-        <TabPanel idBase="col" value="plan">
+        <>
           <div className="grid gap-4 lg:grid-cols-[400px_minmax(0,1fr)]">
             {/* Lista */}
             <section aria-label="Solicitações de coleta" className="surface flex min-w-0 flex-col overflow-hidden rounded-2xl lg:h-[680px]">
@@ -216,18 +209,14 @@ export default function AdminCollectionsPage() {
                 capacityKg={result.capacity}
                 trips={result.data.routes.length}
                 disabled={stale}
-                onCreated={(rs) => { setCreated(new Set(rs.map((r) => r.id))); reset(); setTab('routes'); }}
+                onCreated={(rs) => { setCreated(new Set(rs.map((r) => r.id))); reset(); setTab('rotas'); }}
               />
             </div>
           )}
-        </TabPanel>
+        </>
       )}
 
-      {tab === 'routes' && (
-        <TabPanel idBase="col" value="routes">
-          <RoutesTab highlight={created} />
-        </TabPanel>
-      )}
+      {tab === 'routes' && <RoutesTab highlight={created} />}
     </>
   );
 }

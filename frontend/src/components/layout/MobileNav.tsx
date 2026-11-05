@@ -2,18 +2,29 @@ import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
 import { LayoutGrid, Plus } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
-import { MOBILE_TABS, PROFILE_ITEM, sectionsForRole } from '@/app/navigation';
+import { MOBILE_TABS, PROFILE_ITEM, sectionsForRole, type NavItem } from '@/app/navigation';
 import { Drawer } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { NavItemLink } from './Sidebar';
 import { PointsChip } from './UserMenu';
 
-/** Barra inferior (celular) com botão central "Registrar" e menu completo em sheet. */
+const TAB_CLASS = 'flex flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-medium';
+
+function MobileTab({ item }: { item: NavItem }) {
+  return (
+    <NavLink to={item.to} end={item.end} className={({ isActive }) => cn(TAB_CLASS, isActive ? 'text-fg' : 'text-subtle')}>
+      <item.icon className="size-5" aria-hidden />
+      {item.label}
+    </NavLink>
+  );
+}
+
+/** Barra inferior (celular) com botão central "Registrar" (morador) e menu completo em sheet. */
 export function MobileNav() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const sections = sectionsForRole(user?.role);
-  const tab = 'flex flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-medium';
+  const tabs = user ? MOBILE_TABS[user.role] : [];
 
   return (
     <>
@@ -22,13 +33,8 @@ export function MobileNav() {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <div className="mx-auto flex h-16 max-w-lg items-stretch px-2">
-          {MOBILE_TABS.slice(0, 2).map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(tab, isActive ? 'text-fg' : 'text-subtle')}>
-              <item.icon className="size-5" aria-hidden />
-              {item.label}
-            </NavLink>
-          ))}
-          <div className="flex flex-1 items-center justify-center">
+          {tabs.slice(0, 2).map((item) => <MobileTab key={item.to} item={item} />)}
+          {user?.role === 'USER' && <div className="flex flex-1 items-center justify-center">
             <Link
               to="/app/descartar"
               aria-label="Registrar descarte"
@@ -36,14 +42,9 @@ export function MobileNav() {
             >
               <Plus className="size-7" strokeWidth={2.5} aria-hidden />
             </Link>
-          </div>
-          {MOBILE_TABS.slice(2).map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cn(tab, isActive ? 'text-fg' : 'text-subtle')}>
-              <item.icon className="size-5" aria-hidden />
-              {item.label}
-            </NavLink>
-          ))}
-          <button type="button" onClick={() => setOpen(true)} className={cn(tab, 'text-subtle')} aria-haspopup="dialog" aria-expanded={open}>
+          </div>}
+          {tabs.slice(2).map((item) => <MobileTab key={item.to} item={item} />)}
+          <button type="button" onClick={() => setOpen(true)} className={cn(TAB_CLASS, 'text-subtle')} aria-haspopup="dialog" aria-expanded={open}>
             <LayoutGrid className="size-5" aria-hidden />
             Menu
           </button>
@@ -51,7 +52,7 @@ export function MobileNav() {
       </nav>
 
       <Drawer open={open} onClose={() => setOpen(false)} side="bottom" title="Menu">
-        <div className="mb-4"><PointsChip className="w-fit" /></div>
+        {user?.role === 'USER' && <div className="mb-4"><PointsChip className="w-fit" /></div>}
         {sections.map((s) => (
           <div key={s.id} className="mb-4">
             <p className="label-mono mb-1.5 px-1 text-[11px]">{s.label}</p>

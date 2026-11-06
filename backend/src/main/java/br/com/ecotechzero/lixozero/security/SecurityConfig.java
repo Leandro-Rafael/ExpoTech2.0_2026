@@ -64,15 +64,15 @@ public class SecurityConfig {
 
     // Antes desta cadeia já rodaram nossos filtros com @Order: RequestId, SignedProxy, limite de corpo e limite por IP.
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, UserRepository users,
-                                                   ProblemResponseWriter problems, AppProperties props, Clock clock) throws Exception {
-        CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        csrfRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/"));
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService servicoJwt, UserRepository usuarios,
+                                                   ProblemResponseWriter problemas, AppProperties propriedades, Clock relogio) throws Exception {
+        CookieCsrfTokenRepository repositorioCsrf = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repositorioCsrf.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/"));
 
         http
                 // 1. CSRF: o front devolve o cookie XSRF-TOKEN no header. O IoT fica de fora porque usa a chave do dispositivo.
                 .csrf(csrf -> csrf.spa()
-                        .csrfTokenRepository(csrfRepository)
+                        .csrfTokenRepository(repositorioCsrf)
                         .ignoringRequestMatchers("/api/iot/readings"))
                 // 2. Nada de sessão no servidor: quem diz quem é o usuário é o JWT no cookie.
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -82,8 +82,8 @@ public class SecurityConfig {
                 .requestCache(AbstractHttpConfigurer::disable)
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((req, res, ex) ->
-                                problems.write(res, ErrorCode.UNAUTHORIZED, 401, "Faça login para continuar.", null))
-                        .accessDeniedHandler((req, res, ex) -> problems.write(res, ErrorCode.FORBIDDEN, 403,
+                                problemas.escrever(res, ErrorCode.UNAUTHORIZED, 401, "Faça login para continuar.", null))
+                        .accessDeniedHandler((req, res, ex) -> problemas.escrever(res, ErrorCode.FORBIDDEN, 403,
                                 ex instanceof CsrfException
                                         ? "Token CSRF ausente ou inválido. Recarregue a página e tente novamente."
                                         : "Você não tem permissão para acessar este recurso.", null)))
@@ -110,23 +110,23 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").denyAll()
                         .anyRequest().permitAll())
                 // 5. Coloca na fila o filtro que lê o JWT e identifica o usuário logado.
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService, users, problems, clock), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new JwtAuthenticationFilter(servicoJwt, usuarios, problemas, relogio), UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
 
-        List<String> origins = props.corsOriginList();
-        if (origins.isEmpty()) {
+        List<String> origens = propriedades.corsOriginList();
+        if (origens.isEmpty()) {
             // Mesma origem (proxy do Vite ou SPA servido pelo próprio back-end): CORS desligado.
             http.cors(AbstractHttpConfigurer::disable);
         } else {
-            CorsConfiguration cors = new CorsConfiguration();
-            cors.setAllowedOrigins(origins);
-            cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
-            cors.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN", "Idempotency-Key"));
-            cors.setAllowCredentials(true);
-            cors.setMaxAge(Duration.ofHours(1));
-            UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-            source.registerCorsConfiguration("/api/**", cors);
-            http.cors(c -> c.configurationSource(source));
+            CorsConfiguration configCors = new CorsConfiguration();
+            configCors.setAllowedOrigins(origens);
+            configCors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
+            configCors.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN", "Idempotency-Key"));
+            configCors.setAllowCredentials(true);
+            configCors.setMaxAge(Duration.ofHours(1));
+            UrlBasedCorsConfigurationSource fonte = new UrlBasedCorsConfigurationSource();
+            fonte.registerCorsConfiguration("/api/**", configCors);
+            http.cors(c -> c.configurationSource(fonte));
         }
         return http.build();
     }
@@ -140,13 +140,13 @@ public class SecurityConfig {
     /** Garante que o cookie XSRF-TOKEN seja emitido (o token do Spring é carregado de forma preguiçosa). */
     static final class CsrfCookieFilter extends OncePerRequestFilter {
         @Override
-        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadeia)
                 throws ServletException, IOException {
             CsrfToken token = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
             if (token != null) {
                 token.getToken();
             }
-            chain.doFilter(request, response);
+            cadeia.doFilter(request, response);
         }
     }
 }

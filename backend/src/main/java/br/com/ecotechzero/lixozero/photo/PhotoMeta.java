@@ -12,6 +12,6 @@ public record PhotoMeta(UUID id, UUID ownerId, long dhash, String sha256, Catego
 
     /** O próprio servidor classificou a foto (o único resultado confiável para pontos e antifraude). */
     public boolean aiVerified() {
-        return aiCode != null && aiConfidence != null && aiSource != null && aiSource.isServerSide();
+        return aiCode != null && aiConfidence != null && aiSource != null && aiSource.doServidor();
     }
 }

@@ -30,16 +30,16 @@ import java.util.Optional;
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;
-    private final UserRepository users;
-    private final ProblemResponseWriter problems;
-    private final Clock clock;
+    private final JwtService servicoJwt;
+    private final UserRepository usuarios;
+    private final ProblemResponseWriter problemas;
+    private final Clock relogio;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserRepository users, ProblemResponseWriter problems, Clock clock) {
-        this.jwtService = jwtService;
-        this.users = users;
-        this.problems = problems;
-        this.clock = clock;
+    public JwtAuthenticationFilter(JwtService servicoJwt, UserRepository usuarios, ProblemResponseWriter problemas, Clock relogio) {
+        this.servicoJwt = servicoJwt;
+        this.usuarios = usuarios;
+        this.problemas = problemas;
+        this.relogio = relogio;
     }
 
     @Override
@@ -48,30 +48,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadeia)
             throws ServletException, IOException {
-        Optional<User> found = AuthCookies.read(request, AuthCookies.ACCESS)
-                .flatMap(jwtService::parse)
-                .flatMap(claims -> users.findById(claims.userId())
+        Optional<User> encontrado = AuthCookies.ler(request, AuthCookies.ACCESS)
+                .flatMap(servicoJwt::interpretar)
+                .flatMap(dadosToken -> usuarios.findById(dadosToken.userId())
                         .filter(User::isEnabled)
-                        .filter(u -> u.getTokenVersion() == claims.tokenVersion()));
-        if (found.isPresent()) {
-            User user = found.get();
-            Instant now = clock.instant();
-            if (user.isSecurityLocked(now) && !isExempt(request)) {
-                problems.write(response, ErrorCode.ACCOUNT_LOCKED, 423, InspectionService.LOCK_MESSAGE,
-                        InspectionService.retryAfterSeconds(user.getSecurityLockedUntil(), now));
+                        .filter(u -> u.getTokenVersion() == dadosToken.tokenVersion()));
+        if (encontrado.isPresent()) {
+            User usuario = encontrado.get();
+            Instant agora = relogio.instant();
+            if (usuario.isSecurityLocked(agora) && !ehIsento(request)) {
+                problemas.escrever(response, ErrorCode.ACCOUNT_LOCKED, 423, InspectionService.LOCK_MESSAGE,
+                        InspectionService.segundosAteLiberar(usuario.getSecurityLockedUntil(), agora));
                 return;
             }
-            AuthUser principal = new AuthUser(user.getId(), user.getEmail(), user.getName(), user.getRole());
-            var auth = new UsernamePasswordAuthenticationToken(principal, null,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
-            SecurityContextHolder.getContext().setAuthentication(auth);
+            AuthUser principal = new AuthUser(usuario.getId(), usuario.getEmail(), usuario.getName(), usuario.getRole());
+            var autenticacao = new UsernamePasswordAuthenticationToken(principal, null,
+                    List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRole().name())));
+            SecurityContextHolder.getContext().setAuthentication(autenticacao);
         }
-        chain.doFilter(request, response);
+        cadeia.doFilter(request, response);
     }
 
-    private static boolean isExempt(HttpServletRequest request) {
+    private static boolean ehIsento(HttpServletRequest request) {
         String uri = request.getRequestURI();
         // login/cadastro fazem a própria checagem (e outra pessoa pode entrar no mesmo navegador)
         return uri.equals("/api/auth/logout") || uri.equals("/api/auth/csrf")

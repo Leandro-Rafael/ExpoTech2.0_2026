@@ -21,25 +21,25 @@ import java.util.UUID;
 @RestController
 public class PhotoController {
 
-    private final PhotoService service;
+    private final PhotoService servico;
 
-    public PhotoController(PhotoService service) {
-        this.service = service;
+    public PhotoController(PhotoService servico) {
+        this.servico = servico;
     }
 
     @PostMapping(value = "/api/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    public PhotoService.PhotoUpload upload(@AuthenticationPrincipal AuthUser me, @RequestParam("file") MultipartFile file) {
-        return service.upload(me, file);
+    public PhotoService.PhotoUpload enviar(@AuthenticationPrincipal AuthUser logado, @RequestParam("file") MultipartFile arquivo) {
+        return servico.enviar(logado, arquivo);
     }
 
     @GetMapping("/api/photos/{id}")
-    public ResponseEntity<byte[]> get(@AuthenticationPrincipal AuthUser me, @PathVariable UUID id) {
-        Photo photo = service.getForViewer(me, id);
+    public ResponseEntity<byte[]> buscar(@AuthenticationPrincipal AuthUser logado, @PathVariable UUID id) {
+        Photo foto = servico.buscarParaVisualizar(logado, id);
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_JPEG)
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate())
                 .header("Content-Disposition", "inline")
-                .body(photo.getData());
+                .body(foto.getData());
     }
 }

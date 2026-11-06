@@ -13,9 +13,9 @@ import java.util.UUID;
  */
 final class HouseholdLocation {
 
-    private static final GeoPoint CITY_CENTER = new GeoPoint(-23.6090, -46.7580);
+    private static final GeoPoint CENTRO_DA_CIDADE = new GeoPoint(-23.6090, -46.7580);
 
-    private static final Map<String, GeoPoint> NEIGHBORHOODS = Map.ofEntries(
+    private static final Map<String, GeoPoint> BAIRROS = Map.ofEntries(
             Map.entry("jardim maria rosa", new GeoPoint(-23.6040, -46.7545)),
             Map.entry("parque pinheiros", new GeoPoint(-23.6125, -46.7680)),
             Map.entry("centro", new GeoPoint(-23.6225, -46.7835)),
@@ -38,14 +38,14 @@ final class HouseholdLocation {
         if (h.getLatitude() != null && h.getLongitude() != null) {
             return new GeoPoint(h.getLatitude(), h.getLongitude());
         }
-        GeoPoint base = NEIGHBORHOODS.getOrDefault(Text.fold(h.getNeighborhood()).strip(), CITY_CENTER);
+        GeoPoint base = BAIRROS.getOrDefault(Text.semAcentos(h.getNeighborhood()).strip(), CENTRO_DA_CIDADE);
         UUID id = h.getId();
-        double jitterLat = ((id.getMostSignificantBits() & 0xFF) / 255.0 - 0.5) * 0.006;
-        double jitterLon = ((id.getLeastSignificantBits() & 0xFF) / 255.0 - 0.5) * 0.006;
-        return new GeoPoint(base.latitude() + jitterLat, base.longitude() + jitterLon);
+        double desvioLat = ((id.getMostSignificantBits() & 0xFF) / 255.0 - 0.5) * 0.006;
+        double desvioLon = ((id.getLeastSignificantBits() & 0xFF) / 255.0 - 0.5) * 0.006;
+        return new GeoPoint(base.latitude() + desvioLat, base.longitude() + desvioLon);
     }
 
-    static String address(Household h) {
+    static String endereco(Household h) {
         if (h.getAddress() != null && !h.getAddress().isBlank()) {
             return h.getAddress();
         }

@@ -17,11 +17,11 @@ public interface WasteClassifier {
     record Classification(CategoryCode categoryCode, double confidence, String reasoning, AiSource source, String model) {
     }
 
-    boolean isAvailable();
+    boolean estaDisponivel();
 
     /**
      * Classifica a imagem (JPEG). Nunca lança exceção: em caso de falha devolve vazio,
      * para que o envio da foto continue funcionando sem a IA.
      */
-    Optional<Classification> classify(byte[] jpeg);
+    Optional<Classification> classificar(byte[] jpeg);
 }

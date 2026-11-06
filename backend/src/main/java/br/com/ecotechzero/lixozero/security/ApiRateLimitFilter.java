@@ -19,12 +19,12 @@ import java.io.IOException;
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class ApiRateLimitFilter extends OncePerRequestFilter {
 
-    private final TokenBucketRateLimiter limiter;
-    private final ProblemResponseWriter problemWriter;
+    private final TokenBucketRateLimiter limitador;
+    private final ProblemResponseWriter escritorProblema;
 
-    public ApiRateLimitFilter(TokenBucketRateLimiter limiter, ProblemResponseWriter problemWriter) {
-        this.limiter = limiter;
-        this.problemWriter = problemWriter;
+    public ApiRateLimitFilter(TokenBucketRateLimiter limitador, ProblemResponseWriter escritorProblema) {
+        this.limitador = limitador;
+        this.escritorProblema = escritorProblema;
     }
 
     @Override
@@ -33,14 +33,14 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadeia)
             throws ServletException, IOException {
-        var result = limiter.tryConsume(TokenBucketRateLimiter.Policy.API_IP, RequestContext.clientIp(request));
-        if (!result.allowed()) {
-            problemWriter.write(response, ErrorCode.RATE_LIMITED, 429,
-                    "Muitas requisições. Aguarde alguns instantes.", result.retryAfterSeconds());
+        var resultado = limitador.tentarConsumir(TokenBucketRateLimiter.Policy.API_IP, RequestContext.ipCliente(request));
+        if (!resultado.allowed()) {
+            escritorProblema.escrever(response, ErrorCode.RATE_LIMITED, 429,
+                    "Muitas requisições. Aguarde alguns instantes.", resultado.retryAfterSeconds());
             return;
         }
-        chain.doFilter(request, response);
+        cadeia.doFilter(request, response);
     }
 }

@@ -64,8 +64,8 @@ public abstract class BaseEntity {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof BaseEntity other)) return false;
-        return id != null && id.equals(other.getId());
+        if (!(o instanceof BaseEntity outro)) return false;
+        return id != null && id.equals(outro.getId());
     }
 
     @Override

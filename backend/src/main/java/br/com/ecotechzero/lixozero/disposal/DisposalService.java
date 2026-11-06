@@ -41,167 +41,167 @@ import java.util.regex.Pattern;
 @Service
 public class DisposalService {
 
-    private static final Pattern IDEMPOTENCY_KEY = Pattern.compile("^[A-Za-z0-9_-]{8,64}$");
-    private static final Duration MAX_AGE = Duration.ofDays(7);
-    private static final Duration CLOCK_SKEW = Duration.ofMinutes(5);
+    private static final Pattern FORMATO_CHAVE_IDEMPOTENCIA = Pattern.compile("^[A-Za-z0-9_-]{8,64}$");
+    private static final Duration IDADE_MAXIMA = Duration.ofDays(7);
+    private static final Duration TOLERANCIA_RELOGIO = Duration.ofMinutes(5);
     /** Limites da aprovação automática (quando APP_AUTO_APPROVE=true). */
-    private static final int AUTO_APPROVE_MAX_SCORE = 20;
-    private static final double AUTO_APPROVE_MAX_KG = 5;
+    private static final int APROVACAO_AUTOMATICA_RISCO_MAXIMO = 20;
+    private static final double APROVACAO_AUTOMATICA_KG_MAXIMO = 5;
 
-    private final DisposalRepository disposals;
-    private final CategoryService categories;
-    private final CollectionPointService collectionPoints;
-    private final PhotoRepository photos;
-    private final UserRepository users;
-    private final FraudEngine fraudEngine;
-    private final DisposalReviewService review;
-    private final AuditService audit;
-    private final TokenBucketRateLimiter limiter;
-    private final AppProperties props;
-    private final Clock clock;
+    private final DisposalRepository descartes;
+    private final CategoryService categorias;
+    private final CollectionPointService ecopontos;
+    private final PhotoRepository fotos;
+    private final UserRepository usuarios;
+    private final FraudEngine motorFraude;
+    private final DisposalReviewService moderacao;
+    private final AuditService auditoria;
+    private final TokenBucketRateLimiter limitador;
+    private final AppProperties propriedades;
+    private final Clock relogio;
 
-    public DisposalService(DisposalRepository disposals, CategoryService categories, CollectionPointService collectionPoints,
-                           PhotoRepository photos, UserRepository users, FraudEngine fraudEngine, DisposalReviewService review,
-                           AuditService audit, TokenBucketRateLimiter limiter, AppProperties props, Clock clock) {
-        this.disposals = disposals;
-        this.categories = categories;
-        this.collectionPoints = collectionPoints;
-        this.photos = photos;
-        this.users = users;
-        this.fraudEngine = fraudEngine;
-        this.review = review;
-        this.audit = audit;
-        this.limiter = limiter;
-        this.props = props;
-        this.clock = clock;
+    public DisposalService(DisposalRepository descartes, CategoryService categorias, CollectionPointService ecopontos,
+                           PhotoRepository fotos, UserRepository usuarios, FraudEngine motorFraude, DisposalReviewService moderacao,
+                           AuditService auditoria, TokenBucketRateLimiter limitador, AppProperties propriedades, Clock relogio) {
+        this.descartes = descartes;
+        this.categorias = categorias;
+        this.ecopontos = ecopontos;
+        this.fotos = fotos;
+        this.usuarios = usuarios;
+        this.motorFraude = motorFraude;
+        this.moderacao = moderacao;
+        this.auditoria = auditoria;
+        this.limitador = limitador;
+        this.propriedades = propriedades;
+        this.relogio = relogio;
     }
 
     /** Valida o formato do header Idempotency-Key (opcional). */
-    public static String validateIdempotencyKey(String key) {
-        if (key == null || key.isBlank()) {
+    public static String validarChaveIdempotencia(String chave) {
+        if (chave == null || chave.isBlank()) {
             return null;
         }
-        if (!IDEMPOTENCY_KEY.matcher(key.strip()).matches()) {
-            throw ApiException.field("Idempotency-Key", "use de 8 a 64 caracteres (letras, números, - ou _)");
+        if (!FORMATO_CHAVE_IDEMPOTENCIA.matcher(chave.strip()).matches()) {
+            throw ApiException.campo("Idempotency-Key", "use de 8 a 64 caracteres (letras, números, - ou _)");
         }
-        return key.strip();
+        return chave.strip();
     }
 
     /** Mesmo usuário + mesma chave = devolve o descarte original (clique duplo, nova tentativa de rede). */
     @Transactional(readOnly = true)
-    public Optional<DisposalDto> findByIdempotencyKey(UUID userId, String key) {
-        if (key == null) {
+    public Optional<DisposalDto> buscarPorChaveIdempotencia(UUID usuarioId, String chave) {
+        if (chave == null) {
             return Optional.empty();
         }
-        return disposals.findByUserIdAndIdempotencyKey(userId, key).map(d -> DisposalDto.of(d, false));
+        return descartes.findByUserIdAndIdempotencyKey(usuarioId, chave).map(d -> DisposalDto.of(d, false));
     }
 
     @Transactional
-    public DisposalDto create(AuthUser me, CreateDisposalRequest in, String idempotencyKey) {
+    public DisposalDto criar(AuthUser logado, CreateDisposalRequest entrada, String chaveIdempotencia) {
         // 1. Mesma Idempotency-Key = mesmo descarte (clique duplo ou reenvio); depois, limite de frequência.
-        Optional<DisposalDto> existing = findByIdempotencyKey(me.id(), idempotencyKey);
-        if (existing.isPresent()) {
-            return existing.get();
+        Optional<DisposalDto> existente = buscarPorChaveIdempotencia(logado.id(), chaveIdempotencia);
+        if (existente.isPresent()) {
+            return existente.get();
         }
-        limiter.check(TokenBucketRateLimiter.Policy.DISPOSAL_USER, me.id().toString());
-        Instant now = clock.instant();
+        limitador.verificar(TokenBucketRateLimiter.Policy.DISPOSAL_USER, logado.id().toString());
+        Instant agora = relogio.instant();
 
         // 2. Valida categoria, peso, localização e data (até 7 dias atrás).
-        Category category = categories.requireActive(in.categoryId(), "categoryId");
-        double kg = Numbers.round(in.quantityKg(), 3);
+        Category categoria = categorias.exigirAtiva(entrada.categoryId(), "categoryId");
+        double kg = Numbers.arredondar(entrada.quantityKg(), 3);
         if (kg < 0.01) {
-            throw ApiException.field("quantityKg", "a quantidade mínima é 0,01 kg");
+            throw ApiException.campo("quantityKg", "a quantidade mínima é 0,01 kg");
         }
-        if (kg > category.getMaxKgPerDisposal()) {
-            throw ApiException.field("quantityKg", "máximo de " + category.getMaxKgPerDisposal() + " kg por descarte de " + category.getName());
+        if (kg > categoria.getMaxKgPerDisposal()) {
+            throw ApiException.campo("quantityKg", "máximo de " + categoria.getMaxKgPerDisposal() + " kg por descarte de " + categoria.getName());
         }
-        if ((in.latitude() == null) != (in.longitude() == null)) {
-            throw ApiException.field("latitude", "informe latitude e longitude juntas");
+        if ((entrada.latitude() == null) != (entrada.longitude() == null)) {
+            throw ApiException.campo("latitude", "informe latitude e longitude juntas");
         }
-        Instant disposedAt = in.disposedAt() == null ? now : in.disposedAt();
-        if (disposedAt.isAfter(now.plus(CLOCK_SKEW))) {
-            throw ApiException.field("disposedAt", "a data do descarte não pode ser no futuro");
+        Instant dataDescarte = entrada.disposedAt() == null ? agora : entrada.disposedAt();
+        if (dataDescarte.isAfter(agora.plus(TOLERANCIA_RELOGIO))) {
+            throw ApiException.campo("disposedAt", "a data do descarte não pode ser no futuro");
         }
-        if (disposedAt.isBefore(now.minus(MAX_AGE))) {
-            throw ApiException.field("disposedAt", "só é possível registrar descartes dos últimos 7 dias");
+        if (dataDescarte.isBefore(agora.minus(IDADE_MAXIMA))) {
+            throw ApiException.campo("disposedAt", "só é possível registrar descartes dos últimos 7 dias");
         }
 
         // 3. Confere foto e ecoponto, se vieram.
-        PhotoMeta photo = null;
-        if (in.photoId() != null) {
+        PhotoMeta foto = null;
+        if (entrada.photoId() != null) {
             // foto de outra pessoa = 404 (não revela que existe); reuso também é barrado pelo UNIQUE(photo_id) no banco
-            photo = photos.findMeta(in.photoId())
-                    .filter(p -> p.ownerId().equals(me.id()))
-                    .orElseThrow(() -> ApiException.notFound("Foto não encontrada."));
-            if (disposals.existsByPhotoId(photo.id())) {
-                throw ApiException.field("photoId", "esta foto já foi usada em outro descarte");
+            foto = fotos.findMeta(entrada.photoId())
+                    .filter(p -> p.ownerId().equals(logado.id()))
+                    .orElseThrow(() -> ApiException.naoEncontrado("Foto não encontrada."));
+            if (descartes.existsByPhotoId(foto.id())) {
+                throw ApiException.campo("photoId", "esta foto já foi usada em outro descarte");
             }
         }
-        CollectionPoint point = null;
-        if (in.collectionPointId() != null) {
-            point = collectionPoints.requireActive(in.collectionPointId(), "collectionPointId");
-            if (!point.accepts(category.getCode())) {
-                throw ApiException.field("collectionPointId", "este ecoponto não recebe " + category.getName().toLowerCase());
+        CollectionPoint ecoponto = null;
+        if (entrada.collectionPointId() != null) {
+            ecoponto = ecopontos.exigirAtivo(entrada.collectionPointId(), "collectionPointId");
+            if (!ecoponto.accepts(categoria.getCode())) {
+                throw ApiException.campo("collectionPointId", "este ecoponto não recebe " + categoria.getName().toLowerCase());
             }
         }
 
         // IA: só vale o que o SERVIDOR gravou na foto no upload. Os campos ai* do corpo são apenas um palpite
         // do navegador (informativo): nunca dão bônus, nunca reduzem o risco e nunca se passam por IA do servidor.
-        CategoryCode hintCode = in.aiSuggestedCode();
-        Double hintConfidence = in.aiConfidence() == null ? null : Math.clamp(in.aiConfidence(), 0.0, 1.0);
-        AiSource hintSource = in.aiSource() == AiSource.MANUAL ? AiSource.MANUAL
-                : (hintCode != null || in.aiSource() != null ? AiSource.LOCAL : null);
-        boolean serverAi = photo != null && photo.aiVerified();
+        CategoryCode codigoPalpite = entrada.aiSuggestedCode();
+        Double confiancaPalpite = entrada.aiConfidence() == null ? null : Math.clamp(entrada.aiConfidence(), 0.0, 1.0);
+        AiSource origemPalpite = entrada.aiSource() == AiSource.MANUAL ? AiSource.MANUAL
+                : (codigoPalpite != null || entrada.aiSource() != null ? AiSource.LOCAL : null);
+        boolean iaDoServidor = foto != null && foto.aiVerified();
         // o bônus exige foto recente (tirada para ESTE descarte, não guardada de outro dia)
-        boolean bonusEligible = serverAi && photo.createdAt() != null
-                && !photo.createdAt().isBefore(now.minus(PointsCalculator.AI_PHOTO_MAX_AGE));
+        boolean temDireitoBonus = iaDoServidor && foto.createdAt() != null
+                && !foto.createdAt().isBefore(agora.minus(PointsCalculator.IDADE_MAXIMA_FOTO_IA));
 
         // 4. Calcula o risco de fraude (regras do pacote fraud/).
-        var fraud = fraudEngine.assess(new FraudContext(me.id(), category.getCode(), category.getMaxKgPerDisposal(), kg, photo,
-                in.latitude(), in.longitude(), disposedAt,
-                serverAi ? photo.aiCode() : null, serverAi ? photo.aiConfidence() : null,
-                hintCode, hintConfidence, hintSource, now, props.zoneId()));
+        var fraude = motorFraude.avaliar(new FraudContext(logado.id(), categoria.getCode(), categoria.getMaxKgPerDisposal(), kg, foto,
+                entrada.latitude(), entrada.longitude(), dataDescarte,
+                iaDoServidor ? foto.aiCode() : null, iaDoServidor ? foto.aiConfidence() : null,
+                codigoPalpite, confiancaPalpite, origemPalpite, agora, propriedades.zoneId()));
 
         // 5. Monta e grava o descarte como PENDENTE, com os pontos só estimados.
-        Disposal disposal = new Disposal(users.getReferenceById(me.id()), category, kg, disposedAt);
-        disposal.setLocation(in.latitude(), in.longitude());
-        disposal.setCollectionPoint(point);
-        if (photo != null) {
-            disposal.setPhoto(photos.getReferenceById(photo.id()));
+        Disposal descarte = new Disposal(usuarios.getReferenceById(logado.id()), categoria, kg, dataDescarte);
+        descarte.setLocation(entrada.latitude(), entrada.longitude());
+        descarte.setCollectionPoint(ecoponto);
+        if (foto != null) {
+            descarte.setPhoto(fotos.getReferenceById(foto.id()));
         }
-        if (bonusEligible) {
-            disposal.recordServerAi(photo.aiCode(), photo.aiConfidence(), photo.aiSource());
+        if (temDireitoBonus) {
+            descarte.recordServerAi(foto.aiCode(), foto.aiConfidence(), foto.aiSource());
         }
-        disposal.recordClientHint(hintCode, hintConfidence, hintSource);
-        disposal.setNotes(Text.truncate(Text.clean(in.notes()), 500));
-        disposal.setIdempotencyKey(idempotencyKey);
-        disposal.setFraud(fraud.score(), fraud.flags(), fraud.flagged());
-        disposal.setEstimatedPoints(PointsCalculator.points(category.getPointsPerKg(), kg, disposal.aiBonusApplies()));
-        disposals.saveAndFlush(disposal);
+        descarte.recordClientHint(codigoPalpite, confiancaPalpite, origemPalpite);
+        descarte.setNotes(Text.truncar(Text.limpar(entrada.notes()), 500));
+        descarte.setIdempotencyKey(chaveIdempotencia);
+        descarte.setFraud(fraude.score(), fraude.flags(), fraude.flagged());
+        descarte.setEstimatedPoints(PointsCalculator.calcular(categoria.getPointsPerKg(), kg, descarte.aiBonusApplies()));
+        descartes.saveAndFlush(descarte);
 
         // 6. Suspeito vai para a auditoria; baixo risco pode ser aprovado na hora se APP_AUTO_APPROVE estiver ligado.
-        if (fraud.flagged()) {
-            audit.record(AuditAction.DISPOSAL_FLAGGED, "Disposal", disposal.getId(), "risco " + fraud.score() + ": " + String.join("; ", fraud.flags()));
-        } else if (props.autoApprove() && fraud.score() < AUTO_APPROVE_MAX_SCORE && kg <= AUTO_APPROVE_MAX_KG && photo != null) {
-            int awarded = review.approveInternal(disposal, null);
-            audit.record(AuditAction.DISPOSAL_AUTO_APPROVED, "Disposal", disposal.getId(), "+" + awarded + " pontos (baixo risco)");
+        if (fraude.flagged()) {
+            auditoria.registrar(AuditAction.DISPOSAL_FLAGGED, "Disposal", descarte.getId(), "risco " + fraude.score() + ": " + String.join("; ", fraude.flags()));
+        } else if (propriedades.autoApprove() && fraude.score() < APROVACAO_AUTOMATICA_RISCO_MAXIMO && kg <= APROVACAO_AUTOMATICA_KG_MAXIMO && foto != null) {
+            int concedidos = moderacao.aprovarInterno(descarte, null);
+            auditoria.registrar(AuditAction.DISPOSAL_AUTO_APPROVED, "Disposal", descarte.getId(), "+" + concedidos + " pontos (baixo risco)");
         }
-        return DisposalDto.of(disposal, false);
+        return DisposalDto.of(descarte, false);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DisposalDto> listMine(UUID userId, DisposalStatus status, Integer page, Integer size) {
-        var pageable = Pagination.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        var result = status == null ? disposals.findByUserId(userId, pageable) : disposals.findByUserIdAndStatus(userId, status, pageable);
-        return PageResponse.of(result, d -> DisposalDto.of(d, false));
+    public PageResponse<DisposalDto> listarMeus(UUID usuarioId, DisposalStatus situacao, Integer pagina, Integer tamanho) {
+        var paginacao = Pagination.criar(pagina, tamanho, Sort.by(Sort.Direction.DESC, "createdAt"));
+        var resultado = situacao == null ? descartes.findByUserId(usuarioId, paginacao) : descartes.findByUserIdAndStatus(usuarioId, situacao, paginacao);
+        return PageResponse.of(resultado, d -> DisposalDto.of(d, false));
     }
 
     /** Detalhe: o dono vê o próprio descarte; o admin vê qualquer um (com dados antifraude). Outros: 404. */
     @Transactional(readOnly = true)
-    public DisposalDto get(AuthUser me, UUID id) {
-        Disposal d = disposals.findById(id)
-                .filter(x -> me.isAdmin() || x.getUser().getId().equals(me.id()))
-                .orElseThrow(() -> ApiException.notFound("Descarte não encontrado."));
-        return DisposalDto.of(d, me.isAdmin());
+    public DisposalDto buscar(AuthUser logado, UUID id) {
+        Disposal d = descartes.findById(id)
+                .filter(x -> logado.isAdmin() || x.getUser().getId().equals(logado.id()))
+                .orElseThrow(() -> ApiException.naoEncontrado("Descarte não encontrado."));
+        return DisposalDto.of(d, logado.isAdmin());
     }
 }

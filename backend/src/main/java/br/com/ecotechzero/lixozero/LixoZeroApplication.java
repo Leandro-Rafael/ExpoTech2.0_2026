@@ -15,7 +15,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class LixoZeroApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(LixoZeroApplication.class, args);
+    public static void main(String[] argumentos) {
+        SpringApplication.run(LixoZeroApplication.class, argumentos);
     }
 }

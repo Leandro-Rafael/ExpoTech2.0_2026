@@ -25,12 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthService authService;
-    private final UserService userService;
+    private final AuthService servicoAutenticacao;
+    private final UserService servicoUsuario;
 
-    public AuthController(AuthService authService, UserService userService) {
-        this.authService = authService;
-        this.userService = userService;
+    public AuthController(AuthService servicoAutenticacao, UserService servicoUsuario) {
+        this.servicoAutenticacao = servicoAutenticacao;
+        this.servicoUsuario = servicoUsuario;
     }
 
     /** Garante o cookie XSRF-TOKEN (o front-end chama no boot da aplicação). */
@@ -42,24 +42,24 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public UserMe register(@Valid @RequestBody AuthDtos.RegisterRequest body, HttpServletRequest request, HttpServletResponse response) {
-        return authService.register(body, request, response);
+    public UserMe cadastrar(@Valid @RequestBody AuthDtos.RegisterRequest corpo, HttpServletRequest request, HttpServletResponse response) {
+        return servicoAutenticacao.cadastrar(corpo, request, response);
     }
 
     @PostMapping("/login")
-    public UserMe login(@Valid @RequestBody AuthDtos.LoginRequest body, HttpServletRequest request, HttpServletResponse response) {
-        return authService.login(body, request, response);
+    public UserMe entrar(@Valid @RequestBody AuthDtos.LoginRequest corpo, HttpServletRequest request, HttpServletResponse response) {
+        return servicoAutenticacao.entrar(corpo, request, response);
     }
 
     @PostMapping("/refresh")
-    public UserMe refresh(HttpServletRequest request, HttpServletResponse response) {
-        return authService.refresh(request, response);
+    public UserMe renovar(HttpServletRequest request, HttpServletResponse response) {
+        return servicoAutenticacao.renovar(request, response);
     }
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@AuthenticationPrincipal AuthUser me, HttpServletRequest request, HttpServletResponse response) {
-        authService.logout(me == null ? null : me.id(), request, response);
+    public void sair(@AuthenticationPrincipal AuthUser logado, HttpServletRequest request, HttpServletResponse response) {
+        servicoAutenticacao.sair(logado == null ? null : logado.id(), request, response);
     }
 
     /**
@@ -68,18 +68,18 @@ public class AuthController {
      * login não geram 401 no console de quem nunca entrou.
      */
     @GetMapping("/session")
-    public ResponseEntity<UserMe> session(@AuthenticationPrincipal AuthUser me, HttpServletRequest request) {
-        if (me != null) {
-            return ResponseEntity.ok(userService.getMe(me.id()));
+    public ResponseEntity<UserMe> sessao(@AuthenticationPrincipal AuthUser logado, HttpServletRequest request) {
+        if (logado != null) {
+            return ResponseEntity.ok(servicoUsuario.buscarPerfil(logado.id()));
         }
-        if (AuthCookies.read(request, AuthCookies.REFRESH).isPresent()) {
+        if (AuthCookies.ler(request, AuthCookies.REFRESH).isPresent()) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "Sessão expirada. Faça login novamente.");
         }
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")
-    public UserMe me(@AuthenticationPrincipal AuthUser me) {
-        return userService.getMe(me.id());
+    public UserMe perfil(@AuthenticationPrincipal AuthUser logado) {
+        return servicoUsuario.buscarPerfil(logado.id());
     }
 }

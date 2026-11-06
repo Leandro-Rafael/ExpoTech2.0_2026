@@ -74,20 +74,20 @@ class RobustnessTest {
         int allowed = 0;
         for (int i = 0; i < attempts; i++) {
             // e-mails inventados (cada um seria um balde novo)
-            if (limiter.tryConsume(TokenBucketRateLimiter.Policy.LOGIN_EMAIL, "fake" + i + "@x.com").allowed()) {
+            if (limiter.tentarConsumir(TokenBucketRateLimiter.Policy.LOGIN_EMAIL, "fake" + i + "@x.com").allowed()) {
                 allowed++;
             }
         }
-        assertThat(limiter.size()).isLessThanOrEqualTo(TokenBucketRateLimiter.MAX_BUCKETS + 1);
+        assertThat(limiter.tamanho()).isLessThanOrEqualTo(TokenBucketRateLimiter.MAX_BUCKETS + 1);
         // as chaves excedentes dividem um balde de 10 fichas: no máximo 10 delas passam
         assertThat(allowed).isLessThanOrEqualTo(TokenBucketRateLimiter.MAX_BUCKETS + 10);
 
         // uma chave conhecida continua com o próprio limite
         TokenBucketRateLimiter fresh = new TokenBucketRateLimiter();
         for (int i = 0; i < 10; i++) {
-            assertThat(fresh.tryConsume(TokenBucketRateLimiter.Policy.LOGIN_EMAIL, "a@b.com").allowed()).isTrue();
+            assertThat(fresh.tentarConsumir(TokenBucketRateLimiter.Policy.LOGIN_EMAIL, "a@b.com").allowed()).isTrue();
         }
-        var blocked = fresh.tryConsume(TokenBucketRateLimiter.Policy.LOGIN_EMAIL, "a@b.com");
+        var blocked = fresh.tentarConsumir(TokenBucketRateLimiter.Policy.LOGIN_EMAIL, "a@b.com");
         assertThat(blocked.allowed()).isFalse();
         assertThat(blocked.retryAfterSeconds()).isPositive();
     }

@@ -13,15 +13,15 @@ import java.util.List;
 @RestController
 public class CategoryController {
 
-    private final CategoryService service;
+    private final CategoryService servico;
 
-    public CategoryController(CategoryService service) {
-        this.service = service;
+    public CategoryController(CategoryService servico) {
+        this.servico = servico;
     }
 
     /** Público: categorias ativas. Administradores podem pedir todas com ?all=true. */
     @GetMapping("/api/categories")
-    public List<CategoryDto> list(@RequestParam(defaultValue = "false") boolean all, @AuthenticationPrincipal AuthUser me) {
-        return service.list(all && me != null && me.isAdmin());
+    public List<CategoryDto> listar(@RequestParam(defaultValue = "false") boolean all, @AuthenticationPrincipal AuthUser logado) {
+        return servico.listar(all && logado != null && logado.isAdmin());
     }
 }

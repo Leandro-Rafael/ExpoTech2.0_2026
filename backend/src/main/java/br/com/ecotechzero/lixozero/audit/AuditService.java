@@ -31,35 +31,35 @@ public class AuditService {
 
     private static final Logger log = LoggerFactory.getLogger(AuditService.class);
 
-    private final AuditLogRepository repository;
-    private final AuditChain chain;
+    private final AuditLogRepository repositorio;
+    private final AuditChain cadeia;
 
-    public AuditService(AuditLogRepository repository, AuditChain chain) {
-        this.repository = repository;
-        this.chain = chain;
+    public AuditService(AuditLogRepository repositorio, AuditChain cadeia) {
+        this.repositorio = repositorio;
+        this.cadeia = cadeia;
     }
 
     /** Registra com o usuário autenticado atual como ator (ou "sistema"). */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(AuditAction action, String entity, Object entityId, String details) {
-        AuthUser actor = currentActor();
-        save(actor == null ? null : actor.id(), actor == null ? "sistema" : actor.name() + " <" + actor.email() + ">",
-                action, entity, entityId, details);
+    public void registrar(AuditAction acao, String entidade, Object idEntidade, String detalhes) {
+        AuthUser ator = atorAtual();
+        salvar(ator == null ? null : ator.id(), ator == null ? "sistema" : ator.name() + " <" + ator.email() + ">",
+                acao, entidade, idEntidade, detalhes);
     }
 
     /** Registra com um ator explícito (ex.: login, quando ainda não há usuário autenticado). */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordAs(UUID actorId, String actorLabel, AuditAction action, String entity, Object entityId, String details) {
-        save(actorId, actorLabel, action, entity, entityId, details);
+    public void registrarComo(UUID idAtor, String rotuloAtor, AuditAction acao, String entidade, Object idEntidade, String detalhes) {
+        salvar(idAtor, rotuloAtor, acao, entidade, idEntidade, detalhes);
     }
 
     /** Máximo de ações por filtro (um grupo da tela de auditoria tem bem menos). */
     static final int MAX_ACTION_FILTERS = 50;
-    private static final java.util.regex.Pattern ACTION_CODE = java.util.regex.Pattern.compile("[A-Z][A-Z0-9_]{0,59}");
+    private static final java.util.regex.Pattern CODIGO_ACAO = java.util.regex.Pattern.compile("[A-Z][A-Z0-9_]{0,59}");
 
     @Transactional(readOnly = true)
-    public PageResponse<AuditEntryDto> page(Integer page, Integer size) {
-        return page(page, size, null, null);
+    public PageResponse<AuditEntryDto> pagina(Integer pagina, Integer tamanho) {
+        return pagina(pagina, tamanho, null, null);
     }
 
     /**
@@ -67,42 +67,42 @@ public class AuditService {
      * vários = OU) e {@code q} (texto em autor, detalhes, entidade ou IP; até 100 caracteres).
      */
     @Transactional(readOnly = true)
-    public PageResponse<AuditEntryDto> page(Integer page, Integer size, List<String> actions, String q) {
-        List<String> codes = actions == null ? List.of() : actions.stream()
+    public PageResponse<AuditEntryDto> pagina(Integer pagina, Integer tamanho, List<String> acoes, String busca) {
+        List<String> codigos = acoes == null ? List.of() : acoes.stream()
                 .flatMap(a -> java.util.Arrays.stream(a.split(",")))
                 .map(String::trim).filter(a -> !a.isEmpty()).distinct().toList();
-        if (codes.size() > MAX_ACTION_FILTERS) {
-            throw ApiException.field("action", "no máximo " + MAX_ACTION_FILTERS + " ações por filtro");
+        if (codigos.size() > MAX_ACTION_FILTERS) {
+            throw ApiException.campo("action", "no máximo " + MAX_ACTION_FILTERS + " ações por filtro");
         }
-        for (String code : codes) {
-            if (!ACTION_CODE.matcher(code).matches()) {
-                throw ApiException.field("action", "ação inválida");
+        for (String codigo : codigos) {
+            if (!CODIGO_ACAO.matcher(codigo).matches()) {
+                throw ApiException.campo("action", "ação inválida");
             }
         }
-        String cleaned = Text.clean(q);
-        String pattern = cleaned == null ? null : "%" + Text.truncate(cleaned, 100).toLowerCase(java.util.Locale.ROOT)
+        String limpo = Text.limpar(busca);
+        String padrao = limpo == null ? null : "%" + Text.truncar(limpo, 100).toLowerCase(java.util.Locale.ROOT)
                 .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
-        var pageable = Pagination.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        var paginacao = Pagination.criar(pagina, tamanho, Sort.by(Sort.Direction.DESC, "createdAt"));
         // Lista vazia em "IN" não é SQL válido: passa um valor qualquer e liga o "anyAction".
-        return PageResponse.of(repository.search(codes.isEmpty(), codes.isEmpty() ? List.of("-") : codes, pattern, pageable),
+        return PageResponse.of(repositorio.search(codigos.isEmpty(), codigos.isEmpty() ? List.of("-") : codigos, padrao, paginacao),
                 AuditEntryDto::of);
     }
 
     @Transactional(readOnly = true)
-    public List<AuditEntryDto> recent() {
-        return repository.findTop10ByOrderByCreatedAtDesc().stream().map(AuditEntryDto::of).toList();
+    public List<AuditEntryDto> recentes() {
+        return repositorio.findTop10ByOrderByCreatedAtDesc().stream().map(AuditEntryDto::of).toList();
     }
 
-    private void save(UUID actorId, String actorLabel, AuditAction action, String entity, Object entityId, String details) {
-        chain.append(new AuditRow(null, actorId, Text.truncate(actorLabel, 160), action.name(), entity,
-                entityId == null ? null : Text.truncate(entityId.toString(), 64), Text.truncate(details, 1000),
-                Text.truncate(RequestContext.currentIp(), 64), Instant.now()));
-        log.info("AUDIT {} entity={} id={} actor={}", action, entity, entityId, actorId);
+    private void salvar(UUID idAtor, String rotuloAtor, AuditAction acao, String entidade, Object idEntidade, String detalhes) {
+        cadeia.anexar(new AuditRow(null, idAtor, Text.truncar(rotuloAtor, 160), acao.name(), entidade,
+                idEntidade == null ? null : Text.truncar(idEntidade.toString(), 64), Text.truncar(detalhes, 1000),
+                Text.truncar(RequestContext.ipAtual(), 64), Instant.now()));
+        log.info("AUDIT {} entity={} id={} actor={}", acao, entidade, idEntidade, idAtor);
     }
 
-    private static AuthUser currentActor() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth != null && auth.getPrincipal() instanceof AuthUser user ? user : null;
+    private static AuthUser atorAtual() {
+        Authentication autenticacao = SecurityContextHolder.getContext().getAuthentication();
+        return autenticacao != null && autenticacao.getPrincipal() instanceof AuthUser usuario ? usuario : null;
     }
 
     public record AuditEntryDto(UUID id, String actor, String action, String entity, String entityId,

@@ -10,14 +10,14 @@ public final class StreakCalculator {
     private StreakCalculator() {
     }
 
-    public static int streak(List<LocalDate> activeDays, LocalDate today) {
-        TreeSet<LocalDate> days = new TreeSet<>(activeDays);
-        LocalDate cursor = days.contains(today) ? today : today.minusDays(1);
-        int streak = 0;
-        while (days.contains(cursor)) {
-            streak++;
-            cursor = cursor.minusDays(1);
+    public static int sequencia(List<LocalDate> diasAtivos, LocalDate hoje) {
+        TreeSet<LocalDate> dias = new TreeSet<>(diasAtivos);
+        LocalDate diaAtual = dias.contains(hoje) ? hoje : hoje.minusDays(1);
+        int sequencia = 0;
+        while (dias.contains(diaAtual)) {
+            sequencia++;
+            diaAtual = diaAtual.minusDays(1);
         }
-        return streak;
+        return sequencia;
     }
 }

@@ -63,7 +63,7 @@ class SecurityHardeningIntegrationTest {
 
     @BeforeEach
     void resetLimits() {
-        limiter.reset();
+        limiter.reiniciar();
     }
 
     final class Client {

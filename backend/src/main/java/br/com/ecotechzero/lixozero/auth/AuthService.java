@@ -38,173 +38,173 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
-    private static final String BAD_CREDENTIALS = "E-mail ou senha incorretos.";
+    private static final String CREDENCIAIS_INVALIDAS = "E-mail ou senha incorretos.";
 
-    private final UserRepository users;
-    private final UserService userService;
-    private final PasswordEncoder encoder;
-    private final PasswordPolicy passwordPolicy;
-    private final JwtService jwtService;
-    private final RefreshTokenService refreshTokens;
-    private final LoginAttemptService loginAttempts;
+    private final UserRepository usuarios;
+    private final UserService servicoUsuario;
+    private final PasswordEncoder codificador;
+    private final PasswordPolicy politicaSenha;
+    private final JwtService servicoJwt;
+    private final RefreshTokenService tokensRenovacao;
+    private final LoginAttemptService tentativasLogin;
     private final AuthCookies cookies;
-    private final AuditService audit;
-    private final TokenBucketRateLimiter limiter;
-    private final Clock clock;
+    private final AuditService auditoria;
+    private final TokenBucketRateLimiter limitador;
+    private final Clock relogio;
     /** Hash fictício: comparamos a senha mesmo quando o e-mail não existe (tempo de resposta uniforme). */
-    private final String dummyHash;
+    private final String hashFicticio;
 
-    public AuthService(UserRepository users, UserService userService, PasswordEncoder encoder, PasswordPolicy passwordPolicy,
-                       JwtService jwtService, RefreshTokenService refreshTokens, LoginAttemptService loginAttempts,
-                       AuthCookies cookies, AuditService audit, TokenBucketRateLimiter limiter, Clock clock) {
-        this.users = users;
-        this.userService = userService;
-        this.encoder = encoder;
-        this.passwordPolicy = passwordPolicy;
-        this.jwtService = jwtService;
-        this.refreshTokens = refreshTokens;
-        this.loginAttempts = loginAttempts;
+    public AuthService(UserRepository usuarios, UserService servicoUsuario, PasswordEncoder codificador, PasswordPolicy politicaSenha,
+                       JwtService servicoJwt, RefreshTokenService tokensRenovacao, LoginAttemptService tentativasLogin,
+                       AuthCookies cookies, AuditService auditoria, TokenBucketRateLimiter limitador, Clock relogio) {
+        this.usuarios = usuarios;
+        this.servicoUsuario = servicoUsuario;
+        this.codificador = codificador;
+        this.politicaSenha = politicaSenha;
+        this.servicoJwt = servicoJwt;
+        this.tokensRenovacao = tokensRenovacao;
+        this.tentativasLogin = tentativasLogin;
         this.cookies = cookies;
-        this.audit = audit;
-        this.limiter = limiter;
-        this.clock = clock;
-        this.dummyHash = encoder.encode(UUID.randomUUID().toString());
+        this.auditoria = auditoria;
+        this.limitador = limitador;
+        this.relogio = relogio;
+        this.hashFicticio = codificador.encode(UUID.randomUUID().toString());
     }
 
-    public UserMe register(AuthDtos.RegisterRequest req, HttpServletRequest request, HttpServletResponse response) {
+    public UserMe cadastrar(AuthDtos.RegisterRequest dados, HttpServletRequest request, HttpServletResponse response) {
         // 1. Limita cadastros por IP e valida nome e força da senha.
-        limiter.check(Policy.REGISTER_IP, RequestContext.clientIp(request));
-        String email = Text.normalizeEmail(req.email());
-        String name = Text.clean(req.name());
-        if (name == null || name.length() < 2) {
-            throw ApiException.field("name", "informe seu nome");
+        limitador.verificar(Policy.REGISTER_IP, RequestContext.ipCliente(request));
+        String email = Text.normalizarEmail(dados.email());
+        String nome = Text.limpar(dados.name());
+        if (nome == null || nome.length() < 2) {
+            throw ApiException.campo("name", "informe seu nome");
         }
-        passwordPolicy.validate("password", req.password(), email);
+        politicaSenha.validar("password", dados.password(), email);
         // 2. Cria a conta como morador (USER); no banco vai só o hash da senha.
-        User user = userService.createUser(name, email, encoder.encode(req.password()), Role.USER);
-        audit.recordAs(user.getId(), label(user), AuditAction.USER_REGISTERED, "User", user.getId(), null);
+        User usuario = servicoUsuario.criarUsuario(nome, email, codificador.encode(dados.password()), Role.USER);
+        auditoria.registrarComo(usuario.getId(), rotulo(usuario), AuditAction.USER_REGISTERED, "User", usuario.getId(), null);
         // 3. Já abre a sessão, então a pessoa sai do cadastro logada.
-        startSession(user, request, response);
-        return userService.getMe(user.getId());
+        iniciarSessao(usuario, request, response);
+        return servicoUsuario.buscarPerfil(usuario.getId());
     }
 
-    public UserMe login(AuthDtos.LoginRequest req, HttpServletRequest request, HttpServletResponse response) {
+    public UserMe entrar(AuthDtos.LoginRequest dados, HttpServletRequest request, HttpServletResponse response) {
         // 1. Limite de tentativas por IP e por e-mail, para frear robô testando senha.
-        String ip = RequestContext.clientIp(request);
-        limiter.check(Policy.LOGIN_IP, ip);
-        String email = Text.normalizeEmail(req.email());
-        limiter.check(Policy.LOGIN_EMAIL, email);
+        String ip = RequestContext.ipCliente(request);
+        limitador.verificar(Policy.LOGIN_IP, ip);
+        String email = Text.normalizarEmail(dados.email());
+        limitador.verificar(Policy.LOGIN_EMAIL, email);
 
         // 2. Se o e-mail já está bloqueado por erros anteriores, nem confere a senha.
-        Optional<User> found = users.findByEmail(email);
-        User user = found.orElse(null);
-        loginAttempts.lockRemaining(email, user).ifPresent(this::throwLocked);
+        Optional<User> encontrado = usuarios.findByEmail(email);
+        User usuario = encontrado.orElse(null);
+        tentativasLogin.tempoBloqueioRestante(email, usuario).ifPresent(this::lancarBloqueio);
 
-        boolean passwordOk;
-        if (user != null) {
-            passwordOk = encoder.matches(req.password(), user.getPasswordHash());
+        boolean senhaCorreta;
+        if (usuario != null) {
+            senhaCorreta = codificador.matches(dados.password(), usuario.getPasswordHash());
         } else {
-            encoder.matches(req.password(), dummyHash); // mesmo custo de CPU: não revela se o e-mail existe
-            passwordOk = false;
+            codificador.matches(dados.password(), hashFicticio); // mesmo custo de CPU: não revela se o e-mail existe
+            senhaCorreta = false;
         }
 
         // 3. Senha errada conta uma falha; ao chegar no limite a conta fica bloqueada por um tempo.
-        if (!passwordOk) {
-            boolean lockedNow = loginAttempts.recordFailure(email, user);
-            audit.recordAs(user == null ? null : user.getId(), Text.truncate(email, 160), AuditAction.LOGIN_FAILED, "User",
-                    user == null ? null : user.getId(), user == null ? "e-mail não cadastrado" : "senha incorreta");
-            if (lockedNow) {
-                audit.recordAs(user == null ? null : user.getId(), Text.truncate(email, 160), AuditAction.ACCOUNT_LOCKED,
-                        "User", user == null ? null : user.getId(), "bloqueio por " + LoginAttemptService.LOCK_DURATION.toMinutes() + " min");
-                throwLocked(LoginAttemptService.LOCK_DURATION);
+        if (!senhaCorreta) {
+            boolean bloqueouAgora = tentativasLogin.registrarFalha(email, usuario);
+            auditoria.registrarComo(usuario == null ? null : usuario.getId(), Text.truncar(email, 160), AuditAction.LOGIN_FAILED, "User",
+                    usuario == null ? null : usuario.getId(), usuario == null ? "e-mail não cadastrado" : "senha incorreta");
+            if (bloqueouAgora) {
+                auditoria.registrarComo(usuario == null ? null : usuario.getId(), Text.truncar(email, 160), AuditAction.ACCOUNT_LOCKED,
+                        "User", usuario == null ? null : usuario.getId(), "bloqueio por " + LoginAttemptService.LOCK_DURATION.toMinutes() + " min");
+                lancarBloqueio(LoginAttemptService.LOCK_DURATION);
             }
-            throw new ApiException(ErrorCode.BAD_CREDENTIALS, BAD_CREDENTIALS);
+            throw new ApiException(ErrorCode.BAD_CREDENTIALS, CREDENCIAIS_INVALIDAS);
         }
         // 4. Mesmo com a senha certa, conta desativada ou bloqueada por inspeção não entra.
-        if (!user.isEnabled()) {
-            audit.recordAs(user.getId(), label(user), AuditAction.LOGIN_DISABLED_ACCOUNT, "User", user.getId(), null);
+        if (!usuario.isEnabled()) {
+            auditoria.registrarComo(usuario.getId(), rotulo(usuario), AuditAction.LOGIN_DISABLED_ACCOUNT, "User", usuario.getId(), null);
             throw new ApiException(ErrorCode.FORBIDDEN, "Esta conta está desativada. Procure o administrador.");
         }
         // bloqueio por inspeção: checado só DEPOIS da senha correta (não revela a terceiros que a conta existe)
-        Instant now = clock.instant();
-        if (user.isSecurityLocked(now)) {
-            audit.recordAs(user.getId(), label(user), AuditAction.LOGIN_BLOCKED_INSPECTION, "User", user.getId(),
-                    "bloqueado até " + user.getSecurityLockedUntil());
-            throw InspectionService.lockedException(user.getSecurityLockedUntil(), now);
+        Instant agora = relogio.instant();
+        if (usuario.isSecurityLocked(agora)) {
+            auditoria.registrarComo(usuario.getId(), rotulo(usuario), AuditAction.LOGIN_BLOCKED_INSPECTION, "User", usuario.getId(),
+                    "bloqueado até " + usuario.getSecurityLockedUntil());
+            throw InspectionService.excecaoBloqueio(usuario.getSecurityLockedUntil(), agora);
         }
         // 5. Deu certo: zera as falhas, grava os cookies da sessão e registra na auditoria.
-        loginAttempts.recordSuccess(email, user);
-        startSession(user, request, response);
-        audit.recordAs(user.getId(), label(user), AuditAction.LOGIN_SUCCESS, "User", user.getId(), null);
-        return userService.getMe(user.getId());
+        tentativasLogin.registrarSucesso(email, usuario);
+        iniciarSessao(usuario, request, response);
+        auditoria.registrarComo(usuario.getId(), rotulo(usuario), AuditAction.LOGIN_SUCCESS, "User", usuario.getId(), null);
+        return servicoUsuario.buscarPerfil(usuario.getId());
     }
 
-    public UserMe refresh(HttpServletRequest request, HttpServletResponse response) {
-        limiter.check(Policy.REFRESH_IP, RequestContext.clientIp(request));
-        String raw = AuthCookies.read(request, AuthCookies.REFRESH)
+    public UserMe renovar(HttpServletRequest request, HttpServletResponse response) {
+        limitador.verificar(Policy.REFRESH_IP, RequestContext.ipCliente(request));
+        String tokenBruto = AuthCookies.ler(request, AuthCookies.REFRESH)
                 .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, "Sessão expirada. Faça login novamente."));
         // 1. O JWT de acesso dura pouco. Aqui o refresh token do cookie é trocado por um novo (cada um só vale uma vez).
-        RefreshTokenService.Rotation rotation = refreshTokens.rotate(raw);
-        Instant now = clock.instant();
-        if (rotation.user() != null && rotation.user().isSecurityLocked(now)) {
-            cookies.clear(request, response);
-            throw InspectionService.lockedException(rotation.user().getSecurityLockedUntil(), now);
+        RefreshTokenService.Rotation rotacao = tokensRenovacao.rotacionar(tokenBruto);
+        Instant agora = relogio.instant();
+        if (rotacao.user() != null && rotacao.user().isSecurityLocked(agora)) {
+            cookies.limpar(request, response);
+            throw InspectionService.excecaoBloqueio(rotacao.user().getSecurityLockedUntil(), agora);
         }
         // 2. Se um token já usado aparece de novo, provavelmente foi roubado: a família toda é revogada e auditada.
-        switch (rotation.outcome()) {
+        switch (rotacao.outcome()) {
             case ROTATED -> {
-                User user = rotation.user();
-                cookies.writeSession(request, response, jwtService.issueAccessToken(user), rotation.newRawToken());
-                return userService.getMe(user.getId());
+                User usuario = rotacao.user();
+                cookies.gravarSessao(request, response, servicoJwt.emitirTokenAcesso(usuario), rotacao.newRawToken());
+                return servicoUsuario.buscarPerfil(usuario.getId());
             }
-            case REUSE_DETECTED -> audit.recordAs(rotation.user().getId(), label(rotation.user()), AuditAction.REFRESH_TOKEN_REUSE,
-                    "User", rotation.user().getId(), "refresh token reutilizado: todas as sessões desta família foram revogadas");
+            case REUSE_DETECTED -> auditoria.registrarComo(rotacao.user().getId(), rotulo(rotacao.user()), AuditAction.REFRESH_TOKEN_REUSE,
+                    "User", rotacao.user().getId(), "refresh token reutilizado: todas as sessões desta família foram revogadas");
             case INVALID -> {
                 // nada a auditar
             }
         }
-        cookies.clear(request, response);
+        cookies.limpar(request, response);
         throw new ApiException(ErrorCode.UNAUTHORIZED, "Sessão expirada. Faça login novamente.");
     }
 
-    public void logout(UUID currentUserId, HttpServletRequest request, HttpServletResponse response) {
-        AuthCookies.read(request, AuthCookies.REFRESH).ifPresent(refreshTokens::revokeFamilyOf);
-        cookies.clear(request, response);
-        if (currentUserId != null) {
-            audit.record(AuditAction.LOGOUT, "User", currentUserId, null);
+    public void sair(UUID idUsuarioAtual, HttpServletRequest request, HttpServletResponse response) {
+        AuthCookies.ler(request, AuthCookies.REFRESH).ifPresent(tokensRenovacao::revogarFamiliaDe);
+        cookies.limpar(request, response);
+        if (idUsuarioAtual != null) {
+            auditoria.registrar(AuditAction.LOGOUT, "User", idUsuarioAtual, null);
         }
     }
 
     /** Troca de senha: revoga TODAS as sessões e abre uma nova apenas para este navegador. */
-    public void changePassword(UUID userId, AuthDtos.ChangePasswordRequest req, HttpServletRequest request, HttpServletResponse response) {
-        limiter.check(Policy.PASSWORD_CHANGE_USER, userId.toString());
-        User user = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, "Sessão inválida."));
-        if (!encoder.matches(req.currentPassword(), user.getPasswordHash())) {
-            throw ApiException.field("currentPassword", "senha atual incorreta");
+    public void trocarSenha(UUID idUsuario, AuthDtos.ChangePasswordRequest dados, HttpServletRequest request, HttpServletResponse response) {
+        limitador.verificar(Policy.PASSWORD_CHANGE_USER, idUsuario.toString());
+        User usuario = usuarios.findById(idUsuario).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, "Sessão inválida."));
+        if (!codificador.matches(dados.currentPassword(), usuario.getPasswordHash())) {
+            throw ApiException.campo("currentPassword", "senha atual incorreta");
         }
-        if (req.currentPassword().equals(req.newPassword())) {
-            throw ApiException.field("newPassword", "a nova senha deve ser diferente da atual");
+        if (dados.currentPassword().equals(dados.newPassword())) {
+            throw ApiException.campo("newPassword", "a nova senha deve ser diferente da atual");
         }
-        passwordPolicy.validate("newPassword", req.newPassword(), user.getEmail());
-        User updated = userService.updatePassword(userId, encoder.encode(req.newPassword()));
-        refreshTokens.revokeAllForUser(userId, RefreshToken.REASON_PASSWORD);
-        startSession(updated, request, response);
-        audit.record(AuditAction.PASSWORD_CHANGED, "User", userId, "demais sessões encerradas");
+        politicaSenha.validar("newPassword", dados.newPassword(), usuario.getEmail());
+        User atualizado = servicoUsuario.atualizarSenha(idUsuario, codificador.encode(dados.newPassword()));
+        tokensRenovacao.revogarTodasDoUsuario(idUsuario, RefreshToken.REASON_PASSWORD);
+        iniciarSessao(atualizado, request, response);
+        auditoria.registrar(AuditAction.PASSWORD_CHANGED, "User", idUsuario, "demais sessões encerradas");
     }
 
-    private void startSession(User user, HttpServletRequest request, HttpServletResponse response) {
-        RefreshTokenService.Issued refresh = refreshTokens.issue(user, null);
-        cookies.writeSession(request, response, jwtService.issueAccessToken(user), refresh.rawToken());
+    private void iniciarSessao(User usuario, HttpServletRequest request, HttpServletResponse response) {
+        RefreshTokenService.Issued emitido = tokensRenovacao.emitir(usuario, null);
+        cookies.gravarSessao(request, response, servicoJwt.emitirTokenAcesso(usuario), emitido.rawToken());
     }
 
-    private void throwLocked(Duration remaining) {
-        long seconds = Math.max(1, remaining.toSeconds());
-        long minutes = Math.max(1, (seconds + 59) / 60);
+    private void lancarBloqueio(Duration restante) {
+        long segundos = Math.max(1, restante.toSeconds());
+        long minutos = Math.max(1, (segundos + 59) / 60);
         throw new ApiException(ErrorCode.ACCOUNT_LOCKED, HttpStatus.LOCKED,
-                "Muitas tentativas inválidas. Tente novamente em " + minutes + " minuto(s).", null, seconds);
+                "Muitas tentativas inválidas. Tente novamente em " + minutos + " minuto(s).", null, segundos);
     }
 
-    private static String label(User user) {
-        return user.getName() + " <" + user.getEmail() + ">";
+    private static String rotulo(User usuario) {
+        return usuario.getName() + " <" + usuario.getEmail() + ">";
     }
 }

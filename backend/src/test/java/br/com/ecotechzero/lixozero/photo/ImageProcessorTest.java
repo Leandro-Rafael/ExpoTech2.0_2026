@@ -35,7 +35,7 @@ class ImageProcessorTest {
 
     @Test
     void reencodesPngAsResizedJpeg() throws IOException {
-        var result = processor.process(png(2400, 1200, Color.GREEN));
+        var result = processor.processar(png(2400, 1200, Color.GREEN));
         assertThat(result.width()).isEqualTo(1600);
         assertThat(result.height()).isEqualTo(800);
         assertThat(result.jpeg()[0] & 0xFF).isEqualTo(0xFF);
@@ -46,16 +46,16 @@ class ImageProcessorTest {
 
     @Test
     void similarImagesHaveCloseHashes() throws IOException {
-        long a = processor.process(png(400, 300, Color.GREEN)).dHash();
-        long b = processor.process(png(420, 315, Color.GREEN)).dHash();
-        assertThat(PerceptualHash.hammingDistance(a, b)).isLessThanOrEqualTo(PerceptualHash.SIMILARITY_THRESHOLD);
+        long a = processor.processar(png(400, 300, Color.GREEN)).dHash();
+        long b = processor.processar(png(420, 315, Color.GREEN)).dHash();
+        assertThat(PerceptualHash.distanciaHamming(a, b)).isLessThanOrEqualTo(PerceptualHash.SIMILARITY_THRESHOLD);
     }
 
     @Test
     void rejectsNonImagesEvenWithFakeExtension() {
         byte[] script = "<script>alert(1)</script> isto não é uma imagem, apenas texto com mais de 64 bytes..."
                 .getBytes(StandardCharsets.UTF_8);
-        assertThatThrownBy(() -> processor.process(script))
+        assertThatThrownBy(() -> processor.processar(script))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getCode()).isEqualTo(ErrorCode.INVALID_IMAGE);
     }
@@ -64,6 +64,6 @@ class ImageProcessorTest {
     void rejectsTruncatedImage() throws IOException {
         byte[] full = png(300, 300, Color.BLUE);
         byte[] truncated = java.util.Arrays.copyOf(full, 80);
-        assertThatThrownBy(() -> processor.process(truncated)).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> processor.processar(truncated)).isInstanceOf(ApiException.class);
     }
 }

@@ -17,24 +17,24 @@ public class PhotoReuseRule implements FraudRule {
 
     static final int SCORE = 60;
 
-    private final PhotoRepository photos;
+    private final PhotoRepository fotos;
 
-    public PhotoReuseRule(PhotoRepository photos) {
-        this.photos = photos;
+    public PhotoReuseRule(PhotoRepository fotos) {
+        this.fotos = fotos;
     }
 
     @Override
-    public String code() {
+    public String codigo() {
         return "FOTO_REPETIDA";
     }
 
     @Override
-    public Optional<FraudSignal> evaluate(FraudContext ctx) {
-        if (ctx.photo() == null) {
+    public Optional<FraudSignal> avaliar(FraudContext contexto) {
+        if (contexto.photo() == null) {
             return Optional.empty();
         }
-        if (photos.existsSameContent(ctx.photo().sha256(), ctx.photo().id())) {
-            return Optional.of(new FraudSignal(code(), SCORE, "A mesma foto já foi enviada anteriormente."));
+        if (fotos.existsSameContent(contexto.photo().sha256(), contexto.photo().id())) {
+            return Optional.of(new FraudSignal(codigo(), SCORE, "A mesma foto já foi enviada anteriormente."));
         }
         return Optional.empty();
     }

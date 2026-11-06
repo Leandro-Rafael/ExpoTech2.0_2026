@@ -61,17 +61,17 @@ public final class DisposalDtos {
                               @JsonInclude(JsonInclude.Include.NON_NULL) FraudInfo fraud) {
 
         /** adminView = inclui usuário (com e-mail) e dados antifraude. */
-        public static DisposalDto of(Disposal d, boolean adminView) {
-            var point = d.getCollectionPoint();
+        public static DisposalDto of(Disposal d, boolean visaoAdmin) {
+            var ecoponto = d.getCollectionPoint();
             AiInfo ai = d.getAiSuggestedCode() == null && d.getAiSource() == null ? null
                     : new AiInfo(d.getAiSuggestedCode(), d.getAiConfidence(), d.getAiSource(), d.isAiVerified());
-            return new DisposalDto(d.getId(), CategoryRef.of(d.getCategory()), Numbers.round(d.getQuantityKg(), 3), d.getStatus(),
+            return new DisposalDto(d.getId(), CategoryRef.of(d.getCategory()), Numbers.arredondar(d.getQuantityKg(), 3), d.getStatus(),
                     d.getPointsAwarded(), d.getEstimatedPoints(),
                     d.getPhoto() == null ? null : PhotoService.url(d.getPhoto().getId()),
-                    d.getLatitude(), d.getLongitude(), point == null ? null : new PointRef(point.getId(), point.getName()),
+                    d.getLatitude(), d.getLongitude(), ecoponto == null ? null : new PointRef(ecoponto.getId(), ecoponto.getName()),
                     d.getDisposedAt(), d.getCreatedAt(), d.getReviewedAt(), d.getRejectionReason(), d.getNotes(), ai,
-                    adminView ? UserRef.withEmail(d.getUser()) : null,
-                    adminView ? new FraudInfo(d.getFraudScore(), d.getFraudFlagList()) : null);
+                    visaoAdmin ? UserRef.withEmail(d.getUser()) : null,
+                    visaoAdmin ? new FraudInfo(d.getFraudScore(), d.getFraudFlagList()) : null);
         }
     }
 }

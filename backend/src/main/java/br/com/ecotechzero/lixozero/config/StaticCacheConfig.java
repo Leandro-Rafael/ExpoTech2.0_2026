@@ -17,11 +17,11 @@ import java.time.Duration;
 public class StaticCacheConfig implements WebMvcConfigurer {
 
     @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/assets/**")
+    public void addResourceHandlers(ResourceHandlerRegistry registro) {
+        registro.addResourceHandler("/assets/**")
                 .addResourceLocations("classpath:/static/assets/")
                 .setCacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable());
-        registry.addResourceHandler("/models/**")
+        registro.addResourceHandler("/models/**")
                 .addResourceLocations("classpath:/static/models/")
                 .setCacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePublic());
     }

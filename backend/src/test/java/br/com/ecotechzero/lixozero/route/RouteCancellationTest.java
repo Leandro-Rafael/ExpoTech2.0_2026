@@ -25,17 +25,17 @@ class RouteCancellationTest {
         route.addStop(a);
         RouteStop farStop = route.addStop(far);
         route.addStop(c);
-        double before = RouteOptimizer.closedTourKm(depot, List.of(point(a), point(far), point(c)));
-        route.setMetrics(before, before, RouteOptimizer.estimateMinutes(before, 3), 60);
+        double before = RouteOptimizer.kmRotaFechada(depot, List.of(point(a), point(far), point(c)));
+        route.setMetrics(before, before, RouteOptimizer.estimarMinutos(before, 3), 60);
 
         route.removeStop(farStop);
 
-        double expected = RouteOptimizer.closedTourKm(depot, List.of(point(a), point(c)));
+        double expected = RouteOptimizer.kmRotaFechada(depot, List.of(point(a), point(c)));
         assertThat(route.getStops()).hasSize(2);
         assertThat(route.getStops()).extracting(RouteStop::getSequence).containsExactly(1, 2);
         assertThat(route.getTotalDistanceKm()).isCloseTo(expected, org.assertj.core.data.Offset.offset(0.01));
         assertThat(route.getTotalDistanceKm()).isLessThan(before);
-        assertThat(route.getEstimatedMinutes()).isEqualTo(RouteOptimizer.estimateMinutes(route.getTotalDistanceKm(), 2));
+        assertThat(route.getEstimatedMinutes()).isEqualTo(RouteOptimizer.estimarMinutos(route.getTotalDistanceKm(), 2));
         assertThat(route.getLoadKg()).isEqualTo(40);
         assertThat(route.getNaiveDistanceKm()).isGreaterThanOrEqualTo(route.getTotalDistanceKm());
 

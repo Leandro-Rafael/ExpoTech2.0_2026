@@ -22,40 +22,40 @@ import java.util.HexFormat;
 @Component
 public class IntegrityKey {
 
-    private static final String ALGORITHM = "HmacSHA256";
+    private static final String ALGORITMO = "HmacSHA256";
 
-    private final SecretKeySpec key;
+    private final SecretKeySpec chave;
 
-    public IntegrityKey(@Value("${app.integrity.key:}") String configured, AppProperties props) {
+    public IntegrityKey(@Value("${app.integrity.key:}") String configurado, AppProperties propriedades) {
         byte[] bytes;
-        if (configured != null && !configured.isBlank()) {
-            bytes = LocalSecrets.decode(configured.strip());
+        if (configurado != null && !configurado.isBlank()) {
+            bytes = LocalSecrets.decodificar(configurado.strip());
             if (bytes.length < 32) {
                 throw new IllegalStateException("APP_INTEGRITY_KEY deve ter pelo menos 32 bytes (256 bits).");
             }
         } else {
-            bytes = LocalSecrets.loadOrCreate(props.dataPath().resolve("integrity.key"), "APP_INTEGRITY_KEY");
+            bytes = LocalSecrets.carregarOuCriar(propriedades.dataPath().resolve("integrity.key"), "APP_INTEGRITY_KEY");
         }
-        this.key = new SecretKeySpec(bytes, ALGORITHM);
+        this.chave = new SecretKeySpec(bytes, ALGORITMO);
     }
 
     /** Instância nova de Mac (não é thread-safe): use uma por operação ou por varredura. */
-    public Mac newMac() {
+    public Mac novoMac() {
         try {
-            Mac mac = Mac.getInstance(ALGORITHM);
-            mac.init(key);
+            Mac mac = Mac.getInstance(ALGORITMO);
+            mac.init(chave);
             return mac;
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("HMAC-SHA256 indisponível", e);
         }
     }
 
-    public static String sign(Mac mac, String canonical) {
-        return HexFormat.of().formatHex(mac.doFinal(canonical.getBytes(StandardCharsets.UTF_8)));
+    public static String assinar(Mac mac, String canonico) {
+        return HexFormat.of().formatHex(mac.doFinal(canonico.getBytes(StandardCharsets.UTF_8)));
     }
 
     /** Comparação em tempo constante. */
-    public static boolean same(String a, String b) {
+    public static boolean iguais(String a, String b) {
         return a != null && b != null
                 && MessageDigest.isEqual(a.getBytes(StandardCharsets.US_ASCII), b.getBytes(StandardCharsets.US_ASCII));
     }

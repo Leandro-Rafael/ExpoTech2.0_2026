@@ -9,7 +9,7 @@ public record GeoPoint(
         @NotNull @DecimalMin("-90") @DecimalMax("90") Double latitude,
         @NotNull @DecimalMin("-180") @DecimalMax("180") Double longitude) {
 
-    private static final double EARTH_RADIUS_KM = 6371.0088;
+    private static final double RAIO_TERRA_KM = 6371.0088;
 
     /**
      * Distância em km pela fórmula de Haversine (distância sobre a superfície da esfera terrestre).
@@ -20,10 +20,10 @@ public record GeoPoint(
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(a)));
+        return 2 * RAIO_TERRA_KM * Math.asin(Math.min(1, Math.sqrt(a)));
     }
 
-    public double distanceKm(GeoPoint other) {
-        return haversineKm(latitude, longitude, other.latitude, other.longitude);
+    public double distanciaKm(GeoPoint outro) {
+        return haversineKm(latitude, longitude, outro.latitude, outro.longitude);
     }
 }

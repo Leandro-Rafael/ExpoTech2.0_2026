@@ -83,17 +83,17 @@ public class Photo extends BaseEntity {
     }
 
     /** Resultado do classificador do SERVIDOR (nunca dados vindos do cliente). */
-    public void setServerAi(CategoryCode code, Double confidence, String reasoning, AiSource source, String model, Instant at) {
-        this.aiCode = code;
-        this.aiConfidence = confidence;
-        this.aiReasoning = reasoning;
-        this.aiSource = source;
-        this.aiModel = model;
-        this.aiClassifiedAt = at;
+    public void setServerAi(CategoryCode codigo, Double confianca, String justificativa, AiSource origem, String modelo, Instant momento) {
+        this.aiCode = codigo;
+        this.aiConfidence = confianca;
+        this.aiReasoning = justificativa;
+        this.aiSource = origem;
+        this.aiModel = modelo;
+        this.aiClassifiedAt = momento;
     }
 
     public boolean isAiVerified() {
-        return aiCode != null && aiSource != null && aiSource.isServerSide();
+        return aiCode != null && aiSource != null && aiSource.doServidor();
     }
 
     public User getOwner() { return owner; }

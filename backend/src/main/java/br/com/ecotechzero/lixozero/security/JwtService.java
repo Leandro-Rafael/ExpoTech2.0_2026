@@ -29,35 +29,35 @@ import java.util.UUID;
 @Service
 public class JwtService {
 
-    private static final String ISSUER = "lixozero-api";
-    private static final int MIN_SECRET_BYTES = 32;
-    private static final int MAX_TOKEN_LENGTH = 2048;
+    private static final String EMISSOR = "lixozero-api";
+    private static final int MIN_BYTES_SEGREDO = 32;
+    private static final int TAMANHO_MAXIMO_TOKEN = 2048;
 
-    private final SecretKey key;
-    private final AppProperties props;
-    private final Clock clock;
+    private final SecretKey chave;
+    private final AppProperties propriedades;
+    private final Clock relogio;
 
-    public JwtService(AppProperties props, Clock clock) {
-        this.props = props;
-        this.clock = clock;
-        this.key = Keys.hmacShaKeyFor(resolveSecret(props));
+    public JwtService(AppProperties propriedades, Clock relogio) {
+        this.propriedades = propriedades;
+        this.relogio = relogio;
+        this.chave = Keys.hmacShaKeyFor(resolverSegredo(propriedades));
     }
 
     /** Dados mínimos extraídos de um token válido. */
     public record TokenClaims(UUID userId, int tokenVersion) {
     }
 
-    public String issueAccessToken(User user) {
-        Instant now = clock.instant();
+    public String emitirTokenAcesso(User usuario) {
+        Instant agora = relogio.instant();
         return Jwts.builder()
-                .issuer(ISSUER)
-                .subject(user.getId().toString())
-                .claim("ver", user.getTokenVersion())
-                .claim("role", user.getRole().name())
+                .issuer(EMISSOR)
+                .subject(usuario.getId().toString())
+                .claim("ver", usuario.getTokenVersion())
+                .claim("role", usuario.getRole().name())
                 .id(UUID.randomUUID().toString())
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(props.jwt().accessTtl())))
-                .signWith(key, Jwts.SIG.HS256)
+                .issuedAt(Date.from(agora))
+                .expiration(Date.from(agora.plus(propriedades.jwt().accessTtl())))
+                .signWith(chave, Jwts.SIG.HS256)
                 .compact();
     }
 
@@ -65,52 +65,52 @@ public class JwtService {
      * Valida assinatura, algoritmo (somente HS256: "none" e troca de algoritmo são rejeitados), emissor,
      * expiração e "não antes de" (nbf). Tokens inválidos ou grandes demais simplesmente não autenticam.
      */
-    public Optional<TokenClaims> parse(String token) {
-        if (token == null || token.length() > MAX_TOKEN_LENGTH) {
+    public Optional<TokenClaims> interpretar(String token) {
+        if (token == null || token.length() > TAMANHO_MAXIMO_TOKEN) {
             return Optional.empty();
         }
         try {
             Jws<Claims> jws = Jwts.parser()
-                    .verifyWith(key)
-                    .requireIssuer(ISSUER)
+                    .verifyWith(chave)
+                    .requireIssuer(EMISSOR)
                     .clockSkewSeconds(30)
                     .build()
                     .parseSignedClaims(token);
             if (!Jwts.SIG.HS256.getId().equals(jws.getHeader().getAlgorithm())) {
                 return Optional.empty();
             }
-            Claims claims = jws.getPayload();
-            Integer version = claims.get("ver", Integer.class);
-            if (claims.getSubject() == null || version == null || claims.getExpiration() == null) {
+            Claims declaracoes = jws.getPayload();
+            Integer versao = declaracoes.get("ver", Integer.class);
+            if (declaracoes.getSubject() == null || versao == null || declaracoes.getExpiration() == null) {
                 return Optional.empty();
             }
-            return Optional.of(new TokenClaims(UUID.fromString(claims.getSubject()), version));
+            return Optional.of(new TokenClaims(UUID.fromString(declaracoes.getSubject()), versao));
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
     }
 
-    private static byte[] resolveSecret(AppProperties props) {
-        String configured = props.jwt().secret();
-        if (configured != null && !configured.isBlank()) {
-            byte[] bytes = decodeSecret(configured.strip());
-            if (bytes.length < MIN_SECRET_BYTES) {
+    private static byte[] resolverSegredo(AppProperties propriedades) {
+        String configurado = propriedades.jwt().secret();
+        if (configurado != null && !configurado.isBlank()) {
+            byte[] bytes = decodificarSegredo(configurado.strip());
+            if (bytes.length < MIN_BYTES_SEGREDO) {
                 throw new IllegalStateException("APP_JWT_SECRET deve ter pelo menos 32 bytes (256 bits).");
             }
             return bytes;
         }
-        return LocalSecrets.loadOrCreate(props.dataPath().resolve("jwt-secret.key"), "APP_JWT_SECRET");
+        return LocalSecrets.carregarOuCriar(propriedades.dataPath().resolve("jwt-secret.key"), "APP_JWT_SECRET");
     }
 
-    private static byte[] decodeSecret(String value) {
+    private static byte[] decodificarSegredo(String valor) {
         try {
-            byte[] decoded = Base64.getDecoder().decode(value);
-            if (decoded.length >= MIN_SECRET_BYTES) {
-                return decoded;
+            byte[] decodificado = Base64.getDecoder().decode(valor);
+            if (decodificado.length >= MIN_BYTES_SEGREDO) {
+                return decodificado;
             }
         } catch (IllegalArgumentException ignored) {
             // não é Base64: usa o texto puro
         }
-        return value.getBytes(StandardCharsets.UTF_8);
+        return valor.getBytes(StandardCharsets.UTF_8);
     }
 }

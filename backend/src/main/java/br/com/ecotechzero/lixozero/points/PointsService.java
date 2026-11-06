@@ -31,13 +31,13 @@ import java.util.UUID;
 public class PointsService {
 
     private final EntityManager em;
-    private final PointTransactionRepository transactions;
-    private final LedgerChain ledger;
+    private final PointTransactionRepository transacoes;
+    private final LedgerChain extrato;
 
-    public PointsService(EntityManager em, PointTransactionRepository transactions, LedgerChain ledger) {
+    public PointsService(EntityManager em, PointTransactionRepository transacoes, LedgerChain extrato) {
         this.em = em;
-        this.transactions = transactions;
-        this.ledger = ledger;
+        this.transacoes = transacoes;
+        this.extrato = extrato;
     }
 
     public record PointTransactionDto(UUID id, PointTransactionType type, int amount, long balanceAfter,
@@ -49,50 +49,50 @@ public class PointsService {
 
     /** Trava o usuário para atualização e recarrega o estado mais recente do banco. */
     @Transactional(propagation = Propagation.MANDATORY)
-    public User lockUser(UUID userId) {
-        User user = em.find(User.class, userId);
-        if (user == null) {
-            throw ApiException.notFound("Usuário não encontrado.");
+    public User travarUsuario(UUID idUsuario) {
+        User usuario = em.find(User.class, idUsuario);
+        if (usuario == null) {
+            throw ApiException.naoEncontrado("Usuário não encontrado.");
         }
-        em.refresh(user, LockModeType.PESSIMISTIC_WRITE);
-        return user;
+        em.refresh(usuario, LockModeType.PESSIMISTIC_WRITE);
+        return usuario;
     }
 
     /** Credita pontos ganhos (EARN por descarte aprovado ou BONUS por desafio). */
     @Transactional(propagation = Propagation.MANDATORY)
-    public UUID credit(UUID userId, int amount, PointTransactionType type, String description,
-                       Disposal disposal, Challenge challenge, Instant at) {
-        if (amount <= 0) {
+    public UUID creditar(UUID idUsuario, int quantidade, PointTransactionType tipo, String descricao,
+                       Disposal descarte, Challenge desafio, Instant momento) {
+        if (quantidade <= 0) {
             throw new IllegalArgumentException("amount deve ser positivo");
         }
         // 1. Trava o usuário e soma ao saldo.
-        User user = lockUser(userId);
-        user.earn(amount);
+        User usuario = travarUsuario(idUsuario);
+        usuario.earn(quantidade);
         // 2. Grava no fim da corrente HMAC do usuário (cada lançamento assina junto o hash do anterior).
-        // append() faz flush: um 2º crédito na mesma transação (ex.: dois bônus de desafio) relê o saldo JÁ
-        // atualizado no lockUser(); antes, o refresh descartava o crédito anterior ainda não gravado
-        return ledger.append(userId, type.name(), amount, user.getPoints(), description,
-                disposal == null ? null : disposal.getId(), challenge == null ? null : challenge.getId(), null, at);
+        // anexar() faz flush: um 2º crédito na mesma transação (ex.: dois bônus de desafio) relê o saldo JÁ
+        // atualizado no travarUsuario(); antes, o refresh descartava o crédito anterior ainda não gravado
+        return extrato.anexar(idUsuario, tipo.name(), quantidade, usuario.getPoints(), descricao,
+                descarte == null ? null : descarte.getId(), desafio == null ? null : desafio.getId(), null, momento);
     }
 
     /** Debita pontos de um resgate. Verifica o saldo com a linha travada (sem condição de corrida). */
     @Transactional(propagation = Propagation.MANDATORY)
-    public UUID debit(UUID userId, int cost, String description, Redemption redemption, Instant at) {
+    public UUID debitar(UUID idUsuario, int custo, String descricao, Redemption resgate, Instant momento) {
         // 1. Com a linha travada, confere o saldo; dois resgates ao mesmo tempo não passam juntos.
-        User user = lockUser(userId);
-        if (user.getPoints() < cost) {
+        User usuario = travarUsuario(idUsuario);
+        if (usuario.getPoints() < custo) {
             throw new ApiException(ErrorCode.INSUFFICIENT_POINTS,
-                    "Saldo insuficiente: você tem " + user.getPoints() + " pontos e a recompensa custa " + cost + ".");
+                    "Saldo insuficiente: você tem " + usuario.getPoints() + " pontos e a recompensa custa " + custo + ".");
         }
-        user.spend(cost);
+        usuario.spend(custo);
         // 2. O débito entra como lançamento negativo (REDEEM) na mesma corrente.
-        return ledger.append(userId, PointTransactionType.REDEEM.name(), -cost, user.getPoints(), description,
-                null, null, redemption == null ? null : redemption.getId(), at);
+        return extrato.anexar(idUsuario, PointTransactionType.REDEEM.name(), -custo, usuario.getPoints(), descricao,
+                null, null, resgate == null ? null : resgate.getId(), momento);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<PointTransactionDto> history(UUID userId, Integer page, Integer size) {
-        var pageable = Pagination.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "balanceAfter")));
-        return PageResponse.of(transactions.findByUserId(userId, pageable), PointTransactionDto::of);
+    public PageResponse<PointTransactionDto> historico(UUID idUsuario, Integer pagina, Integer tamanho) {
+        var paginacao = Pagination.criar(pagina, tamanho, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "balanceAfter")));
+        return PageResponse.of(transacoes.findByUserId(idUsuario, paginacao), PointTransactionDto::of);
     }
 }

@@ -14,23 +14,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class GamificationController {
 
-    private final GamificationService gamification;
-    private final RankingService ranking;
+    private final GamificationService gamificacao;
+    private final RankingService classificacao;
 
-    public GamificationController(GamificationService gamification, RankingService ranking) {
-        this.gamification = gamification;
-        this.ranking = ranking;
+    public GamificationController(GamificationService gamificacao, RankingService classificacao) {
+        this.gamificacao = gamificacao;
+        this.classificacao = classificacao;
     }
 
     @GetMapping("/api/gamification/summary")
-    public GamificationSummary summary(@AuthenticationPrincipal AuthUser me) {
-        return gamification.summary(me.id());
+    public GamificationSummary resumo(@AuthenticationPrincipal AuthUser logado) {
+        return gamificacao.resumo(logado.id());
     }
 
     @GetMapping("/api/ranking")
-    public Ranking ranking(@AuthenticationPrincipal AuthUser me,
+    public Ranking classificacao(@AuthenticationPrincipal AuthUser logado,
                            @RequestParam(defaultValue = "USER") RankingScope scope,
                            @RequestParam(defaultValue = "MONTH") RankingPeriod period) {
-        return ranking.ranking(me.id(), scope, period);
+        return classificacao.classificacao(logado.id(), scope, period);
     }
 }

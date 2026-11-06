@@ -90,7 +90,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     public static final String RESIDENT_EMAIL = "morador@ecotechzero.com.br";
     public static final String RESIDENT_PASSWORD = "Recicla@2050";
 
-    private static final String[] NAMES = {
+    private static final String[] NOMES = {
             "Ana Beatriz Souza", "Bruno Henrique Lima", "Camila Rodrigues", "Diego Fernandes", "Eduarda Martins",
             "Felipe Araújo", "Gabriela Nunes", "Heitor Barbosa", "Isabela Carvalho", "João Pedro Ribeiro",
             "Larissa Gomes", "Matheus Oliveira", "Natália Pereira", "Otávio Santos", "Paula Mendes",
@@ -100,7 +100,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     private record HouseSpec(String name, String neighborhood, String city, String address, double lat, double lon) {
     }
 
-    private static final List<HouseSpec> HOUSES = List.of(
+    private static final List<HouseSpec> RESIDENCIAS_DEMO = List.of(
             new HouseSpec("Família Silva", "Jardim Maria Rosa", "Taboão da Serra", "Rua Cesário Dau, 410", -23.6052, -46.7549),
             new HouseSpec("Família Souza", "Parque Pinheiros", "Taboão da Serra", "Rua das Acácias, 77", -23.6131, -46.7702),
             new HouseSpec("Família Lima", "Vila Iasi", "Taboão da Serra", "Rua Benedito Pires, 152", -23.6081, -46.7761),
@@ -111,7 +111,7 @@ public class DemoDataSeeder implements ApplicationRunner {
             new HouseSpec("Família Rocha", "Campo Limpo", "São Paulo", "Rua Arnaldo Magniccaro, 420", -23.6376, -46.7629));
 
     /** Peso (frequência) e kg típico de cada categoria nos descartes simulados. */
-    private static final Map<CategoryCode, double[]> PROFILE = new EnumMap<>(Map.of(
+    private static final Map<CategoryCode, double[]> PERFIL_CATEGORIAS = new EnumMap<>(Map.of(
             CategoryCode.PLASTICO, new double[]{24, 1.6},
             CategoryCode.PAPEL, new double[]{22, 2.4},
             CategoryCode.VIDRO, new double[]{10, 2.2},
@@ -120,268 +120,268 @@ public class DemoDataSeeder implements ApplicationRunner {
             CategoryCode.ELETRONICO, new double[]{3, 1.3},
             CategoryCode.REJEITO, new double[]{15, 2.0}));
 
-    private static final String[] REJECTION_REASONS = {
+    private static final String[] MOTIVOS_RECUSA = {
             "A foto não comprova o descarte.", "Categoria informada não corresponde ao material.",
             "Quantidade incompatível com o registro.", "Registro duplicado."};
 
-    private final AppProperties props;
-    private final UserRepository users;
-    private final HouseholdRepository households;
-    private final OrganizationRepository organizations;
-    private final CategoryRepository categories;
-    private final CollectionPointRepository points;
-    private final DisposalRepository disposals;
-    private final LedgerChain ledger;
-    private final RewardRepository rewards;
-    private final RedemptionRepository redemptions;
-    private final ChallengeRepository challenges;
-    private final GoalRepository goals;
-    private final SmartBinRepository bins;
-    private final BinReadingRepository readings;
-    private final CollectionRequestRepository requests;
-    private final GamificationService gamification;
-    private final SmartBinService smartBins;
-    private final RouteService routes;
-    private final AuditService audit;
-    private final PasswordEncoder encoder;
+    private final AppProperties propriedades;
+    private final UserRepository usuarios;
+    private final HouseholdRepository residencias;
+    private final OrganizationRepository organizacoes;
+    private final CategoryRepository categorias;
+    private final CollectionPointRepository ecopontos;
+    private final DisposalRepository descartes;
+    private final LedgerChain extrato;
+    private final RewardRepository recompensas;
+    private final RedemptionRepository resgates;
+    private final ChallengeRepository desafios;
+    private final GoalRepository metas;
+    private final SmartBinRepository lixeiras;
+    private final BinReadingRepository leituras;
+    private final CollectionRequestRepository solicitacoes;
+    private final GamificationService gamificacao;
+    private final SmartBinService servicoLixeiras;
+    private final RouteService rotas;
+    private final AuditService auditoria;
+    private final PasswordEncoder codificador;
     private final TransactionTemplate tx;
-    private final Clock clock;
+    private final Clock relogio;
 
-    public DemoDataSeeder(AppProperties props, UserRepository users, HouseholdRepository households, OrganizationRepository organizations,
-                          CategoryRepository categories, CollectionPointRepository points, DisposalRepository disposals,
-                          LedgerChain ledger, RewardRepository rewards, RedemptionRepository redemptions,
-                          ChallengeRepository challenges, GoalRepository goals, SmartBinRepository bins, BinReadingRepository readings,
-                          CollectionRequestRepository requests, GamificationService gamification, SmartBinService smartBins,
-                          RouteService routes, AuditService audit, PasswordEncoder encoder, TransactionTemplate tx, Clock clock) {
-        this.props = props;
-        this.users = users;
-        this.households = households;
-        this.organizations = organizations;
-        this.categories = categories;
-        this.points = points;
-        this.disposals = disposals;
-        this.ledger = ledger;
-        this.rewards = rewards;
-        this.redemptions = redemptions;
-        this.challenges = challenges;
-        this.goals = goals;
-        this.bins = bins;
-        this.readings = readings;
-        this.requests = requests;
-        this.gamification = gamification;
-        this.smartBins = smartBins;
-        this.routes = routes;
-        this.audit = audit;
-        this.encoder = encoder;
+    public DemoDataSeeder(AppProperties propriedades, UserRepository usuarios, HouseholdRepository residencias, OrganizationRepository organizacoes,
+                          CategoryRepository categorias, CollectionPointRepository ecopontos, DisposalRepository descartes,
+                          LedgerChain extrato, RewardRepository recompensas, RedemptionRepository resgates,
+                          ChallengeRepository desafios, GoalRepository metas, SmartBinRepository lixeiras, BinReadingRepository leituras,
+                          CollectionRequestRepository solicitacoes, GamificationService gamificacao, SmartBinService servicoLixeiras,
+                          RouteService rotas, AuditService auditoria, PasswordEncoder codificador, TransactionTemplate tx, Clock relogio) {
+        this.propriedades = propriedades;
+        this.usuarios = usuarios;
+        this.residencias = residencias;
+        this.organizacoes = organizacoes;
+        this.categorias = categorias;
+        this.ecopontos = ecopontos;
+        this.descartes = descartes;
+        this.extrato = extrato;
+        this.recompensas = recompensas;
+        this.resgates = resgates;
+        this.desafios = desafios;
+        this.metas = metas;
+        this.lixeiras = lixeiras;
+        this.leituras = leituras;
+        this.solicitacoes = solicitacoes;
+        this.gamificacao = gamificacao;
+        this.servicoLixeiras = servicoLixeiras;
+        this.rotas = rotas;
+        this.auditoria = auditoria;
+        this.codificador = codificador;
         this.tx = tx;
-        this.clock = clock;
+        this.relogio = relogio;
     }
 
     @Override
-    public void run(ApplicationArguments args) {
-        if (!props.demoSeed() || users.count() > 0) {
+    public void run(ApplicationArguments argumentos) {
+        if (!propriedades.demoSeed() || usuarios.count() > 0) {
             return;
         }
-        long start = System.currentTimeMillis();
+        long inicio = System.currentTimeMillis();
         log.info("Banco vazio: criando dados de demonstração...");
-        Random random = new Random(2050);
-        Instant now = clock.instant();
-        ZoneId zone = props.zoneId();
+        Random aleatorio = new Random(2050);
+        Instant agora = relogio.instant();
+        ZoneId fuso = propriedades.zoneId();
 
-        SeedContext ctx = tx.execute(status -> seedCore(random, now, zone));
+        SeedContext contexto = tx.execute(status -> semearBase(aleatorio, agora, fuso));
         // Bônus de desafios e medalhas usam as mesmas regras do sistema (uma transação por usuário)
-        for (UUID userId : ctx.residentIds) {
-            tx.executeWithoutResult(status -> gamification.onDisposalApproved(userId, now));
+        for (UUID idUsuario : contexto.idsMoradores) {
+            tx.executeWithoutResult(status -> gamificacao.aoAprovarDescarte(idUsuario, agora));
         }
-        seedBins(random, now, ctx);
-        seedRequestsAndRoute(random, now, zone, ctx);
-        audit.recordAs(null, "sistema", AuditAction.DEMO_DATA_SEEDED, null, null,
-                ctx.residentIds.size() + " moradores e " + ctx.disposalCount + " descartes de demonstração");
+        semearLixeiras(aleatorio, agora, contexto);
+        semearSolicitacoesERota(aleatorio, agora, fuso, contexto);
+        auditoria.registrarComo(null, "sistema", AuditAction.DEMO_DATA_SEEDED, null, null,
+                contexto.idsMoradores.size() + " moradores e " + contexto.totalDescartes + " descartes de demonstração");
         log.info("Dados de demonstração criados em {} ms ({} descartes). Logins: {} | {} | {}",
-                System.currentTimeMillis() - start, ctx.disposalCount, ADMIN_EMAIL, COLLECTOR_EMAIL, RESIDENT_EMAIL);
+                System.currentTimeMillis() - inicio, contexto.totalDescartes, ADMIN_EMAIL, COLLECTOR_EMAIL, RESIDENT_EMAIL);
     }
 
     private static final class SeedContext {
-        final List<UUID> residentIds = new ArrayList<>();
-        final List<Household> houses = new ArrayList<>();
-        final Map<UUID, Household> houseOfUser = new HashMap<>();
-        UUID collectorId;
-        UUID residentId;
-        int disposalCount;
+        final List<UUID> idsMoradores = new ArrayList<>();
+        final List<Household> casas = new ArrayList<>();
+        final Map<UUID, Household> casaDoUsuario = new HashMap<>();
+        UUID idColetor;
+        UUID idMorador;
+        int totalDescartes;
     }
 
-    private SeedContext seedCore(Random random, Instant now, ZoneId zone) {
-        SeedContext ctx = new SeedContext();
-        Map<CategoryCode, Category> cats = new EnumMap<>(CategoryCode.class);
-        categories.findAll().forEach(c -> cats.put(c.getCode(), c));
-        List<CollectionPoint> allPoints = points.findByActiveTrue();
-        List<Organization> orgs = organizations.findAllByOrderByName();
+    private SeedContext semearBase(Random aleatorio, Instant agora, ZoneId fuso) {
+        SeedContext contexto = new SeedContext();
+        Map<CategoryCode, Category> categoriasPorCodigo = new EnumMap<>(CategoryCode.class);
+        categorias.findAll().forEach(c -> categoriasPorCodigo.put(c.getCode(), c));
+        List<CollectionPoint> todosEcopontos = ecopontos.findByActiveTrue();
+        List<Organization> listaOrganizacoes = organizacoes.findAllByOrderByName();
 
         // ---------- Residências ----------
-        for (int i = 0; i < HOUSES.size(); i++) {
-            HouseSpec spec = HOUSES.get(i);
-            Household h = new Household(spec.name(), spec.neighborhood(), spec.city(), "DEMO" + (2050 + i));
-            h.setLocation(spec.address(), spec.lat(), spec.lon());
-            h.setCreatedAt(now.minus(Duration.ofDays(380 - i * 3L)));
-            ctx.houses.add(h);
+        for (int i = 0; i < RESIDENCIAS_DEMO.size(); i++) {
+            HouseSpec especificacao = RESIDENCIAS_DEMO.get(i);
+            Household h = new Household(especificacao.name(), especificacao.neighborhood(), especificacao.city(), "DEMO" + (2050 + i));
+            h.setLocation(especificacao.address(), especificacao.lat(), especificacao.lon());
+            h.setCreatedAt(agora.minus(Duration.ofDays(380 - i * 3L)));
+            contexto.casas.add(h);
         }
-        households.saveAll(ctx.houses);
+        residencias.saveAll(contexto.casas);
 
         // ---------- Usuários ----------
-        Instant accountsCreated = now.minus(Duration.ofDays(385));
-        User admin = new User("Administrador EcoTech", ADMIN_EMAIL, encoder.encode(ADMIN_PASSWORD), Role.ADMIN);
-        User collector = new User("Carlos Pereira (coletor)", COLLECTOR_EMAIL, encoder.encode(COLLECTOR_PASSWORD), Role.COLLECTOR);
-        User collector2 = new User("Renata Alves (coletora)", "renata.alves@ecotechzero.com.br", encoder.encode(COLLECTOR_PASSWORD), Role.COLLECTOR);
-        User resident = new User("Marina Silva", RESIDENT_EMAIL, encoder.encode(RESIDENT_PASSWORD), Role.USER);
-        resident.setHousehold(ctx.houses.getFirst());
-        resident.setOrganization(orgs.stream().filter(o -> o.getName().startsWith("Ciência")).findFirst().orElse(null));
-        List<User> all = new ArrayList<>(List.of(admin, collector, collector2, resident));
+        Instant contasCriadasEm = agora.minus(Duration.ofDays(385));
+        User admin = new User("Administrador EcoTech", ADMIN_EMAIL, codificador.encode(ADMIN_PASSWORD), Role.ADMIN);
+        User coletor = new User("Carlos Pereira (coletor)", COLLECTOR_EMAIL, codificador.encode(COLLECTOR_PASSWORD), Role.COLLECTOR);
+        User coletor2 = new User("Renata Alves (coletora)", "renata.alves@ecotechzero.com.br", codificador.encode(COLLECTOR_PASSWORD), Role.COLLECTOR);
+        User morador = new User("Marina Silva", RESIDENT_EMAIL, codificador.encode(RESIDENT_PASSWORD), Role.USER);
+        morador.setHousehold(contexto.casas.getFirst());
+        morador.setOrganization(listaOrganizacoes.stream().filter(o -> o.getName().startsWith("Ciência")).findFirst().orElse(null));
+        List<User> todos = new ArrayList<>(List.of(admin, coletor, coletor2, morador));
         // Os demais moradores compartilham o hash da senha de demonstração (calcular Argon2 25x seria lento)
-        String sharedHash = encoder.encode(RESIDENT_PASSWORD);
-        List<User> residents = new ArrayList<>(List.of(resident));
-        for (int i = 0; i < NAMES.length; i++) {
-            String email = Text.fold(NAMES[i]).replaceAll("[^a-z ]", "").strip().replaceAll("\\s+", ".") + "@exemplo.com.br";
-            User u = new User(NAMES[i], email, sharedHash, Role.USER);
+        String hashCompartilhado = codificador.encode(RESIDENT_PASSWORD);
+        List<User> moradores = new ArrayList<>(List.of(morador));
+        for (int i = 0; i < NOMES.length; i++) {
+            String email = Text.semAcentos(NOMES[i]).replaceAll("[^a-z ]", "").strip().replaceAll("\\s+", ".") + "@exemplo.com.br";
+            User u = new User(NOMES[i], email, hashCompartilhado, Role.USER);
             if (i % 9 != 8) {
-                u.setHousehold(ctx.houses.get((i + 1) % ctx.houses.size()));
+                u.setHousehold(contexto.casas.get((i + 1) % contexto.casas.size()));
             }
             if (i % 4 != 3) {
-                u.setOrganization(orgs.get(i % orgs.size()));
+                u.setOrganization(listaOrganizacoes.get(i % listaOrganizacoes.size()));
             }
-            residents.add(u);
-            all.add(u);
+            moradores.add(u);
+            todos.add(u);
         }
-        for (int i = 0; i < all.size(); i++) {
-            User u = all.get(i);
-            u.setCreatedAt(accountsCreated.plus(Duration.ofDays(i * 2L)));
-            u.setLastLoginAt(now.minus(Duration.ofHours(random.nextInt(1, 24 * 20))));
+        for (int i = 0; i < todos.size(); i++) {
+            User u = todos.get(i);
+            u.setCreatedAt(contasCriadasEm.plus(Duration.ofDays(i * 2L)));
+            u.setLastLoginAt(agora.minus(Duration.ofHours(aleatorio.nextInt(1, 24 * 20))));
         }
-        users.saveAll(all);
-        for (int i = 0; i < ctx.houses.size(); i++) {
-            Household h = ctx.houses.get(i);
-            residents.stream().filter(u -> u.getHousehold() == h).findFirst().ifPresent(h::setOwner);
+        usuarios.saveAll(todos);
+        for (int i = 0; i < contexto.casas.size(); i++) {
+            Household h = contexto.casas.get(i);
+            moradores.stream().filter(u -> u.getHousehold() == h).findFirst().ifPresent(h::setOwner);
         }
-        ctx.collectorId = collector.getId();
-        ctx.residentId = resident.getId();
-        residents.forEach(u -> {
-            ctx.residentIds.add(u.getId());
+        contexto.idColetor = coletor.getId();
+        contexto.idMorador = morador.getId();
+        moradores.forEach(u -> {
+            contexto.idsMoradores.add(u.getId());
             if (u.getHousehold() != null) {
-                ctx.houseOfUser.put(u.getId(), u.getHousehold());
+                contexto.casaDoUsuario.put(u.getId(), u.getHousehold());
             }
         });
 
         // ---------- Desafios e metas ----------
-        seedChallengesAndGoals(now, zone);
+        semearDesafiosEMetas(agora, fuso);
 
         // ---------- Descartes, extrato e resgates ----------
-        List<Reward> catalog = rewards.findAllByOrderByCostPoints();
-        List<Disposal> allDisposals = new ArrayList<>();
-        List<SeedTx> allTx = new ArrayList<>();
-        List<Redemption> allRedemptions = new ArrayList<>();
-        int flaggedLeft = 6;
-        for (User u : residents) {
-            boolean isDemo = u == resident;
-            double rate = isDemo ? 0.32 : 0.06 + random.nextDouble() * 0.26;
-            List<Disposal> mine = generateDisposals(u, rate, isDemo, cats, allPoints, ctx.houseOfUser.get(u.getId()), admin, random, now, zone);
-            if (flaggedLeft > 0 && !isDemo && random.nextInt(3) == 0) {
-                Disposal suspicious = suspicious(u, cats, random, now);
-                mine.add(suspicious);
-                flaggedLeft--;
+        List<Reward> catalogo = recompensas.findAllByOrderByCostPoints();
+        List<Disposal> todosDescartes = new ArrayList<>();
+        List<SeedTx> todosLancamentos = new ArrayList<>();
+        List<Redemption> todosResgates = new ArrayList<>();
+        int sinalizadosRestantes = 6;
+        for (User u : moradores) {
+            boolean ehDemo = u == morador;
+            double taxa = ehDemo ? 0.32 : 0.06 + aleatorio.nextDouble() * 0.26;
+            List<Disposal> doUsuario = gerarDescartes(u, taxa, ehDemo, categoriasPorCodigo, todosEcopontos, contexto.casaDoUsuario.get(u.getId()), admin, aleatorio, agora, fuso);
+            if (sinalizadosRestantes > 0 && !ehDemo && aleatorio.nextInt(3) == 0) {
+                Disposal descarteSuspeito = descarteSuspeito(u, categoriasPorCodigo, aleatorio, agora);
+                doUsuario.add(descarteSuspeito);
+                sinalizadosRestantes--;
             }
-            allDisposals.addAll(mine);
-            buildLedger(u, mine, catalog, random, now, allTx, allRedemptions);
+            todosDescartes.addAll(doUsuario);
+            montarExtrato(u, doUsuario, catalogo, aleatorio, agora, todosLancamentos, todosResgates);
         }
-        disposals.saveAll(allDisposals);
-        redemptions.saveAll(allRedemptions);
+        descartes.saveAll(todosDescartes);
+        resgates.saveAll(todosResgates);
         // extrato encadeado (HMAC) na ordem cronológica de cada usuário; os ids de descartes/resgates já existem
-        ledger.appendAll(allTx.stream().map(t -> new LedgerRow(null, t.user().getId(), t.type().name(), t.amount(), t.balanceAfter(),
+        extrato.anexarTodos(todosLancamentos.stream().map(t -> new LedgerRow(null, t.user().getId(), t.type().name(), t.amount(), t.balanceAfter(),
                 t.description(), t.disposal() == null ? null : t.disposal().getId(), null,
                 t.redemption() == null ? null : t.redemption().getId(), t.at())).toList());
-        ctx.disposalCount = allDisposals.size();
-        return ctx;
+        contexto.totalDescartes = todosDescartes.size();
+        return contexto;
     }
 
-    private List<Disposal> generateDisposals(User u, double rate, boolean isDemo, Map<CategoryCode, Category> cats,
-                                             List<CollectionPoint> allPoints, Household house, User reviewer,
-                                             Random random, Instant now, ZoneId zone) {
-        List<Disposal> list = new ArrayList<>();
-        LocalDate today = LocalDate.now(clock.withZone(zone));
-        GeoPoint base = house != null ? new GeoPoint(house.getLatitude(), house.getLongitude()) : new GeoPoint(-23.6090, -46.7580);
-        for (int daysAgo = 365; daysAgo >= 0; daysAgo--) {
-            double growth = 0.45 + 0.55 * (365 - daysAgo) / 365.0; // a adesão cresce ao longo do ano
-            boolean forced = isDemo && daysAgo <= 8;              // sequência de dias do morador de demonstração
-            if (!forced && random.nextDouble() > rate * growth) {
+    private List<Disposal> gerarDescartes(User u, double taxa, boolean ehDemo, Map<CategoryCode, Category> categoriasPorCodigo,
+                                             List<CollectionPoint> todosEcopontos, Household casa, User revisor,
+                                             Random aleatorio, Instant agora, ZoneId fuso) {
+        List<Disposal> lista = new ArrayList<>();
+        LocalDate hoje = LocalDate.now(relogio.withZone(fuso));
+        GeoPoint base = casa != null ? new GeoPoint(casa.getLatitude(), casa.getLongitude()) : new GeoPoint(-23.6090, -46.7580);
+        for (int diasAtras = 365; diasAtras >= 0; diasAtras--) {
+            double crescimento = 0.45 + 0.55 * (365 - diasAtras) / 365.0; // a adesão cresce ao longo do ano
+            boolean forcado = ehDemo && diasAtras <= 8;              // sequência de dias do morador de demonstração
+            if (!forcado && aleatorio.nextDouble() > taxa * crescimento) {
                 continue;
             }
-            LocalDate day = today.minusDays(daysAgo);
-            Instant at = day.atTime(8 + random.nextInt(13), random.nextInt(60)).atZone(zone).toInstant();
-            if (at.isAfter(now.minus(Duration.ofMinutes(20)))) {
-                at = now.minus(Duration.ofMinutes(20 + random.nextInt(120)));
+            LocalDate dia = hoje.minusDays(diasAtras);
+            Instant momento = dia.atTime(8 + aleatorio.nextInt(13), aleatorio.nextInt(60)).atZone(fuso).toInstant();
+            if (momento.isAfter(agora.minus(Duration.ofMinutes(20)))) {
+                momento = agora.minus(Duration.ofMinutes(20 + aleatorio.nextInt(120)));
             }
-            Category cat = cats.get(pickCategory(random));
-            double typical = PROFILE.get(cat.getCode())[1];
-            double kg = Numbers.round(Math.min(cat.getMaxKgPerDisposal() * 0.6, Math.max(0.1, typical * (0.4 + random.nextDouble() * 1.4))), 2);
-            Disposal d = new Disposal(u, cat, kg, at);
-            d.setCreatedAt(at.plusSeconds(30));
-            d.setLocation(base.latitude() + (random.nextDouble() - 0.5) * 0.004, base.longitude() + (random.nextDouble() - 0.5) * 0.004);
-            if (random.nextInt(10) < 4) {
-                allPoints.stream().filter(p -> p.accepts(cat.getCode()))
+            Category categoria = categoriasPorCodigo.get(sortearCategoria(aleatorio));
+            double kgTipico = PERFIL_CATEGORIAS.get(categoria.getCode())[1];
+            double kg = Numbers.arredondar(Math.min(categoria.getMaxKgPerDisposal() * 0.6, Math.max(0.1, kgTipico * (0.4 + aleatorio.nextDouble() * 1.4))), 2);
+            Disposal d = new Disposal(u, categoria, kg, momento);
+            d.setCreatedAt(momento.plusSeconds(30));
+            d.setLocation(base.latitude() + (aleatorio.nextDouble() - 0.5) * 0.004, base.longitude() + (aleatorio.nextDouble() - 0.5) * 0.004);
+            if (aleatorio.nextInt(10) < 4) {
+                todosEcopontos.stream().filter(p -> p.accepts(categoria.getCode()))
                         .min(Comparator.comparingDouble(p -> GeoPoint.haversineKm(base.latitude(), base.longitude(), p.getLatitude(), p.getLongitude())))
                         .ifPresent(d::setCollectionPoint);
             }
-            if (random.nextInt(10) < 3) {
-                d.recordClientHint(cat.getCode(), Numbers.round(0.7 + random.nextDouble() * 0.29, 3), AiSource.LOCAL);
+            if (aleatorio.nextInt(10) < 3) {
+                d.recordClientHint(categoria.getCode(), Numbers.arredondar(0.7 + aleatorio.nextDouble() * 0.29, 3), AiSource.LOCAL);
             }
-            int pts = PointsCalculator.points(cat.getPointsPerKg(), kg, false);
-            d.setEstimatedPoints(pts);
-            d.setFraud(random.nextInt(3) == 0 ? random.nextInt(5, 20) : 0, List.of(), false);
-            boolean recent = daysAgo <= 1 && !(isDemo && daysAgo == 1);
-            if (recent && random.nextInt(10) < 8) {
+            int pontosDescarte = PointsCalculator.calcular(categoria.getPointsPerKg(), kg, false);
+            d.setEstimatedPoints(pontosDescarte);
+            d.setFraud(aleatorio.nextInt(3) == 0 ? aleatorio.nextInt(5, 20) : 0, List.of(), false);
+            boolean recente = diasAtras <= 1 && !(ehDemo && diasAtras == 1);
+            if (recente && aleatorio.nextInt(10) < 8) {
                 // pendente: aguardando moderação
-            } else if (!forced && random.nextInt(100) < 5) {
-                d.reject(REJECTION_REASONS[random.nextInt(REJECTION_REASONS.length)], reviewer, reviewTime(at, random, now));
+            } else if (!forcado && aleatorio.nextInt(100) < 5) {
+                d.reject(MOTIVOS_RECUSA[aleatorio.nextInt(MOTIVOS_RECUSA.length)], revisor, horaRevisao(momento, aleatorio, agora));
             } else {
-                d.approve(pts, reviewer, reviewTime(at, random, now));
+                d.approve(pontosDescarte, revisor, horaRevisao(momento, aleatorio, agora));
             }
-            list.add(d);
+            lista.add(d);
         }
-        return list;
+        return lista;
     }
 
     /** Descarte pendente sinalizado pelo antifraude (fila de revisão do admin). */
-    private Disposal suspicious(User u, Map<CategoryCode, Category> cats, Random random, Instant now) {
-        Category cat = cats.get(random.nextBoolean() ? CategoryCode.ELETRONICO : CategoryCode.METAL);
-        double kg = Numbers.round(cat.getMaxKgPerDisposal() * (0.85 + random.nextDouble() * 0.15), 2);
-        Instant at = now.minus(Duration.ofHours(random.nextInt(2, 72)));
-        Disposal d = new Disposal(u, cat, kg, at);
-        d.setCreatedAt(at.plusSeconds(20));
-        d.setEstimatedPoints(PointsCalculator.points(cat.getPointsPerKg(), kg, false));
-        List<String> flags = new ArrayList<>(List.of(
-                "Quantidade próxima do máximo permitido para a categoria (" + cat.getMaxKgPerDisposal() + " kg).",
+    private Disposal descarteSuspeito(User u, Map<CategoryCode, Category> categoriasPorCodigo, Random aleatorio, Instant agora) {
+        Category categoria = categoriasPorCodigo.get(aleatorio.nextBoolean() ? CategoryCode.ELETRONICO : CategoryCode.METAL);
+        double kg = Numbers.arredondar(categoria.getMaxKgPerDisposal() * (0.85 + aleatorio.nextDouble() * 0.15), 2);
+        Instant momento = agora.minus(Duration.ofHours(aleatorio.nextInt(2, 72)));
+        Disposal d = new Disposal(u, categoria, kg, momento);
+        d.setCreatedAt(momento.plusSeconds(20));
+        d.setEstimatedPoints(PointsCalculator.calcular(categoria.getPointsPerKg(), kg, false));
+        List<String> alertas = new ArrayList<>(List.of(
+                "Quantidade próxima do máximo permitido para a categoria (" + categoria.getMaxKgPerDisposal() + " kg).",
                 "Descarte acima de 5 kg sem foto de comprovação."));
-        int score = 35;
-        if (random.nextBoolean()) {
-            flags.add("Muitos registros em pouco tempo (5 em 10 minutos).");
-            score += 30;
+        int pontuacao = 35;
+        if (aleatorio.nextBoolean()) {
+            alertas.add("Muitos registros em pouco tempo (5 em 10 minutos).");
+            pontuacao += 30;
         } else {
             d.recordClientHint(CategoryCode.REJEITO, 0.86, AiSource.LOCAL);
-            flags.add("Categoria informada (" + cat.getCode() + ") difere da sugerida pela IA (REJEITO, 86% de confiança).");
-            score += 15;
+            alertas.add("Categoria informada (" + categoria.getCode() + ") difere da sugerida pela IA (REJEITO, 86% de confiança).");
+            pontuacao += 15;
         }
-        d.setFraud(Math.min(100, score), flags, true);
+        d.setFraud(Math.min(100, pontuacao), alertas, true);
         return d;
     }
 
-    private static Instant reviewTime(Instant at, Random random, Instant now) {
-        Instant reviewed = at.plus(Duration.ofMinutes(90 + random.nextInt(60 * 30)));
-        Instant cap = now.minus(Duration.ofMinutes(10));
-        return reviewed.isAfter(cap) ? cap : reviewed;
+    private static Instant horaRevisao(Instant momento, Random aleatorio, Instant agora) {
+        Instant revisadoEm = momento.plus(Duration.ofMinutes(90 + aleatorio.nextInt(60 * 30)));
+        Instant limite = agora.minus(Duration.ofMinutes(10));
+        return revisadoEm.isAfter(limite) ? limite : revisadoEm;
     }
 
-    private static CategoryCode pickCategory(Random random) {
-        double total = PROFILE.values().stream().mapToDouble(v -> v[0]).sum();
-        double r = random.nextDouble() * total;
-        for (var e : PROFILE.entrySet()) {
+    private static CategoryCode sortearCategoria(Random aleatorio) {
+        double total = PERFIL_CATEGORIAS.values().stream().mapToDouble(v -> v[0]).sum();
+        double r = aleatorio.nextDouble() * total;
+        for (var e : PERFIL_CATEGORIAS.entrySet()) {
             r -= e.getValue()[0];
             if (r <= 0) {
                 return e.getKey();
@@ -391,43 +391,43 @@ public class DemoDataSeeder implements ApplicationRunner {
     }
 
     /** Monta o extrato em ordem cronológica (saldo após cada lançamento) e alguns resgates. */
-    private void buildLedger(User u, List<Disposal> mine, List<Reward> catalog, Random random, Instant now,
-                             List<SeedTx> txOut, List<Redemption> redemptionsOut) {
-        List<Disposal> approved = mine.stream().filter(d -> d.getReviewedAt() != null && d.getPointsAwarded() > 0)
+    private void montarExtrato(User u, List<Disposal> doUsuario, List<Reward> catalogo, Random aleatorio, Instant agora,
+                             List<SeedTx> lancamentosSaida, List<Redemption> resgatesSaida) {
+        List<Disposal> aprovados = doUsuario.stream().filter(d -> d.getReviewedAt() != null && d.getPointsAwarded() > 0)
                 .sorted(Comparator.comparing(Disposal::getReviewedAt)).toList();
-        long balance = 0, earned = 0;
-        int redeemed = 0;
-        for (Disposal d : approved) {
-            balance += d.getPointsAwarded();
-            earned += d.getPointsAwarded();
-            txOut.add(new SeedTx(u, PointTransactionType.EARN, d.getPointsAwarded(), balance,
+        long saldo = 0, ganhos = 0;
+        int resgatados = 0;
+        for (Disposal d : aprovados) {
+            saldo += d.getPointsAwarded();
+            ganhos += d.getPointsAwarded();
+            lancamentosSaida.add(new SeedTx(u, PointTransactionType.EARN, d.getPointsAwarded(), saldo,
                     String.format(Locale.forLanguageTag("pt-BR"), "Descarte aprovado: %.2f kg de %s", d.getQuantityKg(), d.getCategory().getName()),
                     d, null, d.getReviewedAt()));
-            if (redeemed < 3 && random.nextInt(100) < 5) {
-                final long available = balance;
-                List<Reward> affordable = catalog.stream().filter(r -> r.getCostPoints() <= available && r.getStock() > 0).toList();
-                if (!affordable.isEmpty()) {
-                    Reward reward = affordable.get(random.nextInt(affordable.size()));
-                    reward.decrementStock();
-                    Instant at = d.getReviewedAt().plus(Duration.ofHours(2));
-                    if (at.isAfter(now)) {
-                        at = now.minus(Duration.ofMinutes(5));
+            if (resgatados < 3 && aleatorio.nextInt(100) < 5) {
+                final long disponivel = saldo;
+                List<Reward> acessiveis = catalogo.stream().filter(r -> r.getCostPoints() <= disponivel && r.getStock() > 0).toList();
+                if (!acessiveis.isEmpty()) {
+                    Reward recompensa = acessiveis.get(aleatorio.nextInt(acessiveis.size()));
+                    recompensa.decrementStock();
+                    Instant momento = d.getReviewedAt().plus(Duration.ofHours(2));
+                    if (momento.isAfter(agora)) {
+                        momento = agora.minus(Duration.ofMinutes(5));
                     }
-                    Redemption redemption = new Redemption(u, reward, reward.getCostPoints(), voucher(random));
-                    redemption.setCreatedAt(at);
-                    if (at.isBefore(now.minus(Duration.ofDays(20)))) {
-                        redemption.setStatus(Redemption.Status.USED);
+                    Redemption resgate = new Redemption(u, recompensa, recompensa.getCostPoints(), gerarVoucher(aleatorio));
+                    resgate.setCreatedAt(momento);
+                    if (momento.isBefore(agora.minus(Duration.ofDays(20)))) {
+                        resgate.setStatus(Redemption.Status.USED);
                     }
-                    redemptionsOut.add(redemption);
-                    balance -= reward.getCostPoints();
-                    txOut.add(new SeedTx(u, PointTransactionType.REDEEM, -reward.getCostPoints(), balance,
-                            "Resgate: " + reward.getName(), null, redemption, at));
-                    redeemed++;
+                    resgatesSaida.add(resgate);
+                    saldo -= recompensa.getCostPoints();
+                    lancamentosSaida.add(new SeedTx(u, PointTransactionType.REDEEM, -recompensa.getCostPoints(), saldo,
+                            "Resgate: " + recompensa.getName(), null, resgate, momento));
+                    resgatados++;
                 }
             }
         }
-        u.setPoints(balance);
-        u.setTotalEarned(earned);
+        u.setPoints(saldo);
+        u.setTotalEarned(ganhos);
     }
 
     /** Lançamento do extrato montado em memória (gravado depois, já encadeado, pela LedgerChain). */
@@ -435,43 +435,43 @@ public class DemoDataSeeder implements ApplicationRunner {
                           Disposal disposal, Redemption redemption, Instant at) {
     }
 
-    private static String voucher(Random random) {
-        String alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static String gerarVoucher(Random aleatorio) {
+        String alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         StringBuilder sb = new StringBuilder("LZ50-");
         for (int i = 0; i < 8; i++) {
             if (i == 4) sb.append('-');
-            sb.append(alphabet.charAt(random.nextInt(alphabet.length())));
+            sb.append(alfabeto.charAt(aleatorio.nextInt(alfabeto.length())));
         }
         return sb.toString();
     }
 
-    private void seedChallengesAndGoals(Instant now, ZoneId zone) {
-        LocalDate today = LocalDate.now(clock.withZone(zone));
-        YearMonth month = YearMonth.from(today);
-        List<Challenge> list = new ArrayList<>();
-        list.add(challenge("Mês do plástico", "Recicle 8 kg de plástico neste mês.", CategoryCode.PLASTICO, Challenge.Metric.KG,
-                8, 150, month.atDay(1), month.atEndOfMonth(), true));
-        list.add(challenge("Maratona da reciclagem", "Faça 12 descartes aprovados em 30 dias.", null, Challenge.Metric.COUNT,
-                12, 200, today.minusDays(15), today.plusDays(15), true));
-        list.add(challenge("Semana do e-lixo", "Descarte corretamente pelo menos 1 eletrônico nesta semana.", CategoryCode.ELETRONICO,
-                Challenge.Metric.COUNT, 1, 100, today.minusDays(3), today.plusDays(4), true));
-        list.add(challenge("Papel em dia", "Recicle 10 kg de papel e papelão.", CategoryCode.PAPEL, Challenge.Metric.KG,
-                10, 120, today.minusDays(10), today.plusDays(20), true));
-        list.add(challenge("Vidro sem caco", "Leve 5 kg de vidro a um ecoponto no próximo mês.", CategoryCode.VIDRO, Challenge.Metric.KG,
-                5, 100, month.plusMonths(1).atDay(1), month.plusMonths(1).atEndOfMonth(), true));
-        list.add(challenge("Compostagem de verão", "Composte 15 kg de orgânicos.", CategoryCode.ORGANICO, Challenge.Metric.KG,
-                15, 180, today.minusDays(120), today.minusDays(60), false));
-        challenges.saveAll(list);
-        goals.saveAll(List.of(
-                new Goal(today.getYear(), "Meta " + today.getYear() + ": 70% dos resíduos registrados reciclados", 0.70, 6000),
+    private void semearDesafiosEMetas(Instant agora, ZoneId fuso) {
+        LocalDate hoje = LocalDate.now(relogio.withZone(fuso));
+        YearMonth mes = YearMonth.from(hoje);
+        List<Challenge> lista = new ArrayList<>();
+        lista.add(desafio("Mês do plástico", "Recicle 8 kg de plástico neste mês.", CategoryCode.PLASTICO, Challenge.Metric.KG,
+                8, 150, mes.atDay(1), mes.atEndOfMonth(), true));
+        lista.add(desafio("Maratona da reciclagem", "Faça 12 descartes aprovados em 30 dias.", null, Challenge.Metric.COUNT,
+                12, 200, hoje.minusDays(15), hoje.plusDays(15), true));
+        lista.add(desafio("Semana do e-lixo", "Descarte corretamente pelo menos 1 eletrônico nesta semana.", CategoryCode.ELETRONICO,
+                Challenge.Metric.COUNT, 1, 100, hoje.minusDays(3), hoje.plusDays(4), true));
+        lista.add(desafio("Papel em dia", "Recicle 10 kg de papel e papelão.", CategoryCode.PAPEL, Challenge.Metric.KG,
+                10, 120, hoje.minusDays(10), hoje.plusDays(20), true));
+        lista.add(desafio("Vidro sem caco", "Leve 5 kg de vidro a um ecoponto no próximo mês.", CategoryCode.VIDRO, Challenge.Metric.KG,
+                5, 100, mes.plusMonths(1).atDay(1), mes.plusMonths(1).atEndOfMonth(), true));
+        lista.add(desafio("Compostagem de verão", "Composte 15 kg de orgânicos.", CategoryCode.ORGANICO, Challenge.Metric.KG,
+                15, 180, hoje.minusDays(120), hoje.minusDays(60), false));
+        desafios.saveAll(lista);
+        metas.saveAll(List.of(
+                new Goal(hoje.getYear(), "Meta " + hoje.getYear() + ": 70% dos resíduos registrados reciclados", 0.70, 6000),
                 new Goal(2030, "Meta 2030: 80% de reciclagem na comunidade", 0.80, 15000),
                 new Goal(2050, "Lixo Zero 2050: 95% de reaproveitamento", 0.95, 50000)));
     }
 
-    private static Challenge challenge(String title, String description, CategoryCode code, Challenge.Metric metric, double target,
-                                       int bonus, LocalDate starts, LocalDate ends, boolean active) {
-        Challenge c = new Challenge(title);
-        c.apply(new ChallengeInput(title, description, code, metric, target, bonus, starts, ends, active));
+    private static Challenge desafio(String titulo, String descricao, CategoryCode codigo, Challenge.Metric metrica, double alvo,
+                                       int bonus, LocalDate inicioEm, LocalDate fimEm, boolean ativo) {
+        Challenge c = new Challenge(titulo);
+        c.apply(new ChallengeInput(titulo, descricao, codigo, metrica, alvo, bonus, inicioEm, fimEm, ativo));
         return c;
     }
 
@@ -479,8 +479,8 @@ public class DemoDataSeeder implements ApplicationRunner {
     }
 
     /** Lixeiras inteligentes com histórico de leituras; a última leitura passa pelo fluxo real (pode abrir coleta). */
-    private void seedBins(Random random, Instant now, SeedContext ctx) {
-        List<BinSpec> specs = List.of(
+    private void semearLixeiras(Random aleatorio, Instant agora, SeedContext contexto) {
+        List<BinSpec> especificacoes = List.of(
                 new BinSpec(0, CategoryCode.PLASTICO, "Recicláveis da cozinha", 60, 80, 64, false),
                 new BinSpec(0, CategoryCode.PAPEL, "Papel do escritório", 50, 85, 37, false),
                 new BinSpec(0, CategoryCode.ORGANICO, "Composteira", 30, 75, 51, false),
@@ -489,44 +489,44 @@ public class DemoDataSeeder implements ApplicationRunner {
                 new BinSpec(3, CategoryCode.METAL, "Latinhas da república", 50, 80, 58, false),
                 new BinSpec(4, CategoryCode.REJEITO, "Rejeito do banheiro", 30, 90, 45, true),
                 new BinSpec(6, CategoryCode.PAPEL, "Papelão das entregas", 100, 80, 72, false));
-        Map<CategoryCode, Category> cats = new EnumMap<>(CategoryCode.class);
-        categories.findAll().forEach(c -> cats.put(c.getCode(), c));
-        List<UUID> toFinish = new ArrayList<>();
-        Map<UUID, BinSpec> specById = new HashMap<>();
+        Map<CategoryCode, Category> categoriasPorCodigo = new EnumMap<>(CategoryCode.class);
+        categorias.findAll().forEach(c -> categoriasPorCodigo.put(c.getCode(), c));
+        List<UUID> paraConcluir = new ArrayList<>();
+        Map<UUID, BinSpec> especificacaoPorId = new HashMap<>();
         tx.executeWithoutResult(status -> {
-            List<BinReading> history = new ArrayList<>();
-            for (BinSpec spec : specs) {
-                Household house = households.findById(ctx.houses.get(spec.house()).getId()).orElseThrow();
-                SmartBin bin = new SmartBin(house, cats.get(spec.code()), spec.name(), spec.liters(), spec.threshold(),
+            List<BinReading> historico = new ArrayList<>();
+            for (BinSpec especificacao : especificacoes) {
+                Household casa = residencias.findById(contexto.casas.get(especificacao.house()).getId()).orElseThrow();
+                SmartBin lixeira = new SmartBin(casa, categoriasPorCodigo.get(especificacao.code()), especificacao.name(), especificacao.liters(), especificacao.threshold(),
                         UUID.randomUUID(), SmartBinService.sha256(UUID.randomUUID().toString()));
-                bin.setSimulated(!spec.offline());
-                bin.setCreatedAt(now.minus(Duration.ofDays(40)));
-                bins.save(bin);
+                lixeira.setSimulated(!especificacao.offline());
+                lixeira.setCreatedAt(agora.minus(Duration.ofDays(40)));
+                lixeiras.save(lixeira);
                 // 36 leituras a cada 40 min, subindo até o nível atual (com um esvaziamento no meio)
-                Instant end = spec.offline() ? now.minus(Duration.ofHours(30)) : now.minus(Duration.ofMinutes(40));
-                int startFill = Math.max(0, spec.fill() - 30);
+                Instant fim = especificacao.offline() ? agora.minus(Duration.ofHours(30)) : agora.minus(Duration.ofMinutes(40));
+                int nivelInicial = Math.max(0, especificacao.fill() - 30);
                 for (int i = 35; i >= 0; i--) {
-                    Instant at = end.minus(Duration.ofMinutes(40L * i));
-                    int fill = i > 30 ? 70 + (35 - i) * 4 : startFill + (int) Math.round((30 - i) * (spec.fill() - startFill) / 30.0);
-                    history.add(new BinReading(bin, Math.clamp(fill, 0, 100), Math.clamp(96 - (35 - i) / 6, 0, 100), at));
+                    Instant momento = fim.minus(Duration.ofMinutes(40L * i));
+                    int nivel = i > 30 ? 70 + (35 - i) * 4 : nivelInicial + (int) Math.round((30 - i) * (especificacao.fill() - nivelInicial) / 30.0);
+                    historico.add(new BinReading(lixeira, Math.clamp(nivel, 0, 100), Math.clamp(96 - (35 - i) / 6, 0, 100), momento));
                 }
-                bin.applyReading(spec.fill(), 90, end);
-                if (!spec.offline()) {
-                    toFinish.add(bin.getId());
-                    specById.put(bin.getId(), spec);
+                lixeira.applyReading(especificacao.fill(), 90, fim);
+                if (!especificacao.offline()) {
+                    paraConcluir.add(lixeira.getId());
+                    especificacaoPorId.put(lixeira.getId(), especificacao);
                 }
             }
-            readings.saveAll(history);
+            leituras.saveAll(historico);
         });
-        for (UUID id : toFinish) {
-            smartBins.recordReading(id, specById.get(id).fill(), 88 + random.nextInt(10), now);
+        for (UUID id : paraConcluir) {
+            servicoLixeiras.registrarLeitura(id, especificacaoPorId.get(id).fill(), 88 + aleatorio.nextInt(10), agora);
         }
     }
 
-    private void seedRequestsAndRoute(Random random, Instant now, ZoneId zone, SeedContext ctx) {
+    private void semearSolicitacoesERota(Random aleatorio, Instant agora, ZoneId fuso, SeedContext contexto) {
         record Spot(String address, double lat, double lon) {
         }
-        List<Spot> spots = List.of(
+        List<Spot> locais = List.of(
                 new Spot("Rua Cesário Dau, 1200 – Jardim Maria Rosa", -23.6063, -46.7581),
                 new Spot("Av. Aprígio Bezerra da Silva, 2450 – Parque Pinheiros", -23.6147, -46.7712),
                 new Spot("Rua Benedito Pires, 380 – Vila Iasi", -23.6089, -46.7772),
@@ -539,27 +539,27 @@ public class DemoDataSeeder implements ApplicationRunner {
                 new Spot("Rua Clemente Rocha, 90 – Jardim Umarizal", -23.6281, -46.7493),
                 new Spot("Rua Dr. Luiz Migliano, 900 – Vila Sônia", -23.5967, -46.7389),
                 new Spot("Rua Arnaldo Magniccaro, 150 – Campo Limpo", -23.6362, -46.7618));
-        CategoryCode[][] combos = {
+        CategoryCode[][] combinacoes = {
                 {CategoryCode.PLASTICO, CategoryCode.PAPEL}, {CategoryCode.ELETRONICO}, {CategoryCode.VIDRO, CategoryCode.METAL},
                 {CategoryCode.PAPEL}, {CategoryCode.PLASTICO, CategoryCode.METAL, CategoryCode.VIDRO}, {CategoryCode.ORGANICO}};
         List<UUID> ids = new ArrayList<>();
         tx.executeWithoutResult(status -> {
-            List<CollectionRequest> list = new ArrayList<>();
-            for (int i = 0; i < spots.size(); i++) {
-                Spot s = spots.get(i);
+            List<CollectionRequest> lista = new ArrayList<>();
+            for (int i = 0; i < locais.size(); i++) {
+                Spot s = locais.get(i);
                 CollectionRequest r = new CollectionRequest(CollectionSource.USER, s.address(), s.lat(), s.lon(),
-                        Set.of(combos[i % combos.length]), Numbers.round2(8 + random.nextDouble() * 70));
-                r.setRequester(users.getReferenceById(ctx.residentIds.get(i % ctx.residentIds.size())));
-                r.setCreatedAt(now.minus(Duration.ofHours(6 + random.nextInt(24 * 5))));
+                        Set.of(combinacoes[i % combinacoes.length]), Numbers.arredondar2(8 + aleatorio.nextDouble() * 70));
+                r.setRequester(usuarios.getReferenceById(contexto.idsMoradores.get(i % contexto.idsMoradores.size())));
+                r.setCreatedAt(agora.minus(Duration.ofHours(6 + aleatorio.nextInt(24 * 5))));
                 if (i % 4 == 0) {
-                    r.setPreferredDate(LocalDate.now(clock.withZone(zone)).plusDays(1 + i % 3));
+                    r.setPreferredDate(LocalDate.now(relogio.withZone(fuso)).plusDays(1 + i % 3));
                 }
                 r.setNotes(i % 3 == 0 ? "Deixar na portaria." : null);
-                list.add(r);
+                lista.add(r);
             }
-            requests.saveAll(list);
-            list.stream().sorted(Comparator.comparing(CollectionRequest::getCreatedAt)).limit(5).forEach(r -> ids.add(r.getId()));
+            solicitacoes.saveAll(lista);
+            lista.stream().sorted(Comparator.comparing(CollectionRequest::getCreatedAt)).limit(5).forEach(r -> ids.add(r.getId()));
         });
-        routes.create(new CreateRouteRequest("Rota Taboão – manhã", ctx.collectorId, LocalDate.now(clock.withZone(zone)), ids, null, 1000.0));
+        rotas.criar(new CreateRouteRequest("Rota Taboão – manhã", contexto.idColetor, LocalDate.now(relogio.withZone(fuso)), ids, null, 1000.0));
     }
 }

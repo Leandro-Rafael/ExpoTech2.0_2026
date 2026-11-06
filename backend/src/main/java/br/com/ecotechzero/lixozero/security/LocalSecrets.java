@@ -24,53 +24,53 @@ public final class LocalSecrets {
     private LocalSecrets() {
     }
 
-    public static byte[] loadOrCreate(Path file, String envName) {
+    public static byte[] carregarOuCriar(Path arquivo, String nomeVariavel) {
         try {
-            if (Files.exists(file)) {
-                byte[] bytes = Base64.getDecoder().decode(Files.readString(file).strip());
+            if (Files.exists(arquivo)) {
+                byte[] bytes = Base64.getDecoder().decode(Files.readString(arquivo).strip());
                 if (bytes.length >= MIN_BYTES) {
                     return bytes;
                 }
             }
-            byte[] secret = new byte[48];
-            new SecureRandom().nextBytes(secret);
-            Files.createDirectories(file.getParent());
-            Files.writeString(file, Base64.getEncoder().encodeToString(secret));
-            restrictPermissions(file);
-            log.warn("{} não definido: segredo aleatório gerado em {} (use {} em produção)", envName, file, envName);
-            return secret;
+            byte[] segredo = new byte[48];
+            new SecureRandom().nextBytes(segredo);
+            Files.createDirectories(arquivo.getParent());
+            Files.writeString(arquivo, Base64.getEncoder().encodeToString(segredo));
+            restringirPermissoes(arquivo);
+            log.warn("{} não definido: segredo aleatório gerado em {} (use {} em produção)", nomeVariavel, arquivo, nomeVariavel);
+            return segredo;
         } catch (IOException e) {
-            throw new UncheckedIOException("Não foi possível ler/gravar o segredo local " + file.getFileName(), e);
+            throw new UncheckedIOException("Não foi possível ler/gravar o segredo local " + arquivo.getFileName(), e);
         }
     }
 
     /** Aceita Base64 (>= 32 bytes decodificados) ou texto puro. */
-    public static byte[] decode(String value) {
+    public static byte[] decodificar(String valor) {
         try {
-            byte[] decoded = Base64.getDecoder().decode(value);
-            if (decoded.length >= MIN_BYTES) {
-                return decoded;
+            byte[] decodificado = Base64.getDecoder().decode(valor);
+            if (decodificado.length >= MIN_BYTES) {
+                return decodificado;
             }
         } catch (IllegalArgumentException ignored) {
             // não é Base64: usa o texto puro
         }
-        return value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return valor.getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    private static void restrictPermissions(Path file) {
+    private static void restringirPermissoes(Path arquivo) {
         try {
-            if (Files.getFileStore(file).supportsFileAttributeView("posix")) {
-                Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------")); // chmod 600
+            if (Files.getFileStore(arquivo).supportsFileAttributeView("posix")) {
+                Files.setPosixFilePermissions(arquivo, PosixFilePermissions.fromString("rw-------")); // chmod 600
                 return;
             }
         } catch (IOException | UnsupportedOperationException ignored) {
             // segue para o modo genérico abaixo
         }
         try {
-            file.toFile().setReadable(false, false);
-            file.toFile().setReadable(true, true);
-            file.toFile().setWritable(false, false);
-            file.toFile().setWritable(true, true);
+            arquivo.toFile().setReadable(false, false);
+            arquivo.toFile().setReadable(true, true);
+            arquivo.toFile().setWritable(false, false);
+            arquivo.toFile().setWritable(true, true);
         } catch (SecurityException ignored) {
             // melhor esforço (Windows ignora parte das permissões POSIX)
         }

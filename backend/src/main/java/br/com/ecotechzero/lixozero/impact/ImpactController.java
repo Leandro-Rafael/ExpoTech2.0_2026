@@ -24,34 +24,34 @@ import java.time.LocalDate;
 @RestController
 public class ImpactController {
 
-    private final ImpactService impact;
-    private final TokenBucketRateLimiter limiter;
-    private final AppProperties props;
-    private final Clock clock;
+    private final ImpactService impacto;
+    private final TokenBucketRateLimiter limitador;
+    private final AppProperties propriedades;
+    private final Clock relogio;
 
-    public ImpactController(ImpactService impact, TokenBucketRateLimiter limiter, AppProperties props, Clock clock) {
-        this.impact = impact;
-        this.limiter = limiter;
-        this.props = props;
-        this.clock = clock;
+    public ImpactController(ImpactService impacto, TokenBucketRateLimiter limitador, AppProperties propriedades, Clock relogio) {
+        this.impacto = impacto;
+        this.limitador = limitador;
+        this.propriedades = propriedades;
+        this.relogio = relogio;
     }
 
     /** Público (landing page). */
     @GetMapping("/api/public/stats")
-    public PublicStats publicStats() {
-        return impact.publicStats();
+    public PublicStats estatisticasPublicas() {
+        return impacto.estatisticasPublicas();
     }
 
     @GetMapping("/api/impact/summary")
-    public ImpactSummary summary(@AuthenticationPrincipal AuthUser me,
+    public ImpactSummary resumo(@AuthenticationPrincipal AuthUser logado,
                                  @RequestParam(defaultValue = "COMMUNITY") Scope scope,
                                  @RequestParam(defaultValue = "12") int months) {
-        return impact.summary(me.id(), scope, months);
+        return impacto.resumo(logado.id(), scope, months);
     }
 
     @PostMapping("/api/impact/simulate")
-    public SimulationResult simulate(@Valid @RequestBody SimulationInput input) {
-        limiter.check(TokenBucketRateLimiter.Policy.SIMULATION_IP, RequestContext.currentIp());
-        return ScenarioSimulator.simulate(input, LocalDate.now(clock.withZone(props.zoneId())).getYear());
+    public SimulationResult simular(@Valid @RequestBody SimulationInput entrada) {
+        limitador.verificar(TokenBucketRateLimiter.Policy.SIMULATION_IP, RequestContext.ipAtual());
+        return ScenarioSimulator.simular(entrada, LocalDate.now(relogio.withZone(propriedades.zoneId())).getYear());
     }
 }

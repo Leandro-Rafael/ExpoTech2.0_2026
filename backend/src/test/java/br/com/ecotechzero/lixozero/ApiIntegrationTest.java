@@ -54,7 +54,7 @@ class ApiIntegrationTest {
 
     @BeforeEach
     void resetLimits() {
-        limiter.reset();
+        limiter.reiniciar();
     }
 
     /** Cliente HTTP simulado que mantém cookies entre requisições. */

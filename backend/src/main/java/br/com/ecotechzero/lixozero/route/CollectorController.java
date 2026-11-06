@@ -20,25 +20,25 @@ import java.util.UUID;
 @RequestMapping("/api/collector")
 public class CollectorController {
 
-    private final RouteService routes;
+    private final RouteService rotas;
 
-    public CollectorController(RouteService routes) {
-        this.routes = routes;
+    public CollectorController(RouteService rotas) {
+        this.rotas = rotas;
     }
 
     @GetMapping("/routes")
-    public List<RouteDto> myRoutes(@AuthenticationPrincipal AuthUser me) {
-        return routes.listForCollector(me);
+    public List<RouteDto> minhasRotas(@AuthenticationPrincipal AuthUser logado) {
+        return rotas.listarDoColetor(logado);
     }
 
     @PostMapping("/routes/{id}/start")
-    public RouteDto start(@AuthenticationPrincipal AuthUser me, @PathVariable UUID id) {
-        return routes.start(me, id);
+    public RouteDto iniciar(@AuthenticationPrincipal AuthUser logado, @PathVariable UUID id) {
+        return rotas.iniciar(logado, id);
     }
 
     @PostMapping("/routes/{routeId}/stops/{stopId}/complete")
-    public RouteDto completeStop(@AuthenticationPrincipal AuthUser me, @PathVariable UUID routeId, @PathVariable UUID stopId,
-                                 @Valid @RequestBody(required = false) CompleteStopRequest body) {
-        return routes.completeStop(me, routeId, stopId, body == null ? null : body.collectedKg());
+    public RouteDto concluirParada(@AuthenticationPrincipal AuthUser logado, @PathVariable UUID routeId, @PathVariable UUID stopId,
+                                 @Valid @RequestBody(required = false) CompleteStopRequest corpo) {
+        return rotas.concluirParada(logado, routeId, stopId, corpo == null ? null : corpo.collectedKg());
     }
 }

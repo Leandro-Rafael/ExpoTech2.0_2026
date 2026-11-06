@@ -23,35 +23,35 @@ class DomainRulesTest {
     @Test
     void passwordPolicy() {
         String email = "maria.souza@exemplo.com.br";
-        assertThat(policy.check("curta1", email)).isPresent();                       // menos de 10
-        assertThat(policy.check("somenteletras", email)).isPresent();                // sem número
-        assertThat(policy.check("1234567890123", email)).isPresent();                // sem letra
-        assertThat(policy.check("MARIA.souza2050", email)).isPresent();              // contém o e-mail (parte local)
-        assertThat(policy.check("Password123", email)).isPresent();                  // senha comum
-        assertThat(policy.check("Senha@123456", email)).isPresent();                 // comum sem símbolos
-        assertThat(policy.check("a".repeat(129) + "1", email)).isPresent();          // longa demais
-        assertThat(policy.check("Ipê-amarelo-2050", email)).isEmpty();
+        assertThat(policy.verificar("curta1", email)).isPresent();                       // menos de 10
+        assertThat(policy.verificar("somenteletras", email)).isPresent();                // sem número
+        assertThat(policy.verificar("1234567890123", email)).isPresent();                // sem letra
+        assertThat(policy.verificar("MARIA.souza2050", email)).isPresent();              // contém o e-mail (parte local)
+        assertThat(policy.verificar("Password123", email)).isPresent();                  // senha comum
+        assertThat(policy.verificar("Senha@123456", email)).isPresent();                 // comum sem símbolos
+        assertThat(policy.verificar("a".repeat(129) + "1", email)).isPresent();          // longa demais
+        assertThat(policy.verificar("Ipê-amarelo-2050", email)).isEmpty();
         // senhas das contas de demonstração precisam passar na própria política
-        assertThat(policy.check("EcoTech@2050", "admin@ecotechzero.com.br")).isEmpty();
-        assertThat(policy.check("Coleta@2050", "coletor@ecotechzero.com.br")).isEmpty();
-        assertThat(policy.check("Recicla@2050", "morador@ecotechzero.com.br")).isEmpty();
+        assertThat(policy.verificar("EcoTech@2050", "admin@ecotechzero.com.br")).isEmpty();
+        assertThat(policy.verificar("Coleta@2050", "coletor@ecotechzero.com.br")).isEmpty();
+        assertThat(policy.verificar("Recicla@2050", "morador@ecotechzero.com.br")).isEmpty();
     }
 
     @Test
     void pointsAreRoundedWithMinimumAndAiBonus() {
-        assertThat(PointsCalculator.points(10, 2.5, false)).isEqualTo(25);
-        assertThat(PointsCalculator.points(10, 2.5, true)).isEqualTo(28);   // +10%
-        assertThat(PointsCalculator.points(1, 0.2, false)).isEqualTo(1);    // mínimo de 1 ponto
+        assertThat(PointsCalculator.calcular(10, 2.5, false)).isEqualTo(25);
+        assertThat(PointsCalculator.calcular(10, 2.5, true)).isEqualTo(28);   // +10%
+        assertThat(PointsCalculator.calcular(1, 0.2, false)).isEqualTo(1);    // mínimo de 1 ponto
     }
 
     @Test
     void levelsDependOnTotalEarned() {
-        assertThat(LevelCatalog.levelFor(0).name()).isEqualTo("Semente");
-        var muda = LevelCatalog.levelFor(1000);
+        assertThat(LevelCatalog.nivelPara(0).name()).isEqualTo("Semente");
+        var muda = LevelCatalog.nivelPara(1000);
         assertThat(muda.name()).isEqualTo("Muda");
         assertThat(muda.nextName()).isEqualTo("Árvore");
         assertThat(muda.progress()).isBetween(0.4, 0.5);
-        var top = LevelCatalog.levelFor(1_000_000);
+        var top = LevelCatalog.nivelPara(1_000_000);
         assertThat(top.nextName()).isNull();
         assertThat(top.progress()).isEqualTo(1.0);
     }
@@ -59,16 +59,16 @@ class DomainRulesTest {
     @Test
     void streakCountsConsecutiveDaysEndingTodayOrYesterday() {
         LocalDate today = LocalDate.of(2026, 10, 23);
-        assertThat(StreakCalculator.streak(List.of(today, today.minusDays(1), today.minusDays(2), today.minusDays(4)), today)).isEqualTo(3);
-        assertThat(StreakCalculator.streak(List.of(today.minusDays(1), today.minusDays(2)), today)).isEqualTo(2);
-        assertThat(StreakCalculator.streak(List.of(today.minusDays(3)), today)).isZero();
+        assertThat(StreakCalculator.sequencia(List.of(today, today.minusDays(1), today.minusDays(2), today.minusDays(4)), today)).isEqualTo(3);
+        assertThat(StreakCalculator.sequencia(List.of(today.minusDays(1), today.minusDays(2)), today)).isEqualTo(2);
+        assertThat(StreakCalculator.sequencia(List.of(today.minusDays(3)), today)).isZero();
     }
 
     @Test
     void simulationIsDeterministicAndConsistent() {
         var input = new SimulationInput(300_000, 1.1, 0.04, 0.5, 2035, 0.01);
-        SimulationResult a = ScenarioSimulator.simulate(input, 2026);
-        SimulationResult b = ScenarioSimulator.simulate(input, 2026);
+        SimulationResult a = ScenarioSimulator.simular(input, 2026);
+        SimulationResult b = ScenarioSimulator.simular(input, 2026);
         assertThat(a).isEqualTo(b);
         assertThat(a.years()).hasSize(2050 - 2026 + 1);
         assertThat(a.years().getFirst().recycledTonsScenario()).isEqualTo(a.years().getFirst().recycledTonsBaseline());
@@ -78,7 +78,7 @@ class DomainRulesTest {
         assertThat(a.totals().landfillAvoidedTons()).isPositive();
         assertThat(a.totals().co2AvoidedTons()).isPositive();
 
-        var same = ScenarioSimulator.simulate(new SimulationInput(1000, 1.0, 0.3, 0.3, 2030, 0.0), 2026);
+        var same = ScenarioSimulator.simular(new SimulationInput(1000, 1.0, 0.3, 0.3, 2030, 0.0), 2026);
         assertThat(same.totals().landfillAvoidedTons()).isZero();        // sem mudança de taxa, sem ganho
     }
 

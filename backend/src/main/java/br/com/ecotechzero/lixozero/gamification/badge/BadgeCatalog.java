@@ -17,7 +17,7 @@ public final class BadgeCatalog {
     private BadgeCatalog() {
     }
 
-    public static final List<BadgeRule> ALL = List.of(
+    public static final List<BadgeRule> TODAS = List.of(
             new ThresholdBadge("PRIMEIRO_DESCARTE", "Primeiro passo", "Teve o primeiro descarte aprovado.", "footprints", Tier.BRONZE,
                     s -> s.approvedCount() >= 1),
             new ThresholdBadge("DEZ_DESCARTES", "Reciclador dedicado", "10 descartes aprovados.", "recycle", Tier.PRATA,
@@ -46,8 +46,8 @@ public final class BadgeCatalog {
     record ThresholdBadge(String code, String name, String description, String icon, Tier tier,
                           Predicate<BadgeStats> condition) implements BadgeRule {
         @Override
-        public boolean isEarned(BadgeStats stats) {
-            return condition.test(stats);
+        public boolean isEarned(BadgeStats estatisticas) {
+            return condition.test(estatisticas);
         }
     }
 
@@ -55,8 +55,8 @@ public final class BadgeCatalog {
     record CategoryKgBadge(String code, String name, String description, String icon, Tier tier,
                            CategoryCode category, double minKg) implements BadgeRule {
         @Override
-        public boolean isEarned(BadgeStats stats) {
-            return stats.kg(category) >= minKg;
+        public boolean isEarned(BadgeStats estatisticas) {
+            return estatisticas.kg(category) >= minKg;
         }
     }
 
@@ -69,10 +69,10 @@ public final class BadgeCatalog {
         @Override public Tier tier() { return Tier.OURO; }
 
         @Override
-        public boolean isEarned(BadgeStats stats) {
+        public boolean isEarned(BadgeStats estatisticas) {
             return Arrays.stream(CategoryCode.values())
                     .filter(c -> c != CategoryCode.REJEITO)
-                    .allMatch(c -> stats.kg(c) >= 1);
+                    .allMatch(c -> estatisticas.kg(c) >= 1);
         }
     }
 }

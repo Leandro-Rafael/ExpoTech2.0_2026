@@ -38,73 +38,73 @@ import java.util.UUID;
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    private final AdminService admin;
-    private final DisposalReviewService review;
-    private final AuditService audit;
-    private final CsvReportService reports;
+    private final AdminService servicoAdmin;
+    private final DisposalReviewService revisao;
+    private final AuditService auditoria;
+    private final CsvReportService relatorios;
 
-    public AdminController(AdminService admin, DisposalReviewService review, AuditService audit, CsvReportService reports) {
-        this.admin = admin;
-        this.review = review;
-        this.audit = audit;
-        this.reports = reports;
+    public AdminController(AdminService servicoAdmin, DisposalReviewService revisao, AuditService auditoria, CsvReportService relatorios) {
+        this.servicoAdmin = servicoAdmin;
+        this.revisao = revisao;
+        this.auditoria = auditoria;
+        this.relatorios = relatorios;
     }
 
     @GetMapping("/overview")
-    public AdminOverview overview() {
-        return admin.overview();
+    public AdminOverview visaoGeral() {
+        return servicoAdmin.visaoGeral();
     }
 
     @GetMapping("/users")
-    public PageResponse<AdminUser> users(@RequestParam(required = false) String q, @RequestParam(required = false) Role role,
+    public PageResponse<AdminUser> usuarios(@RequestParam(required = false) String q, @RequestParam(required = false) Role role,
                                          @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
-        return admin.searchUsers(q, role, page, size);
+        return servicoAdmin.buscarUsuarios(q, role, page, size);
     }
 
     @PatchMapping("/users/{id}")
-    public AdminUser updateUser(@AuthenticationPrincipal AuthUser me, @PathVariable UUID id, @Valid @RequestBody UpdateUserRequest body) {
-        return admin.updateUser(me, id, body);
+    public AdminUser atualizarUsuario(@AuthenticationPrincipal AuthUser logado, @PathVariable UUID id, @Valid @RequestBody UpdateUserRequest corpo) {
+        return servicoAdmin.atualizarUsuario(logado, id, corpo);
     }
 
     /** Remove o bloqueio por senha errada e o bloqueio/avisos de inspeção. */
     @PostMapping("/users/{id}/unlock")
-    public AdminUser unlockUser(@PathVariable UUID id) {
-        return admin.unlockUser(id);
+    public AdminUser desbloquearUsuario(@PathVariable UUID id) {
+        return servicoAdmin.desbloquearUsuario(id);
     }
 
     @GetMapping("/disposals")
-    public PageResponse<DisposalDto> disposals(@RequestParam(required = false) DisposalStatus status,
+    public PageResponse<DisposalDto> descartes(@RequestParam(required = false) DisposalStatus status,
                                                @RequestParam(required = false) Boolean flagged,
                                                @RequestParam(required = false) Integer page,
                                                @RequestParam(required = false) Integer size) {
-        return review.queue(status, flagged, page, size);
+        return revisao.fila(status, flagged, page, size);
     }
 
     @PostMapping("/disposals/{id}/approve")
-    public DisposalDto approve(@AuthenticationPrincipal AuthUser me, @PathVariable UUID id,
-                               @Valid @RequestBody(required = false) ApproveRequest body) {
-        return review.approve(me, id, body);
+    public DisposalDto aprovar(@AuthenticationPrincipal AuthUser logado, @PathVariable UUID id,
+                               @Valid @RequestBody(required = false) ApproveRequest corpo) {
+        return revisao.aprovar(logado, id, corpo);
     }
 
     @PostMapping("/disposals/{id}/reject")
-    public DisposalDto reject(@AuthenticationPrincipal AuthUser me, @PathVariable UUID id, @Valid @RequestBody RejectRequest body) {
-        return review.reject(me, id, body.reason());
+    public DisposalDto recusar(@AuthenticationPrincipal AuthUser logado, @PathVariable UUID id, @Valid @RequestBody RejectRequest corpo) {
+        return revisao.recusar(logado, id, corpo.reason());
     }
 
     @GetMapping("/audit")
-    public PageResponse<AuditEntryDto> audit(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size,
+    public PageResponse<AuditEntryDto> auditoria(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size,
                                              @RequestParam(required = false) List<String> action,
                                              @RequestParam(required = false) String q) {
-        return audit.page(page, size, action, q);
+        return auditoria.pagina(page, size, action, q);
     }
 
     @GetMapping("/reports/disposals.csv")
-    public ResponseEntity<byte[]> disposalsCsv(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+    public ResponseEntity<byte[]> descartesCsv(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        byte[] body = reports.disposalsCsv(from, to).getBytes(StandardCharsets.UTF_8);
+        byte[] corpo = relatorios.descartesCsv(from, to).getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"descartes.csv\"")
-                .body(body);
+                .body(corpo);
     }
 }

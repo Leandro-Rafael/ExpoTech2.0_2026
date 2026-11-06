@@ -18,25 +18,25 @@ import java.util.UUID;
 @RestController
 public class RewardController {
 
-    private final RewardService service;
+    private final RewardService servico;
 
-    public RewardController(RewardService service) {
-        this.service = service;
+    public RewardController(RewardService servico) {
+        this.servico = servico;
     }
 
     @GetMapping("/api/rewards")
-    public List<RewardDto> rewards() {
-        return service.listActive();
+    public List<RewardDto> recompensas() {
+        return servico.listarAtivas();
     }
 
     @PostMapping("/api/rewards/{id}/redeem")
     @ResponseStatus(HttpStatus.CREATED)
-    public RedemptionDto redeem(@AuthenticationPrincipal AuthUser me, @PathVariable UUID id) {
-        return service.redeem(me.id(), id);
+    public RedemptionDto resgatar(@AuthenticationPrincipal AuthUser logado, @PathVariable UUID id) {
+        return servico.resgatar(logado.id(), id);
     }
 
     @GetMapping("/api/redemptions")
-    public List<RedemptionDto> redemptions(@AuthenticationPrincipal AuthUser me) {
-        return service.history(me.id());
+    public List<RedemptionDto> resgates(@AuthenticationPrincipal AuthUser logado) {
+        return servico.historico(logado.id());
     }
 }

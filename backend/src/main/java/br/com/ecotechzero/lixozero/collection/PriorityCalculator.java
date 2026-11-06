@@ -23,21 +23,21 @@ public final class PriorityCalculator {
     private PriorityCalculator() {
     }
 
-    public static int priority(double estimatedKg, Instant createdAt, Set<CategoryCode> categories,
-                               Integer binFillLevel, LocalDate preferredDate, Instant now, LocalDate today) {
-        double score = 20;
-        score += Math.min(30, Math.max(0, estimatedKg) / 100.0 * 30);
-        long ageDays = createdAt == null ? 0 : Math.max(0, Duration.between(createdAt, now).toDays());
-        score += Math.min(25, ageDays * 5);
-        if (categories.contains(CategoryCode.ELETRONICO)) {
-            score += 15;
+    public static int calcular(double pesoEstimadoKg, Instant criadaEm, Set<CategoryCode> categorias,
+                               Integer nivelLixeira, LocalDate dataPreferida, Instant agora, LocalDate hoje) {
+        double pontuacao = 20;
+        pontuacao += Math.min(30, Math.max(0, pesoEstimadoKg) / 100.0 * 30);
+        long diasEspera = criadaEm == null ? 0 : Math.max(0, Duration.between(criadaEm, agora).toDays());
+        pontuacao += Math.min(25, diasEspera * 5);
+        if (categorias.contains(CategoryCode.ELETRONICO)) {
+            pontuacao += 15;
         }
-        if (binFillLevel != null) {
-            score += Math.clamp((binFillLevel - 50) / 2.0, 0, 25);
+        if (nivelLixeira != null) {
+            pontuacao += Math.clamp((nivelLixeira - 50) / 2.0, 0, 25);
         }
-        if (preferredDate != null && !preferredDate.isAfter(today)) {
-            score += 10;
+        if (dataPreferida != null && !dataPreferida.isAfter(hoje)) {
+            pontuacao += 10;
         }
-        return (int) Math.round(Math.clamp(score, 0, 100));
+        return (int) Math.round(Math.clamp(pontuacao, 0, 100));
     }
 }

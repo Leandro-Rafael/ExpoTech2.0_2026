@@ -23,42 +23,42 @@ import java.util.List;
  */
 public final class ScenarioSimulator {
 
-    public static final double CO2_TONS_PER_RECYCLED_TON = 0.9;
-    public static final double TRUCK_CAPACITY_TONS = 10;
-    public static final double JOBS_PER_1000_TONS = 2;
-    public static final int HORIZON_YEAR = 2050;
+    public static final double TONELADAS_CO2_POR_TONELADA_RECICLADA = 0.9;
+    public static final double CAPACIDADE_CAMINHAO_TONELADAS = 10;
+    public static final double EMPREGOS_POR_1000_TONELADAS = 2;
+    public static final int ANO_HORIZONTE = 2050;
 
     private ScenarioSimulator() {
     }
 
-    public static SimulationResult simulate(SimulationInput in, int baseYear) {
-        double generated = in.population() * in.kgPerCapitaDay() * 365 / 1000.0;
-        int span = Math.max(1, in.targetYear() - baseYear);
-        List<SimulationYear> years = new ArrayList<>();
-        double landfillAvoided = 0, co2Avoided = 0, lastExtraRecycled = 0;
+    public static SimulationResult simular(SimulationInput entrada, int anoBase) {
+        double gerado = entrada.population() * entrada.kgPerCapitaDay() * 365 / 1000.0;
+        int intervalo = Math.max(1, entrada.targetYear() - anoBase);
+        List<SimulationYear> anos = new ArrayList<>();
+        double aterroEvitado = 0, co2Evitado = 0, ultimoRecicladoExtra = 0;
 
-        for (int year = baseYear; year <= HORIZON_YEAR; year++) {
-            int elapsed = year - baseYear;
-            double gen = generated * Math.pow(1 + in.annualGrowthRate(), elapsed);
-            double progress = Math.min(1.0, (double) elapsed / span);
-            double rate = in.currentRecyclingRate() + (in.targetRecyclingRate() - in.currentRecyclingRate()) * progress;
-            double recycledBase = gen * in.currentRecyclingRate();
-            double recycledScenario = gen * rate;
-            double extra = recycledScenario - recycledBase;
-            double co2 = extra * CO2_TONS_PER_RECYCLED_TON;
-            landfillAvoided += extra;
-            co2Avoided += co2;
-            lastExtraRecycled = extra;
-            years.add(new SimulationYear(year, Numbers.round2(gen), Numbers.round(rate, 4), Numbers.round2(recycledBase),
-                    Numbers.round2(recycledScenario), Numbers.round2(gen - recycledBase), Numbers.round2(gen - recycledScenario),
-                    Numbers.round2(co2)));
+        for (int ano = anoBase; ano <= ANO_HORIZONTE; ano++) {
+            int decorridos = ano - anoBase;
+            double geracao = gerado * Math.pow(1 + entrada.annualGrowthRate(), decorridos);
+            double progresso = Math.min(1.0, (double) decorridos / intervalo);
+            double taxa = entrada.currentRecyclingRate() + (entrada.targetRecyclingRate() - entrada.currentRecyclingRate()) * progresso;
+            double recicladoBase = geracao * entrada.currentRecyclingRate();
+            double recicladoCenario = geracao * taxa;
+            double extra = recicladoCenario - recicladoBase;
+            double co2 = extra * TONELADAS_CO2_POR_TONELADA_RECICLADA;
+            aterroEvitado += extra;
+            co2Evitado += co2;
+            ultimoRecicladoExtra = extra;
+            anos.add(new SimulationYear(ano, Numbers.arredondar2(geracao), Numbers.arredondar(taxa, 4), Numbers.arredondar2(recicladoBase),
+                    Numbers.arredondar2(recicladoCenario), Numbers.arredondar2(geracao - recicladoBase), Numbers.arredondar2(geracao - recicladoCenario),
+                    Numbers.arredondar2(co2)));
         }
-        SimulationTotals totals = new SimulationTotals(
-                Numbers.round2(landfillAvoided),
-                Numbers.round2(co2Avoided),
-                Math.round(co2Avoided * 1000 / ImpactFactors.CO2_KG_PER_TREE_YEAR),
-                Math.round(landfillAvoided / TRUCK_CAPACITY_TONS),
-                Math.round(Math.max(0, lastExtraRecycled) / 1000 * JOBS_PER_1000_TONS));
-        return new SimulationResult(years, totals);
+        SimulationTotals totais = new SimulationTotals(
+                Numbers.arredondar2(aterroEvitado),
+                Numbers.arredondar2(co2Evitado),
+                Math.round(co2Evitado * 1000 / ImpactFactors.KG_CO2_POR_ARVORE_ANO),
+                Math.round(aterroEvitado / CAPACIDADE_CAMINHAO_TONELADAS),
+                Math.round(Math.max(0, ultimoRecicladoExtra) / 1000 * EMPREGOS_POR_1000_TONELADAS));
+        return new SimulationResult(anos, totais);
     }
 }

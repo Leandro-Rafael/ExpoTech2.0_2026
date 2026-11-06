@@ -32,7 +32,7 @@ public record FraudContext(
         Instant now,
         ZoneId zone) {
 
-    public boolean hasLocation() {
+    public boolean temLocalizacao() {
         return latitude != null && longitude != null;
     }
 }

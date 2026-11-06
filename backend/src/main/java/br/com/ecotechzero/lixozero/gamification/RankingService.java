@@ -29,16 +29,16 @@ import java.util.UUID;
 @Service
 public class RankingService {
 
-    static final int TOP = 10;
+    static final int LIMITE_TOPO = 10;
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final UserRepository users;
-    private final Clock clock;
+    private final UserRepository usuarios;
+    private final Clock relogio;
 
-    public RankingService(NamedParameterJdbcTemplate jdbc, UserRepository users, Clock clock) {
+    public RankingService(NamedParameterJdbcTemplate jdbc, UserRepository usuarios, Clock relogio) {
         this.jdbc = jdbc;
-        this.users = users;
-        this.clock = clock;
+        this.usuarios = usuarios;
+        this.relogio = relogio;
     }
 
     /** Linha agregada antes de receber posição. */
@@ -63,20 +63,20 @@ public class RankingService {
             )
             """;
 
-    private static final String BY_USER = BASE + """
+    private static final String POR_USUARIO = BASE + """
             select pu.id::text as id, pu.name as name, h.neighborhood as subtitle, pu.points, pu.kg
             from per_user pu left join households h on h.id = pu.household_id
             order by pu.points desc, pu.kg desc, pu.name
             """;
 
-    private static final String BY_HOUSEHOLD = BASE + """
+    private static final String POR_RESIDENCIA = BASE + """
             select h.id::text as id, h.name as name, h.neighborhood as subtitle, sum(pu.points) as points, sum(pu.kg) as kg
             from per_user pu join households h on h.id = pu.household_id
             group by h.id, h.name, h.neighborhood
             order by points desc, kg desc, h.name
             """;
 
-    private static final String BY_NEIGHBORHOOD = BASE + """
+    private static final String POR_BAIRRO = BASE + """
             select h.neighborhood as id, h.neighborhood as name, count(distinct h.id) || ' residência(s)' as subtitle,
                    sum(pu.points) as points, sum(pu.kg) as kg
             from per_user pu join households h on h.id = pu.household_id
@@ -84,7 +84,7 @@ public class RankingService {
             order by points desc, kg desc, h.neighborhood
             """;
 
-    private static final String BY_ORGANIZATION = BASE + """
+    private static final String POR_ORGANIZACAO = BASE + """
             select o.id::text as id, o.name as name, o.type as subtitle, sum(pu.points) as points, sum(pu.kg) as kg
             from per_user pu join organizations o on o.id = pu.organization_id
             group by o.id, o.name, o.type
@@ -92,76 +92,76 @@ public class RankingService {
             """;
 
     @Transactional(readOnly = true)
-    public Ranking ranking(UUID meId, RankingScope scope, RankingPeriod period) {
+    public Ranking classificacao(UUID meuId, RankingScope escopo, RankingPeriod periodo) {
         // 1. Converte o período escolhido em uma data de início.
-        Instant since = switch (period) {
-            case WEEK -> clock.instant().minus(Duration.ofDays(7));
-            case MONTH -> clock.instant().minus(Duration.ofDays(30));
-            case YEAR -> clock.instant().minus(Duration.ofDays(365));
+        Instant desde = switch (periodo) {
+            case WEEK -> relogio.instant().minus(Duration.ofDays(7));
+            case MONTH -> relogio.instant().minus(Duration.ofDays(30));
+            case YEAR -> relogio.instant().minus(Duration.ofDays(365));
             case ALL -> Instant.EPOCH;
         };
         // 2. Escolhe a consulta do agrupamento (pessoa, residência, bairro ou organização) e roda no banco,
         //    que já devolve tudo ordenado por pontos e, no empate, por kg.
-        String sql = switch (scope) {
-            case USER -> BY_USER;
-            case HOUSEHOLD -> BY_HOUSEHOLD;
-            case NEIGHBORHOOD -> BY_NEIGHBORHOOD;
-            case ORGANIZATION -> BY_ORGANIZATION;
+        String sql = switch (escopo) {
+            case USER -> POR_USUARIO;
+            case HOUSEHOLD -> POR_RESIDENCIA;
+            case NEIGHBORHOOD -> POR_BAIRRO;
+            case ORGANIZATION -> POR_ORGANIZACAO;
         };
-        List<Row> rows = jdbc.query(sql, new MapSqlParameterSource("since", Timestamp.from(since)), (rs, i) -> new Row(
-                rs.getString("id"), rs.getString("name"), subtitle(scope, rs.getString("subtitle")),
-                rs.getLong("points"), Numbers.round2(rs.getDouble("kg"))));
+        List<Row> linhas = jdbc.query(sql, new MapSqlParameterSource("since", Timestamp.from(desde)), (rs, i) -> new Row(
+                rs.getString("id"), rs.getString("name"), subtitulo(escopo, rs.getString("subtitle")),
+                rs.getLong("points"), Numbers.arredondar2(rs.getDouble("kg"))));
 
         // 3. Numera as posições, guarda só o top 10 e acha a linha do "eu" mesmo se estiver fora do top 10.
-        String myKey = myKey(meId, scope);
-        List<RankingEntry> entries = new ArrayList<>();
-        RankingEntry me = null;
-        for (int i = 0; i < rows.size(); i++) {
-            Row r = rows.get(i);
-            boolean isMe = r.id().equals(myKey);
-            RankingEntry entry = new RankingEntry(i + 1, r.id(), r.name(), r.subtitle(), r.points(), r.kg(), isMe);
-            if (i < TOP) {
-                entries.add(entry);
+        String minhaChave = minhaChave(meuId, escopo);
+        List<RankingEntry> entradas = new ArrayList<>();
+        RankingEntry eu = null;
+        for (int i = 0; i < linhas.size(); i++) {
+            Row r = linhas.get(i);
+            boolean ehEu = r.id().equals(minhaChave);
+            RankingEntry entrada = new RankingEntry(i + 1, r.id(), r.name(), r.subtitle(), r.points(), r.kg(), ehEu);
+            if (i < LIMITE_TOPO) {
+                entradas.add(entrada);
             }
-            if (isMe) {
-                me = entry;
+            if (ehEu) {
+                eu = entrada;
             }
         }
         // 4. Quem ainda não pontuou no período aparece como último, com zero.
-        if (me == null && myKey != null) {
-            me = new RankingEntry(rows.size() + 1, myKey, myName(meId, scope), null, 0, 0, true);
+        if (eu == null && minhaChave != null) {
+            eu = new RankingEntry(linhas.size() + 1, minhaChave, meuNome(meuId, escopo), null, 0, 0, true);
         }
-        return new Ranking(scope, period, entries, me);
+        return new Ranking(escopo, periodo, entradas, eu);
     }
 
-    private static String subtitle(RankingScope scope, String raw) {
-        if (scope == RankingScope.ORGANIZATION && raw != null) {
-            return OrganizationType.valueOf(raw).label();
+    private static String subtitulo(RankingScope escopo, String bruto) {
+        if (escopo == RankingScope.ORGANIZATION && bruto != null) {
+            return OrganizationType.valueOf(bruto).label();
         }
-        return raw;
+        return bruto;
     }
 
     /** Chave do "eu" no escopo pedido (meu id, minha residência, meu bairro ou minha organização). */
-    private String myKey(UUID meId, RankingScope scope) {
-        User me = users.findById(meId).orElse(null);
-        if (me == null) {
+    private String minhaChave(UUID meuId, RankingScope escopo) {
+        User eu = usuarios.findById(meuId).orElse(null);
+        if (eu == null) {
             return null;
         }
-        return switch (scope) {
-            case USER -> me.getId().toString();
-            case HOUSEHOLD -> me.getHousehold() == null ? null : me.getHousehold().getId().toString();
-            case NEIGHBORHOOD -> me.getHousehold() == null ? null : me.getHousehold().getNeighborhood();
-            case ORGANIZATION -> me.getOrganization() == null ? null : me.getOrganization().getId().toString();
+        return switch (escopo) {
+            case USER -> eu.getId().toString();
+            case HOUSEHOLD -> eu.getHousehold() == null ? null : eu.getHousehold().getId().toString();
+            case NEIGHBORHOOD -> eu.getHousehold() == null ? null : eu.getHousehold().getNeighborhood();
+            case ORGANIZATION -> eu.getOrganization() == null ? null : eu.getOrganization().getId().toString();
         };
     }
 
-    private String myName(UUID meId, RankingScope scope) {
-        User me = users.findById(meId).orElseThrow();
-        return switch (scope) {
-            case USER -> me.getName();
-            case HOUSEHOLD -> me.getHousehold().getName();
-            case NEIGHBORHOOD -> me.getHousehold().getNeighborhood();
-            case ORGANIZATION -> me.getOrganization().getName();
+    private String meuNome(UUID meuId, RankingScope escopo) {
+        User eu = usuarios.findById(meuId).orElseThrow();
+        return switch (escopo) {
+            case USER -> eu.getName();
+            case HOUSEHOLD -> eu.getHousehold().getName();
+            case NEIGHBORHOOD -> eu.getHousehold().getNeighborhood();
+            case ORGANIZATION -> eu.getOrganization().getName();
         };
     }
 }

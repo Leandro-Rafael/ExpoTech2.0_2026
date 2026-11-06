@@ -48,119 +48,119 @@ public class IntegrityService {
         }
     }
 
-    private final JdbcTemplate streaming;
-    private final IntegrityKey key;
-    private final AuditChain auditChain;
-    private final Clock clock;
+    private final JdbcTemplate leitorFluxo;
+    private final IntegrityKey chave;
+    private final AuditChain cadeiaAuditoria;
+    private final Clock relogio;
 
-    public IntegrityService(DataSource dataSource, IntegrityKey key, AuditChain auditChain, Clock clock) {
-        this.streaming = new JdbcTemplate(dataSource);
-        this.streaming.setFetchSize(1000);
-        this.key = key;
-        this.auditChain = auditChain;
-        this.clock = clock;
+    public IntegrityService(DataSource fonteDados, IntegrityKey chave, AuditChain cadeiaAuditoria, Clock relogio) {
+        this.leitorFluxo = new JdbcTemplate(fonteDados);
+        this.leitorFluxo.setFetchSize(1000);
+        this.chave = chave;
+        this.cadeiaAuditoria = cadeiaAuditoria;
+        this.relogio = relogio;
     }
 
     /** readOnly: conexão sem autocommit, o que permite o cursor (leitura em fluxo) do driver PostgreSQL. */
     @Transactional(readOnly = true)
-    public IntegrityReport verify() {
-        IntegrityReport report = new IntegrityReport(clock.instant(), verifyLedger(), verifyAudit(), verifyBalances());
-        if (!report.ok()) {
-            log.warn("INTEGRIDADE: falha detectada ledger={} audit={} balances={}", report.ledger(), report.audit(), report.balances());
+    public IntegrityReport verificar() {
+        IntegrityReport relatorio = new IntegrityReport(relogio.instant(), verificarExtrato(), verificarAuditoria(), verificarSaldos());
+        if (!relatorio.ok()) {
+            log.warn("INTEGRIDADE: falha detectada ledger={} audit={} balances={}", relatorio.ledger(), relatorio.audit(), relatorio.balances());
         }
-        return report;
+        return relatorio;
     }
 
-    private ChainResult verifyLedger() {
-        Mac mac = key.newMac();
-        var state = new Object() {
-            long rows;
-            UUID user;
-            long expectedSeq;
-            String prevHash;
-            long balance;
-            Break broken;
+    private ChainResult verificarExtrato() {
+        Mac mac = chave.novoMac();
+        var estado = new Object() {
+            long linhas;
+            UUID usuario;
+            long seqEsperada;
+            String hashAnterior;
+            long saldo;
+            Break quebra;
         };
-        streaming.query("""
+        leitorFluxo.query("""
                 select id, user_id, type, amount, balance_after, description, disposal_id, challenge_id, redemption_id,
                        created_at, seq, prev_hash, hash
                 from point_transactions order by user_id, seq
                 """, (ResultSet rs) -> {
-            state.rows++;
-            UUID userId = rs.getObject("user_id", UUID.class);
+            estado.linhas++;
+            UUID idUsuario = rs.getObject("user_id", UUID.class);
             // 1. Mudou de usuário: a corrente recomeça (seq 1, hash inicial, saldo 0).
-            if (!userId.equals(state.user)) {
-                state.user = userId;
-                state.expectedSeq = 1;
-                state.prevHash = ChainHashes.GENESIS;
-                state.balance = 0;
+            if (!idUsuario.equals(estado.usuario)) {
+                estado.usuario = idUsuario;
+                estado.seqEsperada = 1;
+                estado.hashAnterior = ChainHashes.GENESIS;
+                estado.saldo = 0;
             }
-            LedgerRow row = new LedgerRow(rs.getObject("id", UUID.class), userId, rs.getString("type"), rs.getInt("amount"),
+            LedgerRow linha = new LedgerRow(rs.getObject("id", UUID.class), idUsuario, rs.getString("type"), rs.getInt("amount"),
                     rs.getLong("balance_after"), rs.getString("description"), rs.getObject("disposal_id", UUID.class),
-                    rs.getObject("challenge_id", UUID.class), rs.getObject("redemption_id", UUID.class), instant(rs));
+                    rs.getObject("challenge_id", UUID.class), rs.getObject("redemption_id", UUID.class), instante(rs));
             long seq = rs.getLong("seq");
-            String prev = rs.getString("prev_hash");
+            String anterior = rs.getString("prev_hash");
             String hash = rs.getString("hash");
             // 2. A linha só vale se a seq não pula, o prev_hash é o hash da anterior, o HMAC recalculado bate e o saldo fecha.
-            boolean valid = seq == state.expectedSeq
-                    && IntegrityKey.same(prev, state.prevHash)
-                    && IntegrityKey.same(hash, IntegrityKey.sign(mac, ChainHashes.ledger(seq, prev, row)))
-                    && row.balanceAfter() == state.balance + row.amount();
-            if (!valid && state.broken == null) {
-                state.broken = new Break("point_transactions", row.id(), userId);
+            boolean valido = seq == estado.seqEsperada
+                    && IntegrityKey.iguais(anterior, estado.hashAnterior)
+                    && IntegrityKey.iguais(hash, IntegrityKey.assinar(mac, ChainHashes.extrato(seq, anterior, linha)))
+                    && linha.balanceAfter() == estado.saldo + linha.amount();
+            if (!valido && estado.quebra == null) {
+                estado.quebra = new Break("point_transactions", linha.id(), idUsuario);
             }
             // segue a cadeia gravada: só a PRIMEIRA linha inconsistente de cada usuário é apontada
-            state.expectedSeq = seq + 1;
-            state.prevHash = hash;
-            state.balance = row.balanceAfter();
+            estado.seqEsperada = seq + 1;
+            estado.hashAnterior = hash;
+            estado.saldo = linha.balanceAfter();
         });
-        return new ChainResult(state.broken == null, state.rows, state.broken);
+        return new ChainResult(estado.quebra == null, estado.linhas, estado.quebra);
     }
 
-    private ChainResult verifyAudit() {
-        Mac mac = key.newMac();
-        AuditChain.Head expectedTail = auditChain.lastCommitted().orElse(null);
-        var state = new Object() {
-            long rows;
-            long expectedSeq = 1;
-            String prevHash = ChainHashes.GENESIS;
-            UUID lastId;
-            boolean tailSeen;
-            Break broken;
+    private ChainResult verificarAuditoria() {
+        Mac mac = chave.novoMac();
+        AuditChain.Head fimEsperado = cadeiaAuditoria.ultimoConfirmado().orElse(null);
+        var estado = new Object() {
+            long linhas;
+            long seqEsperada = 1;
+            String hashAnterior = ChainHashes.GENESIS;
+            UUID ultimoId;
+            boolean fimEncontrado;
+            Break quebra;
         };
-        streaming.query("""
+        leitorFluxo.query("""
                 select id, actor_id, actor_label, action, entity, entity_id, details, ip, created_at, seq, prev_hash, hash
                 from audit_log order by seq
                 """, (ResultSet rs) -> {
-            state.rows++;
-            AuditRow row = new AuditRow(rs.getObject("id", UUID.class), rs.getObject("actor_id", UUID.class),
+            estado.linhas++;
+            AuditRow linha = new AuditRow(rs.getObject("id", UUID.class), rs.getObject("actor_id", UUID.class),
                     rs.getString("actor_label"), rs.getString("action"), rs.getString("entity"), rs.getString("entity_id"),
-                    rs.getString("details"), rs.getString("ip"), instant(rs));
+                    rs.getString("details"), rs.getString("ip"), instante(rs));
             long seq = rs.getLong("seq");
-            String prev = rs.getString("prev_hash");
+            String anterior = rs.getString("prev_hash");
             String hash = rs.getString("hash");
-            boolean valid = seq == state.expectedSeq
-                    && IntegrityKey.same(prev, state.prevHash)
-                    && IntegrityKey.same(hash, IntegrityKey.sign(mac, ChainHashes.audit(seq, prev, row)));
-            if (!valid && state.broken == null) {
-                state.broken = new Break("audit_log", row.id(), row.actorId());
+            boolean valido = seq == estado.seqEsperada
+                    && IntegrityKey.iguais(anterior, estado.hashAnterior)
+                    && IntegrityKey.iguais(hash, IntegrityKey.assinar(mac, ChainHashes.auditoria(seq, anterior, linha)));
+            if (!valido && estado.quebra == null) {
+                estado.quebra = new Break("audit_log", linha.id(), linha.actorId());
             }
-            if (expectedTail != null && seq == expectedTail.seq()) {
-                state.tailSeen = IntegrityKey.same(hash, expectedTail.hash());
+            if (fimEsperado != null && seq == fimEsperado.seq()) {
+                estado.fimEncontrado = IntegrityKey.iguais(hash, fimEsperado.hash());
             }
-            state.expectedSeq = seq + 1;
-            state.prevHash = hash;
-            state.lastId = row.id();
+            estado.seqEsperada = seq + 1;
+            estado.hashAnterior = hash;
+            estado.ultimoId = linha.id();
         });
-        if (state.broken == null && expectedTail != null && !state.tailSeen) {
+        if (estado.quebra == null && fimEsperado != null && !estado.fimEncontrado) {
             // o último elo gravado por este processo sumiu ou mudou: linhas do fim foram removidas/trocadas
-            state.broken = new Break("audit_log", state.lastId, null);
+            estado.quebra = new Break("audit_log", estado.ultimoId, null);
         }
-        return new ChainResult(state.broken == null, state.rows, state.broken);
+        return new ChainResult(estado.quebra == null, estado.linhas, estado.quebra);
     }
 
-    private BalanceResult verifyBalances() {
-        Long mismatches = streaming.queryForObject("""
+    private BalanceResult verificarSaldos() {
+        Long divergencias = leitorFluxo.queryForObject("""
                 with agg as (
                     select user_id, sum(amount) as total, sum(case when amount > 0 then amount else 0 end) as earned,
                            max(seq) as last_seq
@@ -176,11 +176,11 @@ public class IntegrityService {
                    or u.points <> coalesce(last.balance_after, 0)
                    or u.total_earned <> coalesce(agg.earned, 0)
                 """, Long.class);
-        long count = Objects.requireNonNullElse(mismatches, 0L);
-        return new BalanceResult(count == 0, count);
+        long total = Objects.requireNonNullElse(divergencias, 0L);
+        return new BalanceResult(total == 0, total);
     }
 
-    private static Instant instant(ResultSet rs) throws SQLException {
+    private static Instant instante(ResultSet rs) throws SQLException {
         return rs.getObject("created_at", OffsetDateTime.class).toInstant();
     }
 }

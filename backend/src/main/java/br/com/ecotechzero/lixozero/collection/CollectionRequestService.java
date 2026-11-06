@@ -28,103 +28,103 @@ import java.util.UUID;
 @Service
 public class CollectionRequestService {
 
-    static final int MAX_OPEN_PER_USER = 5;
+    static final int MAXIMO_ABERTAS_POR_USUARIO = 5;
 
-    private final CollectionRequestRepository repository;
-    private final UserRepository users;
-    private final RouteStopRepository stops;
-    private final CollectionRouteRepository routes;
-    private final TokenBucketRateLimiter limiter;
-    private final AppProperties props;
-    private final Clock clock;
+    private final CollectionRequestRepository repositorio;
+    private final UserRepository usuarios;
+    private final RouteStopRepository paradas;
+    private final CollectionRouteRepository rotas;
+    private final TokenBucketRateLimiter limitador;
+    private final AppProperties propriedades;
+    private final Clock relogio;
 
-    public CollectionRequestService(CollectionRequestRepository repository, UserRepository users, RouteStopRepository stops,
-                                    CollectionRouteRepository routes, TokenBucketRateLimiter limiter, AppProperties props, Clock clock) {
-        this.repository = repository;
-        this.users = users;
-        this.stops = stops;
-        this.routes = routes;
-        this.limiter = limiter;
-        this.props = props;
-        this.clock = clock;
+    public CollectionRequestService(CollectionRequestRepository repositorio, UserRepository usuarios, RouteStopRepository paradas,
+                                    CollectionRouteRepository rotas, TokenBucketRateLimiter limitador, AppProperties propriedades, Clock relogio) {
+        this.repositorio = repositorio;
+        this.usuarios = usuarios;
+        this.paradas = paradas;
+        this.rotas = rotas;
+        this.limitador = limitador;
+        this.propriedades = propriedades;
+        this.relogio = relogio;
     }
 
     @Transactional
-    public CollectionRequestDto create(AuthUser me, CreateCollectionRequest input) {
-        limiter.check(TokenBucketRateLimiter.Policy.COLLECTION_REQUEST_USER, me.id().toString());
-        LocalDate today = LocalDate.now(clock.withZone(props.zoneId()));
-        if (input.preferredDate() != null && (input.preferredDate().isBefore(today) || input.preferredDate().isAfter(today.plusDays(60)))) {
-            throw ApiException.field("preferredDate", "a data preferida deve estar entre hoje e os próximos 60 dias");
+    public CollectionRequestDto criar(AuthUser logado, CreateCollectionRequest entrada) {
+        limitador.verificar(TokenBucketRateLimiter.Policy.COLLECTION_REQUEST_USER, logado.id().toString());
+        LocalDate hoje = LocalDate.now(relogio.withZone(propriedades.zoneId()));
+        if (entrada.preferredDate() != null && (entrada.preferredDate().isBefore(hoje) || entrada.preferredDate().isAfter(hoje.plusDays(60)))) {
+            throw ApiException.campo("preferredDate", "a data preferida deve estar entre hoje e os próximos 60 dias");
         }
-        String address = Text.clean(input.address());
-        if (address == null || address.length() < 5) {
-            throw ApiException.field("address", "informe o endereço completo");
+        String endereco = Text.limpar(entrada.address());
+        if (endereco == null || endereco.length() < 5) {
+            throw ApiException.campo("address", "informe o endereço completo");
         }
-        if (repository.countByRequesterIdAndStatusIn(me.id(), CollectionRequestStatus.OPEN) >= MAX_OPEN_PER_USER) {
-            throw ApiException.business("Você já tem " + MAX_OPEN_PER_USER + " solicitações em aberto. Aguarde a conclusão de alguma delas.");
+        if (repositorio.countByRequesterIdAndStatusIn(logado.id(), CollectionRequestStatus.OPEN) >= MAXIMO_ABERTAS_POR_USUARIO) {
+            throw ApiException.regraNegocio("Você já tem " + MAXIMO_ABERTAS_POR_USUARIO + " solicitações em aberto. Aguarde a conclusão de alguma delas.");
         }
-        CollectionRequest request = new CollectionRequest(CollectionSource.USER, address, input.latitude(), input.longitude(),
-                input.categoryCodes(), Numbers.round(input.estimatedKg(), 2));
-        request.setRequester(users.getReferenceById(me.id()));
-        request.setPreferredDate(input.preferredDate());
-        request.setNotes(Text.truncate(Text.clean(input.notes()), 500));
-        repository.save(request);
-        return toDto(request, false);
+        CollectionRequest solicitacao = new CollectionRequest(CollectionSource.USER, endereco, entrada.latitude(), entrada.longitude(),
+                entrada.categoryCodes(), Numbers.arredondar(entrada.estimatedKg(), 2));
+        solicitacao.setRequester(usuarios.getReferenceById(logado.id()));
+        solicitacao.setPreferredDate(entrada.preferredDate());
+        solicitacao.setNotes(Text.truncar(Text.limpar(entrada.notes()), 500));
+        repositorio.save(solicitacao);
+        return paraDto(solicitacao, false);
     }
 
     @Transactional(readOnly = true)
-    public List<CollectionRequestDto> listMine(AuthUser me) {
-        return repository.findByRequesterIdOrderByCreatedAtDesc(me.id()).stream().map(r -> toDto(r, false)).toList();
+    public List<CollectionRequestDto> listarMinhas(AuthUser logado) {
+        return repositorio.findByRequesterIdOrderByCreatedAtDesc(logado.id()).stream().map(r -> paraDto(r, false)).toList();
     }
 
     /** Cancela uma solicitação própria (ou qualquer uma, se admin) enquanto não saiu para coleta. */
     @Transactional
-    public CollectionRequestDto cancel(AuthUser me, UUID id) {
-        CollectionRequest request = repository.findById(id)
-                .filter(r -> me.isAdmin() || (r.getRequester() != null && r.getRequester().getId().equals(me.id())))
-                .orElseThrow(() -> ApiException.notFound("Solicitação não encontrada."));
-        if (request.getStatus() == CollectionRequestStatus.CANCELLED) {
-            return toDto(request, false);
+    public CollectionRequestDto cancelar(AuthUser logado, UUID id) {
+        CollectionRequest solicitacao = repositorio.findById(id)
+                .filter(r -> logado.isAdmin() || (r.getRequester() != null && r.getRequester().getId().equals(logado.id())))
+                .orElseThrow(() -> ApiException.naoEncontrado("Solicitação não encontrada."));
+        if (solicitacao.getStatus() == CollectionRequestStatus.CANCELLED) {
+            return paraDto(solicitacao, false);
         }
-        if (request.getStatus() != CollectionRequestStatus.REQUESTED && request.getStatus() != CollectionRequestStatus.SCHEDULED) {
-            throw ApiException.business("Não é possível cancelar uma coleta que já está em rota ou foi concluída.");
+        if (solicitacao.getStatus() != CollectionRequestStatus.REQUESTED && solicitacao.getStatus() != CollectionRequestStatus.SCHEDULED) {
+            throw ApiException.regraNegocio("Não é possível cancelar uma coleta que já está em rota ou foi concluída.");
         }
-        if (request.getRoute() != null) {
+        if (solicitacao.getRoute() != null) {
             // trava a rota: cancelamentos simultâneos não sobrescrevem as métricas recalculadas um do outro
-            CollectionRoute route = routes.findByIdForUpdate(request.getRoute().getId())
-                    .orElseThrow(() -> ApiException.notFound("Rota não encontrada."));
-            if (route.getStatus() != RouteStatus.PLANNED) {
-                throw ApiException.business("Não é possível cancelar uma coleta que já está em rota ou foi concluída.");
+            CollectionRoute rota = rotas.findByIdForUpdate(solicitacao.getRoute().getId())
+                    .orElseThrow(() -> ApiException.naoEncontrado("Rota não encontrada."));
+            if (rota.getStatus() != RouteStatus.PLANNED) {
+                throw ApiException.regraNegocio("Não é possível cancelar uma coleta que já está em rota ou foi concluída.");
             }
-            stops.findByRequestId(request.getId()).ifPresent(route::removeStop);
+            paradas.findByRequestId(solicitacao.getId()).ifPresent(rota::removeStop);
         }
-        request.cancel();
-        return toDto(request, false);
+        solicitacao.cancel();
+        return paraDto(solicitacao, false);
     }
 
     /** Visão do admin: ordenada por prioridade (mais urgente primeiro). */
     @Transactional(readOnly = true)
-    public List<CollectionRequestDto> listAll(CollectionRequestStatus status) {
-        List<CollectionRequest> requests = status == null ? repository.findAllByOrderByCreatedAtDesc()
-                : repository.findByStatusOrderByCreatedAt(status);
-        return requests.stream().map(r -> toDto(r, true))
+    public List<CollectionRequestDto> listarTodas(CollectionRequestStatus situacao) {
+        List<CollectionRequest> solicitacoes = situacao == null ? repositorio.findAllByOrderByCreatedAtDesc()
+                : repositorio.findByStatusOrderByCreatedAt(situacao);
+        return solicitacoes.stream().map(r -> paraDto(r, true))
                 .sorted(Comparator.comparingInt(CollectionRequestDto::priority).reversed()
                         .thenComparing(CollectionRequestDto::createdAt))
                 .toList();
     }
 
-    public CollectionRequestDto toDto(CollectionRequest r, boolean adminView) {
-        Integer fill = r.getSmartBin() != null ? r.getSmartBin().getFillLevel() : null;
-        int priority = r.isOpen()
-                ? PriorityCalculator.priority(r.getEstimatedKg(), r.getCreatedAt(), r.getCategories(), fill,
-                r.getPreferredDate(), clock.instant(), LocalDate.now(clock.withZone(props.zoneId())))
+    public CollectionRequestDto paraDto(CollectionRequest r, boolean visaoAdmin) {
+        Integer nivelEnchimento = r.getSmartBin() != null ? r.getSmartBin().getFillLevel() : null;
+        int prioridade = r.isOpen()
+                ? PriorityCalculator.calcular(r.getEstimatedKg(), r.getCreatedAt(), r.getCategories(), nivelEnchimento,
+                r.getPreferredDate(), relogio.instant(), LocalDate.now(relogio.withZone(propriedades.zoneId())))
                 : 0;
-        UserRef requester = r.getRequester() == null ? null
-                : adminView ? UserRef.withEmail(r.getRequester()) : UserRef.of(r.getRequester());
-        SmartBinRef bin = r.getSmartBin() == null ? null : new SmartBinRef(r.getSmartBin().getId(), r.getSmartBin().getName());
+        UserRef solicitante = r.getRequester() == null ? null
+                : visaoAdmin ? UserRef.withEmail(r.getRequester()) : UserRef.of(r.getRequester());
+        SmartBinRef lixeira = r.getSmartBin() == null ? null : new SmartBinRef(r.getSmartBin().getId(), r.getSmartBin().getName());
         return new CollectionRequestDto(r.getId(), r.getAddress(), r.getLatitude(), r.getLongitude(),
-                r.getCategories().stream().sorted().toList(), Numbers.round2(r.getEstimatedKg()), r.getStatus(), r.getSource(),
-                priority, r.getPreferredDate(), r.getScheduledFor(), r.getRoute() == null ? null : r.getRoute().getId(),
-                r.getNotes(), r.getCreatedAt(), r.getUpdatedAt(), requester, bin);
+                r.getCategories().stream().sorted().toList(), Numbers.arredondar2(r.getEstimatedKg()), r.getStatus(), r.getSource(),
+                prioridade, r.getPreferredDate(), r.getScheduledFor(), r.getRoute() == null ? null : r.getRoute().getId(),
+                r.getNotes(), r.getCreatedAt(), r.getUpdatedAt(), solicitante, lixeira);
     }
 }

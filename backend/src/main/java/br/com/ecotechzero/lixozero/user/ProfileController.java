@@ -25,31 +25,31 @@ import java.util.List;
 @RestController
 public class ProfileController {
 
-    private final UserService userService;
-    private final AuthService authService;
-    private final OrganizationRepository organizations;
+    private final UserService servicoUsuario;
+    private final AuthService servicoAutenticacao;
+    private final OrganizationRepository organizacoes;
 
-    public ProfileController(UserService userService, AuthService authService, OrganizationRepository organizations) {
-        this.userService = userService;
-        this.authService = authService;
-        this.organizations = organizations;
+    public ProfileController(UserService servicoUsuario, AuthService servicoAutenticacao, OrganizationRepository organizacoes) {
+        this.servicoUsuario = servicoUsuario;
+        this.servicoAutenticacao = servicoAutenticacao;
+        this.organizacoes = organizacoes;
     }
 
     @PatchMapping("/api/me")
-    public UserMe update(@AuthenticationPrincipal AuthUser me, @Valid @RequestBody UserDtos.UpdateProfileRequest body) {
-        return userService.updateProfile(me.id(), body);
+    public UserMe atualizar(@AuthenticationPrincipal AuthUser logado, @Valid @RequestBody UserDtos.UpdateProfileRequest corpo) {
+        return servicoUsuario.atualizarPerfil(logado.id(), corpo);
     }
 
     @PostMapping("/api/me/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void changePassword(@AuthenticationPrincipal AuthUser me, @Valid @RequestBody AuthDtos.ChangePasswordRequest body,
+    public void trocarSenha(@AuthenticationPrincipal AuthUser logado, @Valid @RequestBody AuthDtos.ChangePasswordRequest corpo,
                                HttpServletRequest request, HttpServletResponse response) {
-        authService.changePassword(me.id(), body, request, response);
+        servicoAutenticacao.trocarSenha(logado.id(), corpo, request, response);
     }
 
     @GetMapping("/api/organizations")
     @Transactional(readOnly = true)
-    public List<OrganizationDto> organizations() {
-        return organizations.findAllByOrderByName().stream().map(OrganizationDto::of).toList();
+    public List<OrganizationDto> organizacoes() {
+        return organizacoes.findAllByOrderByName().stream().map(OrganizationDto::of).toList();
     }
 }

@@ -29,14 +29,14 @@ public class EmbeddedPostgresConfig {
     private static final Logger log = LoggerFactory.getLogger(EmbeddedPostgresConfig.class);
 
     @Bean(destroyMethod = "close")
-    public EmbeddedPostgres embeddedPostgres(AppProperties props) throws IOException {
-        Path dir = props.dataPath().resolve("pg");
-        Files.createDirectories(dir.getParent());
-        log.info("DB_URL não definido: iniciando PostgreSQL embarcado em {} (porta {})", dir, props.embeddedDb().port());
+    public EmbeddedPostgres embeddedPostgres(AppProperties propriedades) throws IOException {
+        Path diretorio = propriedades.dataPath().resolve("pg");
+        Files.createDirectories(diretorio.getParent());
+        log.info("DB_URL não definido: iniciando PostgreSQL embarcado em {} (porta {})", diretorio, propriedades.embeddedDb().port());
         return EmbeddedPostgres.builder()
-                .setDataDirectory(dir)
-                .setCleanDataDirectory(props.embeddedDb().clean())
-                .setPort(props.embeddedDb().port())
+                .setDataDirectory(diretorio)
+                .setCleanDataDirectory(propriedades.embeddedDb().clean())
+                .setPort(propriedades.embeddedDb().port())
                 .setPGStartupWait(java.time.Duration.ofMinutes(3)) // máquinas lentas demoram para o initdb/arranque
                 // só aceita conexões desta máquina (o usuário "postgres" embarcado não tem senha)
                 .setServerConfig("listen_addresses", "localhost")
@@ -47,19 +47,19 @@ public class EmbeddedPostgresConfig {
 
     @Bean(destroyMethod = "close")
     public DataSource dataSource(EmbeddedPostgres postgres) {
-        HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(postgres.getJdbcUrl("postgres", "postgres") + "&reWriteBatchedInserts=true");
-        config.setMaximumPoolSize(10);
-        config.setMinimumIdle(2);
-        config.setPoolName("embedded-pg");
-        return new HikariDataSource(config);
+        HikariConfig configuracao = new HikariConfig();
+        configuracao.setJdbcUrl(postgres.getJdbcUrl("postgres", "postgres") + "&reWriteBatchedInserts=true");
+        configuracao.setMaximumPoolSize(10);
+        configuracao.setMinimumIdle(2);
+        configuracao.setPoolName("embedded-pg");
+        return new HikariDataSource(configuracao);
     }
 
     /** Ativa esta configuração somente se DB_URL estiver vazio. */
     static class NoExternalDatabase implements Condition {
         @Override
-        public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
-            String url = context.getEnvironment().getProperty("DB_URL");
+        public boolean matches(ConditionContext contexto, AnnotatedTypeMetadata metadados) {
+            String url = contexto.getEnvironment().getProperty("DB_URL");
             return url == null || url.isBlank();
         }
     }

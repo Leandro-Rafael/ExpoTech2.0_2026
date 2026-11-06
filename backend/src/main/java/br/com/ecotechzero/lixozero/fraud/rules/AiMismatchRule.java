@@ -27,32 +27,32 @@ public class AiMismatchRule implements FraudRule {
     static final int SCORE_LOCAL_AI = 15;
 
     @Override
-    public String code() {
+    public String codigo() {
         return "CATEGORIA_DIVERGENTE_IA";
     }
 
     @Override
-    public Optional<FraudSignal> evaluate(FraudContext ctx) {
-        CategoryCode server = ctx.serverAiCode();
-        if (server != null && ctx.serverAiConfidence() != null) {
-            if (server != ctx.categoryCode() && ctx.serverAiConfidence() >= MIN_CONFIDENCE) {
-                return Optional.of(signal(SCORE_SERVER_AI, ctx.categoryCode(), server, ctx.serverAiConfidence(), "IA do servidor"));
+    public Optional<FraudSignal> avaliar(FraudContext contexto) {
+        CategoryCode servidor = contexto.serverAiCode();
+        if (servidor != null && contexto.serverAiConfidence() != null) {
+            if (servidor != contexto.categoryCode() && contexto.serverAiConfidence() >= MIN_CONFIDENCE) {
+                return Optional.of(sinal(SCORE_SERVER_AI, contexto.categoryCode(), servidor, contexto.serverAiConfidence(), "IA do servidor"));
             }
-            if (server == ctx.categoryCode()) {
+            if (servidor == contexto.categoryCode()) {
                 return Optional.empty(); // confirmado pelo servidor
             }
         }
-        CategoryCode client = ctx.clientAiCode();
-        if (client != null && ctx.clientAiConfidence() != null && ctx.clientAiSource() != AiSource.MANUAL
-                && client != ctx.categoryCode() && ctx.clientAiConfidence() >= MIN_CONFIDENCE) {
-            return Optional.of(signal(SCORE_LOCAL_AI, ctx.categoryCode(), client, ctx.clientAiConfidence(), "IA do navegador"));
+        CategoryCode navegador = contexto.clientAiCode();
+        if (navegador != null && contexto.clientAiConfidence() != null && contexto.clientAiSource() != AiSource.MANUAL
+                && navegador != contexto.categoryCode() && contexto.clientAiConfidence() >= MIN_CONFIDENCE) {
+            return Optional.of(sinal(SCORE_LOCAL_AI, contexto.categoryCode(), navegador, contexto.clientAiConfidence(), "IA do navegador"));
         }
         return Optional.empty();
     }
 
-    private FraudSignal signal(int score, CategoryCode declared, CategoryCode suggested, double confidence, String who) {
-        return new FraudSignal(code(), score, String.format(
+    private FraudSignal sinal(int pontuacao, CategoryCode declarada, CategoryCode sugerida, double confianca, String quem) {
+        return new FraudSignal(codigo(), pontuacao, String.format(
                 "Categoria informada (%s) difere da sugerida pela %s (%s, %.0f%% de confiança).",
-                declared, who, suggested, confidence * 100));
+                declarada, quem, sugerida, confianca * 100));
     }
 }

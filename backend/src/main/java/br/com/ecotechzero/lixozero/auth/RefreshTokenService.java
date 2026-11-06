@@ -31,7 +31,7 @@ import java.util.UUID;
 @Service
 public class RefreshTokenService {
 
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final SecureRandom ALEATORIO = new SecureRandom();
 
     public enum Outcome { ROTATED, INVALID, REUSE_DETECTED }
 
@@ -41,25 +41,25 @@ public class RefreshTokenService {
     public record Rotation(Outcome outcome, User user, String newRawToken) {
     }
 
-    private final RefreshTokenRepository repository;
-    private final AppProperties props;
-    private final Clock clock;
+    private final RefreshTokenRepository repositorio;
+    private final AppProperties propriedades;
+    private final Clock relogio;
 
-    public RefreshTokenService(RefreshTokenRepository repository, AppProperties props, Clock clock) {
-        this.repository = repository;
-        this.props = props;
-        this.clock = clock;
+    public RefreshTokenService(RefreshTokenRepository repositorio, AppProperties propriedades, Clock relogio) {
+        this.repositorio = repositorio;
+        this.propriedades = propriedades;
+        this.relogio = relogio;
     }
 
     @Transactional
-    public Issued issue(User user, UUID familyId) {
+    public Issued emitir(User usuario, UUID idFamilia) {
         byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        UUID family = familyId != null ? familyId : UUID.randomUUID();
-        repository.save(new RefreshToken(user, family, hash(raw), clock.instant().plus(props.jwt().refreshTtl()),
-                RequestContext.currentIp(), RequestContext.currentUserAgent()));
-        return new Issued(raw, family);
+        ALEATORIO.nextBytes(bytes);
+        String bruto = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        UUID familia = idFamilia != null ? idFamilia : UUID.randomUUID();
+        repositorio.save(new RefreshToken(usuario, familia, gerarHash(bruto), relogio.instant().plus(propriedades.jwt().refreshTtl()),
+                RequestContext.ipAtual(), RequestContext.userAgentAtual()));
+        return new Issued(bruto, familia);
     }
 
     /**
@@ -67,59 +67,59 @@ public class RefreshTokenService {
      * (em caso de reuso) seja efetivada (commit) antes de o chamador responder 401.
      */
     @Transactional
-    public Rotation rotate(String rawToken) {
-        Optional<RefreshToken> found = repository.findByHashForUpdate(hash(rawToken));
-        if (found.isEmpty()) {
+    public Rotation rotacionar(String tokenBruto) {
+        Optional<RefreshToken> encontrado = repositorio.findByHashForUpdate(gerarHash(tokenBruto));
+        if (encontrado.isEmpty()) {
             return new Rotation(Outcome.INVALID, null, null);
         }
-        RefreshToken token = found.get();
-        User user = token.getUser();
-        Instant now = clock.instant();
+        RefreshToken token = encontrado.get();
+        User usuario = token.getUser();
+        Instant agora = relogio.instant();
 
         if (token.isRevoked()) {
             if (RefreshToken.REASON_ROTATED.equals(token.getRevokedReason())) {
-                Duration grace = props.jwt().refreshGrace();
-                boolean withinGrace = !grace.isZero() && token.getRevokedAt().plus(grace).isAfter(now) && user.isEnabled();
-                if (withinGrace) {
+                Duration tolerancia = propriedades.jwt().refreshGrace();
+                boolean dentroDaTolerancia = !tolerancia.isZero() && token.getRevokedAt().plus(tolerancia).isAfter(agora) && usuario.isEnabled();
+                if (dentroDaTolerancia) {
                     // requisições simultâneas legítimas (várias abas): tolera dentro da janela configurada
-                    return new Rotation(Outcome.ROTATED, user, issue(user, token.getFamilyId()).rawToken());
+                    return new Rotation(Outcome.ROTATED, usuario, emitir(usuario, token.getFamilyId()).rawToken());
                 }
-                repository.revokeFamily(token.getFamilyId(), now, RefreshToken.REASON_REUSE);
-                return new Rotation(Outcome.REUSE_DETECTED, user, null);
+                repositorio.revokeFamily(token.getFamilyId(), agora, RefreshToken.REASON_REUSE);
+                return new Rotation(Outcome.REUSE_DETECTED, usuario, null);
             }
-            return new Rotation(Outcome.INVALID, user, null);
+            return new Rotation(Outcome.INVALID, usuario, null);
         }
-        if (token.isExpired(now) || !user.isEnabled() || user.isSecurityLocked(now)) {
-            token.revoke(now, RefreshToken.REASON_LOGOUT);
-            return new Rotation(Outcome.INVALID, user, null);
+        if (token.isExpired(agora) || !usuario.isEnabled() || usuario.isSecurityLocked(agora)) {
+            token.revoke(agora, RefreshToken.REASON_LOGOUT);
+            return new Rotation(Outcome.INVALID, usuario, null);
         }
-        token.revoke(now, RefreshToken.REASON_ROTATED);
-        return new Rotation(Outcome.ROTATED, user, issue(user, token.getFamilyId()).rawToken());
+        token.revoke(agora, RefreshToken.REASON_ROTATED);
+        return new Rotation(Outcome.ROTATED, usuario, emitir(usuario, token.getFamilyId()).rawToken());
     }
 
     /** Logout: revoga a família do token apresentado. */
     @Transactional
-    public void revokeFamilyOf(String rawToken) {
-        repository.findByTokenHash(hash(rawToken))
-                .ifPresent(t -> repository.revokeFamily(t.getFamilyId(), clock.instant(), RefreshToken.REASON_LOGOUT));
+    public void revogarFamiliaDe(String tokenBruto) {
+        repositorio.findByTokenHash(gerarHash(tokenBruto))
+                .ifPresent(t -> repositorio.revokeFamily(t.getFamilyId(), relogio.instant(), RefreshToken.REASON_LOGOUT));
     }
 
     @Transactional
-    public void revokeAllForUser(UUID userId, String reason) {
-        repository.revokeAllForUser(userId, null, clock.instant(), reason);
+    public void revogarTodasDoUsuario(UUID idUsuario, String motivo) {
+        repositorio.revokeAllForUser(idUsuario, null, relogio.instant(), motivo);
     }
 
     /** Limpeza diária de tokens expirados há mais de um dia. */
     @Scheduled(cron = "0 30 3 * * *")
     @Transactional
-    public void purgeExpired() {
-        repository.deleteExpiredBefore(clock.instant().minus(Duration.ofDays(1)));
+    public void limparExpirados() {
+        repositorio.deleteExpiredBefore(relogio.instant().minus(Duration.ofDays(1)));
     }
 
-    static String hash(String raw) {
+    static String gerarHash(String bruto) {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
+            byte[] resumo = MessageDigest.getInstance("SHA-256").digest(bruto.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(resumo);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }

@@ -46,29 +46,29 @@ class SecurityHardeningTest {
 
     @Test
     void jwtAcceptsOnlyValidHs256Tokens() {
-        assertThat(jwt.parse(validClaims().signWith(KEY, Jwts.SIG.HS256).compact())).isPresent();
+        assertThat(jwt.interpretar(validClaims().signWith(KEY, Jwts.SIG.HS256).compact())).isPresent();
 
         // algoritmo diferente do fixado (mesmo com a chave correta)
-        assertThat(jwt.parse(validClaims().signWith(KEY, Jwts.SIG.HS512).compact())).isEmpty();
+        assertThat(jwt.interpretar(validClaims().signWith(KEY, Jwts.SIG.HS512).compact())).isEmpty();
         // token sem assinatura ("alg": "none")
-        assertThat(jwt.parse(validClaims().compact())).isEmpty();
+        assertThat(jwt.interpretar(validClaims().compact())).isEmpty();
         // assinado com outra chave
         SecretKey other = Keys.hmacShaKeyFor("outra-chave-qualquer-com-mais-de-32-bytes!!".getBytes());
-        assertThat(jwt.parse(validClaims().signWith(other, Jwts.SIG.HS256).compact())).isEmpty();
+        assertThat(jwt.interpretar(validClaims().signWith(other, Jwts.SIG.HS256).compact())).isEmpty();
         // expirado
         Instant past = Instant.now().minusSeconds(3600);
-        assertThat(jwt.parse(validClaims().issuedAt(Date.from(past)).expiration(Date.from(past.plusSeconds(60)))
+        assertThat(jwt.interpretar(validClaims().issuedAt(Date.from(past)).expiration(Date.from(past.plusSeconds(60)))
                 .signWith(KEY, Jwts.SIG.HS256).compact())).isEmpty();
         // ainda não válido (nbf no futuro)
-        assertThat(jwt.parse(validClaims().notBefore(Date.from(Instant.now().plusSeconds(3600)))
+        assertThat(jwt.interpretar(validClaims().notBefore(Date.from(Instant.now().plusSeconds(3600)))
                 .signWith(KEY, Jwts.SIG.HS256).compact())).isEmpty();
         // emissor errado / sem versão / sem sujeito
-        assertThat(jwt.parse(validClaims().issuer("outro").signWith(KEY, Jwts.SIG.HS256).compact())).isEmpty();
-        assertThat(jwt.parse(validClaims().claim("ver", null).signWith(KEY, Jwts.SIG.HS256).compact())).isEmpty();
-        assertThat(jwt.parse(validClaims().subject(null).signWith(KEY, Jwts.SIG.HS256).compact())).isEmpty();
+        assertThat(jwt.interpretar(validClaims().issuer("outro").signWith(KEY, Jwts.SIG.HS256).compact())).isEmpty();
+        assertThat(jwt.interpretar(validClaims().claim("ver", null).signWith(KEY, Jwts.SIG.HS256).compact())).isEmpty();
+        assertThat(jwt.interpretar(validClaims().subject(null).signWith(KEY, Jwts.SIG.HS256).compact())).isEmpty();
         // lixo e tamanho exagerado
-        assertThat(jwt.parse("abc.def.ghi")).isEmpty();
-        assertThat(jwt.parse("a".repeat(5000))).isEmpty();
+        assertThat(jwt.interpretar("abc.def.ghi")).isEmpty();
+        assertThat(jwt.interpretar("a".repeat(5000))).isEmpty();
     }
 
     @Test

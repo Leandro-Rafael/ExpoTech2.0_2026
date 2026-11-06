@@ -14,55 +14,55 @@ import java.util.UUID;
 @Service
 public class UserService {
 
-    private final UserRepository users;
-    private final OrganizationRepository organizations;
+    private final UserRepository usuarios;
+    private final OrganizationRepository organizacoes;
 
-    public UserService(UserRepository users, OrganizationRepository organizations) {
-        this.users = users;
-        this.organizations = organizations;
+    public UserService(UserRepository usuarios, OrganizationRepository organizacoes) {
+        this.usuarios = usuarios;
+        this.organizacoes = organizacoes;
     }
 
     @Transactional(readOnly = true)
-    public UserMe getMe(UUID userId) {
-        return UserMe.of(require(userId));
+    public UserMe buscarPerfil(UUID idUsuario) {
+        return UserMe.of(buscarObrigatorio(idUsuario));
     }
 
     @Transactional
-    public User createUser(String name, String email, String passwordHash, Role role) {
-        if (users.existsByEmail(email)) {
+    public User criarUsuario(String nome, String email, String hashSenha, Role perfil) {
+        if (usuarios.existsByEmail(email)) {
             throw new ApiException(ErrorCode.CONFLICT, "Já existe uma conta cadastrada com este e-mail.");
         }
-        return users.save(new User(name, email, passwordHash, role));
+        return usuarios.save(new User(nome, email, hashSenha, perfil));
     }
 
     @Transactional
-    public UserMe updateProfile(UUID userId, UserDtos.UpdateProfileRequest request) {
-        User user = require(userId);
-        if (request.getName() != null) {
-            String name = Text.clean(request.getName());
-            if (name == null || name.length() < 2) {
-                throw ApiException.field("name", "informe seu nome");
+    public UserMe atualizarPerfil(UUID idUsuario, UserDtos.UpdateProfileRequest dados) {
+        User usuario = buscarObrigatorio(idUsuario);
+        if (dados.getName() != null) {
+            String nome = Text.limpar(dados.getName());
+            if (nome == null || nome.length() < 2) {
+                throw ApiException.campo("name", "informe seu nome");
             }
-            user.setName(name);
+            usuario.setName(nome);
         }
-        if (request.isOrganizationIdPresent()) {
-            user.setOrganization(request.getOrganizationId() == null ? null
-                    : organizations.findById(request.getOrganizationId())
-                    .orElseThrow(() -> ApiException.field("organizationId", "organização não encontrada")));
+        if (dados.isOrganizationIdPresent()) {
+            usuario.setOrganization(dados.getOrganizationId() == null ? null
+                    : organizacoes.findById(dados.getOrganizationId())
+                    .orElseThrow(() -> ApiException.campo("organizationId", "organização não encontrada")));
         }
-        return UserMe.of(user);
+        return UserMe.of(usuario);
     }
 
     /** Troca o hash e incrementa token_version: access tokens antigos deixam de valer na hora. */
     @Transactional
-    public User updatePassword(UUID userId, String newHash) {
-        User user = require(userId);
-        user.setPasswordHash(newHash);
-        user.incrementTokenVersion();
-        return user;
+    public User atualizarSenha(UUID idUsuario, String novoHash) {
+        User usuario = buscarObrigatorio(idUsuario);
+        usuario.setPasswordHash(novoHash);
+        usuario.incrementTokenVersion();
+        return usuario;
     }
 
-    User require(UUID userId) {
-        return users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, "Sessão inválida."));
+    User buscarObrigatorio(UUID idUsuario) {
+        return usuarios.findById(idUsuario).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED, "Sessão inválida."));
     }
 }

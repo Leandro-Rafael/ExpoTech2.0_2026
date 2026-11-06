@@ -16,28 +16,28 @@ import java.util.Map;
  */
 public final class ImpactFactors {
 
-    public static final double CO2_KG_PER_TREE_YEAR = 22.0;
+    public static final double KG_CO2_POR_ARVORE_ANO = 22.0;
 
-    private static final Map<CategoryCode, Double> ENERGY_KWH_PER_KG = Map.of(
+    private static final Map<CategoryCode, Double> ENERGIA_KWH_POR_KG = Map.of(
             CategoryCode.PAPEL, 4.1, CategoryCode.PLASTICO, 5.8, CategoryCode.VIDRO, 0.42, CategoryCode.METAL, 4.5,
             CategoryCode.ELETRONICO, 3.0, CategoryCode.ORGANICO, 0.1, CategoryCode.REJEITO, 0.0);
 
-    private static final Map<CategoryCode, Double> WATER_LITERS_PER_KG = Map.of(
+    private static final Map<CategoryCode, Double> AGUA_LITROS_POR_KG = Map.of(
             CategoryCode.PAPEL, 26.0, CategoryCode.PLASTICO, 2.5, CategoryCode.VIDRO, 1.5, CategoryCode.METAL, 6.0,
             CategoryCode.ELETRONICO, 3.0, CategoryCode.ORGANICO, 0.0, CategoryCode.REJEITO, 0.0);
 
     private ImpactFactors() {
     }
 
-    public static double energyKwh(CategoryCode code, double kg) {
-        return ENERGY_KWH_PER_KG.getOrDefault(code, 0.0) * kg;
+    public static double energiaKwh(CategoryCode codigo, double kg) {
+        return ENERGIA_KWH_POR_KG.getOrDefault(codigo, 0.0) * kg;
     }
 
-    public static double waterLiters(CategoryCode code, double kg) {
-        return WATER_LITERS_PER_KG.getOrDefault(code, 0.0) * kg;
+    public static double aguaLitros(CategoryCode codigo, double kg) {
+        return AGUA_LITROS_POR_KG.getOrDefault(codigo, 0.0) * kg;
     }
 
-    public static double trees(double co2Kg) {
-        return co2Kg / CO2_KG_PER_TREE_YEAR;
+    public static double arvores(double co2Kg) {
+        return co2Kg / KG_CO2_POR_ARVORE_ANO;
     }
 }

@@ -24,19 +24,19 @@ public final class ChainHashes {
                            String details, String ip, Instant createdAt) {
     }
 
-    public static String ledger(long seq, String prevHash, LedgerRow r) {
-        return new Builder().add("L1").add(seq).add(prevHash).add(r.id()).add(r.userId()).add(r.type()).add(r.amount())
-                .add(r.balanceAfter()).add(r.disposalId()).add(r.challengeId()).add(r.redemptionId()).add(r.description())
-                .add(micros(r.createdAt())).toString();
+    public static String extrato(long seq, String hashAnterior, LedgerRow r) {
+        return new Builder().adicionar("L1").adicionar(seq).adicionar(hashAnterior).adicionar(r.id()).adicionar(r.userId()).adicionar(r.type()).adicionar(r.amount())
+                .adicionar(r.balanceAfter()).adicionar(r.disposalId()).adicionar(r.challengeId()).adicionar(r.redemptionId()).adicionar(r.description())
+                .adicionar(micros(r.createdAt())).toString();
     }
 
-    public static String audit(long seq, String prevHash, AuditRow r) {
-        return new Builder().add("A1").add(seq).add(prevHash).add(r.id()).add(r.actorId()).add(r.actorLabel()).add(r.action())
-                .add(r.entity()).add(r.entityId()).add(r.details()).add(r.ip()).add(micros(r.createdAt())).toString();
+    public static String auditoria(long seq, String hashAnterior, AuditRow r) {
+        return new Builder().adicionar("A1").adicionar(seq).adicionar(hashAnterior).adicionar(r.id()).adicionar(r.actorId()).adicionar(r.actorLabel()).adicionar(r.action())
+                .adicionar(r.entity()).adicionar(r.entityId()).adicionar(r.details()).adicionar(r.ip()).adicionar(micros(r.createdAt())).toString();
     }
 
     /** O banco guarda microssegundos: truncamos antes de gravar e de assinar. */
-    public static Instant truncate(Instant t) {
+    public static Instant truncar(Instant t) {
         return t.truncatedTo(ChronoUnit.MICROS);
     }
 
@@ -47,11 +47,11 @@ public final class ChainHashes {
     private static final class Builder {
         private final StringBuilder sb = new StringBuilder(256);
 
-        Builder add(Object value) {
-            if (value == null) {
+        Builder adicionar(Object valor) {
+            if (valor == null) {
                 sb.append("~|");
             } else {
-                String s = value.toString();
+                String s = valor.toString();
                 sb.append(s.length()).append(':').append(s).append('|');
             }
             return this;

@@ -14,8 +14,8 @@ import java.util.Optional;
 public interface FraudRule {
 
     /** Código curto da regra (ex.: "FOTO_REPETIDA"). */
-    String code();
+    String codigo();
 
     /** Avalia o descarte; vazio quando nada suspeito foi encontrado. */
-    Optional<FraudSignal> evaluate(FraudContext context);
+    Optional<FraudSignal> avaliar(FraudContext contexto);
 }

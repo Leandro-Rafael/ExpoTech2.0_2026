@@ -30,7 +30,7 @@ class RouteOptimizerTest {
         for (int i = 0; i < 40; i++) {
             stops.add(stop(-23.62 + random.nextDouble() * 0.05, -46.79 + random.nextDouble() * 0.06, 20 + random.nextInt(60)));
         }
-        Plan plan = RouteOptimizer.optimize(DEPOT, stops, 300);
+        Plan plan = RouteOptimizer.otimizar(DEPOT, stops, 300);
 
         Set<UUID> visited = new HashSet<>();
         plan.routes().forEach(r -> r.stops().forEach(s -> assertThat(visited.add(s.id())).isTrue()));
@@ -47,7 +47,7 @@ class RouteOptimizerTest {
             for (int i = 0; i < 15; i++) {
                 stops.add(stop(-23.65 + random.nextDouble() * 0.1, -46.80 + random.nextDouble() * 0.1, 10 + random.nextInt(40)));
             }
-            Plan plan = RouteOptimizer.optimize(DEPOT, stops, 200);
+            Plan plan = RouteOptimizer.otimizar(DEPOT, stops, 200);
             assertThat(plan.totalDistanceKm()).isLessThanOrEqualTo(plan.naiveTotalDistanceKm() + 0.01);
             assertThat(plan.savingsPercent()).isBetween(0.0, 100.0);
         }
@@ -58,7 +58,7 @@ class RouteOptimizerTest {
         // Quatro cantos de um quadrado em ordem "cruzada": a rota ingênua forma um X
         List<Stop> stops = List.of(
                 stop(-23.60, -46.74), stop(-23.62, -46.76), stop(-23.60, -46.76), stop(-23.62, -46.74));
-        Plan plan = RouteOptimizer.optimize(new GeoPoint(-23.61, -46.73), stops, 1000);
+        Plan plan = RouteOptimizer.otimizar(new GeoPoint(-23.61, -46.73), stops, 1000);
         assertThat(plan.routes()).hasSize(1);
         assertThat(plan.totalDistanceKm()).isLessThan(plan.naiveTotalDistanceKm());
         assertThat(plan.savingsPercent()).isGreaterThan(10);
@@ -67,20 +67,20 @@ class RouteOptimizerTest {
     @Test
     void oversizedStopGetsItsOwnTrip() {
         List<Stop> stops = List.of(stop(-23.61, -46.75, 1500), stop(-23.611, -46.751, 50));
-        Plan plan = RouteOptimizer.optimize(DEPOT, stops, 1000);
+        Plan plan = RouteOptimizer.otimizar(DEPOT, stops, 1000);
         assertThat(plan.routes()).hasSize(2);
     }
 
     @Test
     void estimatesTimeFromSpeedAndServiceTime() {
         // 25 km a 25 km/h = 60 min + 4 paradas x 5 min = 80 min
-        assertThat(RouteOptimizer.estimateMinutes(25, 4)).isEqualTo(80);
+        assertThat(RouteOptimizer.estimarMinutos(25, 4)).isEqualTo(80);
     }
 
     @Test
     void handlesEmptyInputAndInvalidCapacity() {
-        assertThat(RouteOptimizer.optimize(DEPOT, List.of(), 100).routes()).isEmpty();
-        assertThatThrownBy(() -> RouteOptimizer.optimize(DEPOT, List.of(stop(-23.6, -46.7, 1)), 0))
+        assertThat(RouteOptimizer.otimizar(DEPOT, List.of(), 100).routes()).isEmpty();
+        assertThatThrownBy(() -> RouteOptimizer.otimizar(DEPOT, List.of(stop(-23.6, -46.7, 1)), 0))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

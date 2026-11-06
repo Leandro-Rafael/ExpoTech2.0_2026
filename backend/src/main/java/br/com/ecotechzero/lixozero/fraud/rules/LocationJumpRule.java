@@ -24,35 +24,35 @@ public class LocationJumpRule implements FraudRule {
     static final double MIN_DISTANCE_KM = 10;
     static final int SCORE = 30;
 
-    private final DisposalRepository disposals;
+    private final DisposalRepository descartes;
 
-    public LocationJumpRule(DisposalRepository disposals) {
-        this.disposals = disposals;
+    public LocationJumpRule(DisposalRepository descartes) {
+        this.descartes = descartes;
     }
 
     @Override
-    public String code() {
+    public String codigo() {
         return "DESLOCAMENTO_IMPOSSIVEL";
     }
 
     @Override
-    public Optional<FraudSignal> evaluate(FraudContext ctx) {
-        if (!ctx.hasLocation()) {
+    public Optional<FraudSignal> avaliar(FraudContext contexto) {
+        if (!contexto.temLocalizacao()) {
             return Optional.empty();
         }
-        return disposals.recentWithLocation(ctx.userId(), ctx.disposedAt().minus(Duration.ofHours(12)), PageRequest.of(0, 1))
+        return descartes.recentWithLocation(contexto.userId(), contexto.disposedAt().minus(Duration.ofHours(12)), PageRequest.of(0, 1))
                 .stream()
                 .findFirst()
-                .flatMap(previous -> check(ctx, previous));
+                .flatMap(anterior -> verificar(contexto, anterior));
     }
 
-    private Optional<FraudSignal> check(FraudContext ctx, Disposal previous) {
-        double km = GeoPoint.haversineKm(previous.getLatitude(), previous.getLongitude(), ctx.latitude(), ctx.longitude());
-        double hours = Math.abs(Duration.between(previous.getDisposedAt(), ctx.disposedAt()).toSeconds()) / 3600.0;
-        double speed = km / Math.max(hours, 1.0 / 60); // mínimo de 1 minuto para evitar divisão por zero
-        if (km > MIN_DISTANCE_KM && speed > MAX_SPEED_KMH) {
-            return Optional.of(new FraudSignal(code(), SCORE,
-                    String.format("Localização %.0f km distante do registro anterior em pouco tempo (%.0f km/h).", km, speed)));
+    private Optional<FraudSignal> verificar(FraudContext contexto, Disposal anterior) {
+        double km = GeoPoint.haversineKm(anterior.getLatitude(), anterior.getLongitude(), contexto.latitude(), contexto.longitude());
+        double horas = Math.abs(Duration.between(anterior.getDisposedAt(), contexto.disposedAt()).toSeconds()) / 3600.0;
+        double velocidade = km / Math.max(horas, 1.0 / 60); // mínimo de 1 minuto para evitar divisão por zero
+        if (km > MIN_DISTANCE_KM && velocidade > MAX_SPEED_KMH) {
+            return Optional.of(new FraudSignal(codigo(), SCORE,
+                    String.format("Localização %.0f km distante do registro anterior em pouco tempo (%.0f km/h).", km, velocidade)));
         }
         return Optional.empty();
     }

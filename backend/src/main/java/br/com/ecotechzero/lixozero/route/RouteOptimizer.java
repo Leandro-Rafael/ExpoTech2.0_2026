@@ -32,10 +32,10 @@ import java.util.UUID;
 public final class RouteOptimizer {
 
     /** Velocidade média urbana de um caminhão de coleta (km/h). */
-    public static final double AVERAGE_SPEED_KMH = 25;
+    public static final double VELOCIDADE_MEDIA_KMH = 25;
     /** Tempo médio de atendimento em cada parada (minutos). */
-    public static final double SERVICE_MINUTES_PER_STOP = 5;
-    private static final int MAX_TWO_OPT_PASSES = 50;
+    public static final double MINUTOS_ATENDIMENTO_POR_PARADA = 5;
+    private static final int MAXIMO_PASSADAS_DOIS_OPT = 50;
 
     private RouteOptimizer() {
     }
@@ -50,79 +50,79 @@ public final class RouteOptimizer {
     public record Plan(List<PlannedRoute> routes, double totalDistanceKm, double naiveTotalDistanceKm, double savingsPercent) {
     }
 
-    public static Plan optimize(GeoPoint depot, List<Stop> stops, double capacityKg) {
-        if (capacityKg <= 0) {
+    public static Plan otimizar(GeoPoint garagem, List<Stop> paradas, double capacidadeKg) {
+        if (capacidadeKg <= 0) {
             throw new IllegalArgumentException("A capacidade do veículo deve ser positiva");
         }
-        if (stops.isEmpty()) {
+        if (paradas.isEmpty()) {
             return new Plan(List.of(), 0, 0, 0);
         }
         // 1. Calcula uma vez a distância entre todos os pontos (garagem + paradas).
-        double[][] dist = distanceMatrix(depot, stops);
+        double[][] distancias = matrizDistancias(garagem, paradas);
 
         // 2. Plano ingênuo, só para comparar.
         // Plano ingênuo: ordem de criação, dividida por capacidade na mesma ordem
-        List<List<Integer>> naiveTrips = splitInOrder(stops, capacityKg);
-        double naiveTotal = naiveTrips.stream().mapToDouble(t -> tourLength(dist, t)).sum();
+        List<List<Integer>> viagensIngenuas = dividirNaOrdem(paradas, capacidadeKg);
+        double totalIngenuo = viagensIngenuas.stream().mapToDouble(t -> comprimentoRota(distancias, t)).sum();
 
         // 3. Plano otimizado.
         // Plano otimizado: vizinho mais próximo (com PriorityQueue) + 2-opt em cada viagem
-        List<List<Integer>> optimized = nearestNeighbour(dist, stops, capacityKg);
-        optimized.replaceAll(trip -> twoOpt(dist, trip));
-        double optimizedTotal = optimized.stream().mapToDouble(t -> tourLength(dist, t)).sum();
+        List<List<Integer>> otimizadas = vizinhoMaisProximo(distancias, paradas, capacidadeKg);
+        otimizadas.replaceAll(viagem -> doisOpt(distancias, viagem));
+        double totalOtimizado = otimizadas.stream().mapToDouble(t -> comprimentoRota(distancias, t)).sum();
 
         // 4. Fica com o melhor dos dois.
         // Garantia: se a divisão em ordem + 2-opt for ainda melhor, usamos ela
-        List<List<Integer>> naiveImproved = new ArrayList<>(naiveTrips.stream().map(t -> twoOpt(dist, t)).toList());
-        double naiveImprovedTotal = naiveImproved.stream().mapToDouble(t -> tourLength(dist, t)).sum();
-        if (naiveImprovedTotal < optimizedTotal) {
-            optimized = naiveImproved;
-            optimizedTotal = naiveImprovedTotal;
+        List<List<Integer>> ingenuasMelhoradas = new ArrayList<>(viagensIngenuas.stream().map(t -> doisOpt(distancias, t)).toList());
+        double totalIngenuasMelhoradas = ingenuasMelhoradas.stream().mapToDouble(t -> comprimentoRota(distancias, t)).sum();
+        if (totalIngenuasMelhoradas < totalOtimizado) {
+            otimizadas = ingenuasMelhoradas;
+            totalOtimizado = totalIngenuasMelhoradas;
         }
 
         // 5. Monta cada viagem com km, tempo estimado e carga, e calcula a economia em %.
-        List<PlannedRoute> routes = new ArrayList<>();
-        for (List<Integer> trip : optimized) {
-            List<Stop> ordered = trip.stream().map(i -> stops.get(i - 1)).toList();
+        List<PlannedRoute> rotas = new ArrayList<>();
+        for (List<Integer> viagem : otimizadas) {
+            List<Stop> ordenadas = viagem.stream().map(i -> paradas.get(i - 1)).toList();
             // rota ingênua desta viagem: as mesmas paradas na ordem de criação
-            List<Integer> inCreationOrder = trip.stream().sorted().toList();
-            double km = tourLength(dist, trip);
-            double load = ordered.stream().mapToDouble(Stop::kg).sum();
-            routes.add(new PlannedRoute(ordered, Numbers.round2(km), Numbers.round2(tourLength(dist, inCreationOrder)),
-                    estimateMinutes(km, ordered.size()), Numbers.round2(load)));
+            List<Integer> naOrdemDeCriacao = viagem.stream().sorted().toList();
+            double km = comprimentoRota(distancias, viagem);
+            double carga = ordenadas.stream().mapToDouble(Stop::kg).sum();
+            rotas.add(new PlannedRoute(ordenadas, Numbers.arredondar2(km), Numbers.arredondar2(comprimentoRota(distancias, naOrdemDeCriacao)),
+                    estimarMinutos(km, ordenadas.size()), Numbers.arredondar2(carga)));
         }
-        double savings = naiveTotal <= 0 ? 0 : (naiveTotal - optimizedTotal) / naiveTotal * 100;
-        return new Plan(routes, Numbers.round2(optimizedTotal), Numbers.round2(naiveTotal), Numbers.round(Math.max(0, savings), 1));
+        double economia = totalIngenuo <= 0 ? 0 : (totalIngenuo - totalOtimizado) / totalIngenuo * 100;
+        return new Plan(rotas, Numbers.arredondar2(totalOtimizado), Numbers.arredondar2(totalIngenuo), Numbers.arredondar(Math.max(0, economia), 1));
     }
 
     /** Tempo estimado = deslocamento na velocidade média + tempo de serviço em cada parada. */
-    public static int estimateMinutes(double distanceKm, int stopCount) {
-        return (int) Math.round(distanceKm / AVERAGE_SPEED_KMH * 60 + stopCount * SERVICE_MINUTES_PER_STOP);
+    public static int estimarMinutos(double distanciaKm, int quantidadeParadas) {
+        return (int) Math.round(distanciaKm / VELOCIDADE_MEDIA_KMH * 60 + quantidadeParadas * MINUTOS_ATENDIMENTO_POR_PARADA);
     }
 
     /** Comprimento (km) da rota fechada garagem -> pontos na ordem dada -> garagem. */
-    public static double closedTourKm(GeoPoint depot, List<GeoPoint> points) {
-        if (points.isEmpty()) {
+    public static double kmRotaFechada(GeoPoint garagem, List<GeoPoint> pontos) {
+        if (pontos.isEmpty()) {
             return 0;
         }
         double total = 0;
-        GeoPoint previous = depot;
-        for (GeoPoint p : points) {
-            total += previous.distanceKm(p);
-            previous = p;
+        GeoPoint anterior = garagem;
+        for (GeoPoint p : pontos) {
+            total += anterior.distanciaKm(p);
+            anterior = p;
         }
-        return total + previous.distanceKm(depot);
+        return total + anterior.distanciaKm(garagem);
     }
 
-    static double[][] distanceMatrix(GeoPoint depot, List<Stop> stops) {
-        int n = stops.size() + 1;
+    static double[][] matrizDistancias(GeoPoint garagem, List<Stop> paradas) {
+        int n = paradas.size() + 1;
         double[] lat = new double[n];
         double[] lon = new double[n];
-        lat[0] = depot.latitude();
-        lon[0] = depot.longitude();
+        lat[0] = garagem.latitude();
+        lon[0] = garagem.longitude();
         for (int i = 1; i < n; i++) {
-            lat[i] = stops.get(i - 1).latitude();
-            lon[i] = stops.get(i - 1).longitude();
+            lat[i] = paradas.get(i - 1).latitude();
+            lon[i] = paradas.get(i - 1).longitude();
         }
         double[][] d = new double[n][n];
         for (int i = 0; i < n; i++) {
@@ -137,60 +137,60 @@ public final class RouteOptimizer {
      * Heurística do vizinho mais próximo respeitando a capacidade.
      * Paradas maiores que a capacidade do veículo são atendidas sozinhas numa viagem exclusiva.
      */
-    static List<List<Integer>> nearestNeighbour(double[][] dist, List<Stop> stops, double capacityKg) {
-        int n = stops.size();
-        boolean[] visited = new boolean[n + 1];
-        int remaining = n;
-        List<List<Integer>> trips = new ArrayList<>();
-        while (remaining > 0) {
-            List<Integer> trip = new ArrayList<>();
-            double load = 0;
-            int current = 0; // começa na garagem
+    static List<List<Integer>> vizinhoMaisProximo(double[][] distancias, List<Stop> paradas, double capacidadeKg) {
+        int n = paradas.size();
+        boolean[] visitadas = new boolean[n + 1];
+        int restantes = n;
+        List<List<Integer>> viagens = new ArrayList<>();
+        while (restantes > 0) {
+            List<Integer> viagem = new ArrayList<>();
+            double carga = 0;
+            int atual = 0; // começa na garagem
             while (true) {
-                final int from = current;
-                PriorityQueue<Integer> candidates = new PriorityQueue<>(Comparator.comparingDouble(i -> dist[from][i]));
+                final int origem = atual;
+                PriorityQueue<Integer> candidatas = new PriorityQueue<>(Comparator.comparingDouble(i -> distancias[origem][i]));
                 for (int i = 1; i <= n; i++) {
-                    if (!visited[i] && (load + stops.get(i - 1).kg() <= capacityKg || (trip.isEmpty()))) {
-                        candidates.add(i);
+                    if (!visitadas[i] && (carga + paradas.get(i - 1).kg() <= capacidadeKg || (viagem.isEmpty()))) {
+                        candidatas.add(i);
                     }
                 }
-                Integer next = candidates.poll();
-                if (next == null) {
+                Integer proxima = candidatas.poll();
+                if (proxima == null) {
                     break; // nada mais cabe: volta para a garagem
                 }
-                visited[next] = true;
-                remaining--;
-                trip.add(next);
-                load += stops.get(next - 1).kg();
-                current = next;
-                if (load >= capacityKg) {
+                visitadas[proxima] = true;
+                restantes--;
+                viagem.add(proxima);
+                carga += paradas.get(proxima - 1).kg();
+                atual = proxima;
+                if (carga >= capacidadeKg) {
                     break;
                 }
             }
-            trips.add(trip);
+            viagens.add(viagem);
         }
-        return trips;
+        return viagens;
     }
 
     /** Divide as paradas por capacidade mantendo a ordem original (plano de referência). */
-    static List<List<Integer>> splitInOrder(List<Stop> stops, double capacityKg) {
-        List<List<Integer>> trips = new ArrayList<>();
-        List<Integer> trip = new ArrayList<>();
-        double load = 0;
-        for (int i = 1; i <= stops.size(); i++) {
-            double kg = stops.get(i - 1).kg();
-            if (!trip.isEmpty() && load + kg > capacityKg) {
-                trips.add(trip);
-                trip = new ArrayList<>();
-                load = 0;
+    static List<List<Integer>> dividirNaOrdem(List<Stop> paradas, double capacidadeKg) {
+        List<List<Integer>> viagens = new ArrayList<>();
+        List<Integer> viagem = new ArrayList<>();
+        double carga = 0;
+        for (int i = 1; i <= paradas.size(); i++) {
+            double kg = paradas.get(i - 1).kg();
+            if (!viagem.isEmpty() && carga + kg > capacidadeKg) {
+                viagens.add(viagem);
+                viagem = new ArrayList<>();
+                carga = 0;
             }
-            trip.add(i);
-            load += kg;
+            viagem.add(i);
+            carga += kg;
         }
-        if (!trip.isEmpty()) {
-            trips.add(trip);
+        if (!viagem.isEmpty()) {
+            viagens.add(viagem);
         }
-        return trips;
+        return viagens;
     }
 
     /**
@@ -198,54 +198,54 @@ public final class RouteOptimizer {
      * testa trocá-las por (a-c) e (b-d), o que equivale a inverter o trecho b..c.
      * Aplica a troca sempre que a distância total diminui, repetindo até não haver melhoria.
      */
-    static List<Integer> twoOpt(double[][] dist, List<Integer> trip) {
-        if (trip.size() < 3) {
-            return new ArrayList<>(trip);
+    static List<Integer> doisOpt(double[][] distancias, List<Integer> viagem) {
+        if (viagem.size() < 3) {
+            return new ArrayList<>(viagem);
         }
         // tour completo com a garagem (0) nas pontas
-        int[] tour = new int[trip.size() + 2];
-        for (int i = 0; i < trip.size(); i++) {
-            tour[i + 1] = trip.get(i);
+        int[] circuito = new int[viagem.size() + 2];
+        for (int i = 0; i < viagem.size(); i++) {
+            circuito[i + 1] = viagem.get(i);
         }
-        boolean improved = true;
-        int passes = 0;
-        while (improved && passes++ < MAX_TWO_OPT_PASSES) {
-            improved = false;
-            for (int i = 1; i < tour.length - 2; i++) {
-                for (int j = i + 1; j < tour.length - 1; j++) {
-                    int a = tour[i - 1], b = tour[i], c = tour[j], d = tour[j + 1];
-                    double delta = dist[a][c] + dist[b][d] - dist[a][b] - dist[c][d];
+        boolean melhorou = true;
+        int passadas = 0;
+        while (melhorou && passadas++ < MAXIMO_PASSADAS_DOIS_OPT) {
+            melhorou = false;
+            for (int i = 1; i < circuito.length - 2; i++) {
+                for (int j = i + 1; j < circuito.length - 1; j++) {
+                    int a = circuito[i - 1], b = circuito[i], c = circuito[j], d = circuito[j + 1];
+                    double delta = distancias[a][c] + distancias[b][d] - distancias[a][b] - distancias[c][d];
                     if (delta < -1e-9) {
-                        reverse(tour, i, j);
-                        improved = true;
+                        inverter(circuito, i, j);
+                        melhorou = true;
                     }
                 }
             }
         }
-        List<Integer> result = new ArrayList<>(trip.size());
-        for (int i = 1; i < tour.length - 1; i++) {
-            result.add(tour[i]);
+        List<Integer> resultado = new ArrayList<>(viagem.size());
+        for (int i = 1; i < circuito.length - 1; i++) {
+            resultado.add(circuito[i]);
         }
-        return result;
+        return resultado;
     }
 
     /** Comprimento da rota fechada: garagem -> paradas -> garagem. */
-    static double tourLength(double[][] dist, List<Integer> trip) {
-        if (trip.isEmpty()) {
+    static double comprimentoRota(double[][] distancias, List<Integer> viagem) {
+        if (viagem.isEmpty()) {
             return 0;
         }
-        double total = dist[0][trip.getFirst()];
-        for (int i = 0; i < trip.size() - 1; i++) {
-            total += dist[trip.get(i)][trip.get(i + 1)];
+        double total = distancias[0][viagem.getFirst()];
+        for (int i = 0; i < viagem.size() - 1; i++) {
+            total += distancias[viagem.get(i)][viagem.get(i + 1)];
         }
-        return total + dist[trip.getLast()][0];
+        return total + distancias[viagem.getLast()][0];
     }
 
-    private static void reverse(int[] tour, int from, int to) {
-        while (from < to) {
-            int tmp = tour[from];
-            tour[from++] = tour[to];
-            tour[to--] = tmp;
+    private static void inverter(int[] circuito, int origem, int destino) {
+        while (origem < destino) {
+            int temporario = circuito[origem];
+            circuito[origem++] = circuito[destino];
+            circuito[destino--] = temporario;
         }
     }
 }

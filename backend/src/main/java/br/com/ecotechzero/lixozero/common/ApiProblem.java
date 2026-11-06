@@ -14,7 +14,7 @@ public record ApiProblem(int status, String title, String detail, String code, L
     public record FieldMessage(String field, String message) {
     }
 
-    public static ApiProblem of(ErrorCode code, int status, String detail, List<FieldMessage> errors) {
-        return new ApiProblem(status, code.title(), detail, code.name(), errors == null || errors.isEmpty() ? null : errors);
+    public static ApiProblem of(ErrorCode codigo, int status, String detalhe, List<FieldMessage> erros) {
+        return new ApiProblem(status, codigo.title(), detalhe, codigo.name(), erros == null || erros.isEmpty() ? null : erros);
     }
 }

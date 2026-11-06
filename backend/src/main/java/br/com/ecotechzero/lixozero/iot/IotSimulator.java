@@ -23,33 +23,33 @@ public class IotSimulator {
 
     private static final Logger log = LoggerFactory.getLogger(IotSimulator.class);
 
-    private final SmartBinRepository bins;
-    private final SmartBinService smartBins;
-    private final AppProperties props;
-    private final Clock clock;
+    private final SmartBinRepository lixeiras;
+    private final SmartBinService servicoLixeiras;
+    private final AppProperties propriedades;
+    private final Clock relogio;
 
-    public IotSimulator(SmartBinRepository bins, SmartBinService smartBins, AppProperties props, Clock clock) {
-        this.bins = bins;
-        this.smartBins = smartBins;
-        this.props = props;
-        this.clock = clock;
+    public IotSimulator(SmartBinRepository lixeiras, SmartBinService servicoLixeiras, AppProperties propriedades, Clock relogio) {
+        this.lixeiras = lixeiras;
+        this.servicoLixeiras = servicoLixeiras;
+        this.propriedades = propriedades;
+        this.relogio = relogio;
     }
 
     @Scheduled(initialDelayString = "${app.iot.simulator-interval}", fixedDelayString = "${app.iot.simulator-interval}")
-    public void tick() {
-        if (!props.iot().simulator()) {
+    public void simularLeituras() {
+        if (!propriedades.iot().simulator()) {
             return;
         }
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (UUID id : bins.findSimulatedIds()) {
+        ThreadLocalRandom aleatorio = ThreadLocalRandom.current();
+        for (UUID id : lixeiras.findSimulatedIds()) {
             try {
-                SmartBin bin = bins.findById(id).orElse(null);
-                if (bin == null || bin.getFillLevel() >= 100) {
+                SmartBin lixeira = lixeiras.findById(id).orElse(null);
+                if (lixeira == null || lixeira.getFillLevel() >= 100) {
                     continue;
                 }
-                int fill = Math.min(100, bin.getFillLevel() + random.nextInt(0, 4));
-                int battery = bin.getBatteryLevel() <= 8 ? 100 : bin.getBatteryLevel() - (random.nextInt(10) == 0 ? 1 : 0);
-                smartBins.recordReading(id, fill, battery, clock.instant());
+                int nivel = Math.min(100, lixeira.getFillLevel() + aleatorio.nextInt(0, 4));
+                int bateria = lixeira.getBatteryLevel() <= 8 ? 100 : lixeira.getBatteryLevel() - (aleatorio.nextInt(10) == 0 ? 1 : 0);
+                servicoLixeiras.registrarLeitura(id, nivel, bateria, relogio.instant());
             } catch (RuntimeException e) {
                 log.warn("Simulador IoT: falha ao atualizar lixeira {}: {}", id, e.toString());
             }

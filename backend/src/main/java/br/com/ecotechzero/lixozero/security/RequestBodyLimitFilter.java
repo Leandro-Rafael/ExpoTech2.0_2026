@@ -32,33 +32,33 @@ public class RequestBodyLimitFilter extends OncePerRequestFilter {
     /** 64 KB: o maior corpo legítimo (rota com 200 solicitações) tem cerca de 9 KB. */
     static final int MAX_JSON_BYTES = 64 * 1024;
 
-    private final ProblemResponseWriter problems;
+    private final ProblemResponseWriter problemas;
 
-    public RequestBodyLimitFilter(ProblemResponseWriter problems) {
-        this.problems = problems;
+    public RequestBodyLimitFilter(ProblemResponseWriter problemas) {
+        this.problemas = problemas;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String contentType = request.getContentType();
+        String tipoConteudo = request.getContentType();
         return !request.getRequestURI().startsWith("/api/")
-                || (contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith(MediaType.MULTIPART_FORM_DATA_VALUE));
+                || (tipoConteudo != null && tipoConteudo.toLowerCase(Locale.ROOT).startsWith(MediaType.MULTIPART_FORM_DATA_VALUE));
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadeia)
             throws ServletException, IOException {
         if (request.getContentLengthLong() > MAX_JSON_BYTES) {
-            problems.write(response, ErrorCode.VALIDATION_ERROR, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+            problemas.escrever(response, ErrorCode.VALIDATION_ERROR, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
                     "Corpo da requisição grande demais.", null);
             return;
         }
-        chain.doFilter(request.getContentLengthLong() < 0 ? new LimitedRequest(request) : request, response);
+        cadeia.doFilter(request.getContentLengthLong() < 0 ? new LimitedRequest(request) : request, response);
     }
 
     /** Envolve o corpo sem Content-Length declarado e interrompe a leitura acima do limite. */
     static final class LimitedRequest extends HttpServletRequestWrapper {
-        private ServletInputStream stream;
+        private ServletInputStream fluxo;
 
         LimitedRequest(HttpServletRequest request) {
             super(request);
@@ -66,59 +66,59 @@ public class RequestBodyLimitFilter extends OncePerRequestFilter {
 
         @Override
         public ServletInputStream getInputStream() throws IOException {
-            if (stream == null) {
-                stream = new LimitedInputStream(super.getInputStream());
+            if (fluxo == null) {
+                fluxo = new LimitedInputStream(super.getInputStream());
             }
-            return stream;
+            return fluxo;
         }
     }
 
     static final class LimitedInputStream extends ServletInputStream {
-        private final ServletInputStream delegate;
-        private long count;
+        private final ServletInputStream delegado;
+        private long totalLido;
 
-        LimitedInputStream(ServletInputStream delegate) {
-            this.delegate = delegate;
+        LimitedInputStream(ServletInputStream delegado) {
+            this.delegado = delegado;
         }
 
         @Override
         public int read() throws IOException {
-            int b = delegate.read();
+            int b = delegado.read();
             if (b >= 0) {
-                count(1);
+                contar(1);
             }
             return b;
         }
 
         @Override
         public int read(byte[] buffer, int off, int len) throws IOException {
-            int n = delegate.read(buffer, off, len);
+            int n = delegado.read(buffer, off, len);
             if (n > 0) {
-                count(n);
+                contar(n);
             }
             return n;
         }
 
-        private void count(int n) throws IOException {
-            count += n;
-            if (count > MAX_JSON_BYTES) {
+        private void contar(int n) throws IOException {
+            totalLido += n;
+            if (totalLido > MAX_JSON_BYTES) {
                 throw new IOException("Corpo da requisição acima de " + MAX_JSON_BYTES + " bytes");
             }
         }
 
         @Override
         public boolean isFinished() {
-            return delegate.isFinished();
+            return delegado.isFinished();
         }
 
         @Override
         public boolean isReady() {
-            return delegate.isReady();
+            return delegado.isReady();
         }
 
         @Override
-        public void setReadListener(ReadListener listener) {
-            delegate.setReadListener(listener);
+        public void setReadListener(ReadListener ouvinte) {
+            delegado.setReadListener(ouvinte);
         }
     }
 }

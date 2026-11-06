@@ -19,26 +19,26 @@ public class DailyLimitRule implements FraudRule {
     public static final double DAILY_LIMIT_KG = 50;
     static final int SCORE = 35;
 
-    private final DisposalRepository disposals;
+    private final DisposalRepository descartes;
 
-    public DailyLimitRule(DisposalRepository disposals) {
-        this.disposals = disposals;
+    public DailyLimitRule(DisposalRepository descartes) {
+        this.descartes = descartes;
     }
 
     @Override
-    public String code() {
+    public String codigo() {
         return "LIMITE_DIARIO";
     }
 
     @Override
-    public Optional<FraudSignal> evaluate(FraudContext ctx) {
-        LocalDate day = ctx.disposedAt().atZone(ctx.zone()).toLocalDate();
-        Instant from = day.atStartOfDay(ctx.zone()).toInstant();
-        Instant to = day.plusDays(1).atStartOfDay(ctx.zone()).toInstant();
-        double total = disposals.sumKgBetween(ctx.userId(), DisposalStatus.REJECTED, from, to) + ctx.quantityKg();
+    public Optional<FraudSignal> avaliar(FraudContext contexto) {
+        LocalDate dia = contexto.disposedAt().atZone(contexto.zone()).toLocalDate();
+        Instant inicio = dia.atStartOfDay(contexto.zone()).toInstant();
+        Instant fim = dia.plusDays(1).atStartOfDay(contexto.zone()).toInstant();
+        double total = descartes.sumKgBetween(contexto.userId(), DisposalStatus.REJECTED, inicio, fim) + contexto.quantityKg();
         if (total > DAILY_LIMIT_KG) {
-            return Optional.of(new FraudSignal(code(), SCORE,
-                    "Total do dia (" + Numbers.round(total, 1) + " kg) acima do limite de " + (int) DAILY_LIMIT_KG + " kg por usuário."));
+            return Optional.of(new FraudSignal(codigo(), SCORE,
+                    "Total do dia (" + Numbers.arredondar(total, 1) + " kg) acima do limite de " + (int) DAILY_LIMIT_KG + " kg por usuário."));
         }
         return Optional.empty();
     }

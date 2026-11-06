@@ -12,14 +12,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class InspectionController {
 
-    private final InspectionService service;
+    private final InspectionService servico;
 
-    public InspectionController(InspectionService service) {
-        this.service = service;
+    public InspectionController(InspectionService servico) {
+        this.servico = servico;
     }
 
     @PostMapping("/api/security/inspection-events")
-    public InspectionEventResult report(@AuthenticationPrincipal AuthUser me, @Valid @RequestBody InspectionEventRequest body) {
-        return service.report(me.id(), body.trigger());
+    public InspectionEventResult registrar(@AuthenticationPrincipal AuthUser logado, @Valid @RequestBody InspectionEventRequest corpo) {
+        return servico.registrarAviso(logado.id(), corpo.trigger());
     }
 }

@@ -37,55 +37,55 @@ import java.util.UUID;
 @RestController
 public class IotController {
 
-    private static final int MAX_KEY_LENGTH = 128;
-    private static final String DUMMY_HASH = SmartBinService.sha256("dispositivo-inexistente");
+    private static final int TAMANHO_MAXIMO_CHAVE = 128;
+    private static final String HASH_FICTICIO = SmartBinService.sha256("dispositivo-inexistente");
 
-    private final SmartBinRepository bins;
-    private final SmartBinService smartBins;
-    private final TokenBucketRateLimiter limiter;
-    private final AuditService audit;
-    private final Clock clock;
+    private final SmartBinRepository lixeiras;
+    private final SmartBinService servicoLixeiras;
+    private final TokenBucketRateLimiter limitador;
+    private final AuditService auditoria;
+    private final Clock relogio;
 
-    public IotController(SmartBinRepository bins, SmartBinService smartBins, TokenBucketRateLimiter limiter,
-                         AuditService audit, Clock clock) {
-        this.bins = bins;
-        this.smartBins = smartBins;
-        this.limiter = limiter;
-        this.audit = audit;
-        this.clock = clock;
+    public IotController(SmartBinRepository lixeiras, SmartBinService servicoLixeiras, TokenBucketRateLimiter limitador,
+                         AuditService auditoria, Clock relogio) {
+        this.lixeiras = lixeiras;
+        this.servicoLixeiras = servicoLixeiras;
+        this.limitador = limitador;
+        this.auditoria = auditoria;
+        this.relogio = relogio;
     }
 
     @PostMapping("/api/iot/readings")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void reading(@RequestHeader("X-Device-Id") String deviceIdHeader,
-                        @RequestHeader("X-Device-Key") String deviceKey,
-                        @Valid @RequestBody ReadingRequest body,
+    public void receberLeitura(@RequestHeader("X-Device-Id") String cabecalhoIdDispositivo,
+                        @RequestHeader("X-Device-Key") String chaveDispositivo,
+                        @Valid @RequestBody ReadingRequest corpo,
                         HttpServletRequest request) {
-        limiter.check(TokenBucketRateLimiter.Policy.IOT_IP, RequestContext.clientIp(request));
-        if (deviceKey.length() > MAX_KEY_LENGTH) {
+        limitador.verificar(TokenBucketRateLimiter.Policy.IOT_IP, RequestContext.ipCliente(request));
+        if (chaveDispositivo.length() > TAMANHO_MAXIMO_CHAVE) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "Dispositivo não autorizado.");
         }
-        UUID deviceId = parse(deviceIdHeader);
-        limiter.check(TokenBucketRateLimiter.Policy.IOT_DEVICE, deviceId.toString());
-        SmartBin bin = authenticate(deviceId, deviceKey);
-        smartBins.recordReading(bin.getId(), (int) Math.round(body.fillLevel()), (int) Math.round(body.batteryLevel()), clock.instant());
+        UUID idDispositivo = converterId(cabecalhoIdDispositivo);
+        limitador.verificar(TokenBucketRateLimiter.Policy.IOT_DEVICE, idDispositivo.toString());
+        SmartBin lixeira = autenticar(idDispositivo, chaveDispositivo);
+        servicoLixeiras.registrarLeitura(lixeira.getId(), (int) Math.round(corpo.fillLevel()), (int) Math.round(corpo.batteryLevel()), relogio.instant());
     }
 
-    private SmartBin authenticate(UUID deviceId, String deviceKey) {
-        Optional<SmartBin> bin = bins.findByDeviceId(deviceId);
-        String expected = bin.map(SmartBin::getDeviceKeyHash).orElse(DUMMY_HASH);
-        String provided = SmartBinService.sha256(deviceKey == null ? "" : deviceKey);
-        boolean match = MessageDigest.isEqual(expected.getBytes(StandardCharsets.US_ASCII), provided.getBytes(StandardCharsets.US_ASCII));
-        if (bin.isEmpty() || !match) {
-            audit.recordAs(null, "dispositivo " + deviceId, AuditAction.IOT_AUTH_FAILED, "SmartBin", deviceId, null);
+    private SmartBin autenticar(UUID idDispositivo, String chaveDispositivo) {
+        Optional<SmartBin> lixeira = lixeiras.findByDeviceId(idDispositivo);
+        String esperado = lixeira.map(SmartBin::getDeviceKeyHash).orElse(HASH_FICTICIO);
+        String informado = SmartBinService.sha256(chaveDispositivo == null ? "" : chaveDispositivo);
+        boolean confere = MessageDigest.isEqual(esperado.getBytes(StandardCharsets.US_ASCII), informado.getBytes(StandardCharsets.US_ASCII));
+        if (lixeira.isEmpty() || !confere) {
+            auditoria.registrarComo(null, "dispositivo " + idDispositivo, AuditAction.IOT_AUTH_FAILED, "SmartBin", idDispositivo, null);
             throw new ApiException(ErrorCode.UNAUTHORIZED, "Dispositivo não autorizado.");
         }
-        return bin.get();
+        return lixeira.get();
     }
 
-    private static UUID parse(String value) {
+    private static UUID converterId(String valor) {
         try {
-            return UUID.fromString(value.strip());
+            return UUID.fromString(valor.strip());
         } catch (IllegalArgumentException e) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "Dispositivo não autorizado.");
         }

@@ -11,16 +11,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class PointsController {
 
-    private final PointsService service;
+    private final PointsService servico;
 
-    public PointsController(PointsService service) {
-        this.service = service;
+    public PointsController(PointsService servico) {
+        this.servico = servico;
     }
 
     @GetMapping("/api/points/transactions")
-    public PageResponse<PointsService.PointTransactionDto> transactions(@AuthenticationPrincipal AuthUser me,
+    public PageResponse<PointsService.PointTransactionDto> transacoes(@AuthenticationPrincipal AuthUser logado,
                                                                         @RequestParam(required = false) Integer page,
                                                                         @RequestParam(required = false) Integer size) {
-        return service.history(me.id(), page, size);
+        return servico.historico(logado.id(), page, size);
     }
 }

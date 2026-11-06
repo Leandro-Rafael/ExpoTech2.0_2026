@@ -37,107 +37,107 @@ import java.util.UUID;
 @RequestMapping("/api/admin")
 public class AdminCatalogController {
 
-    private final CategoryService categories;
-    private final CollectionPointService points;
-    private final RewardService rewards;
-    private final GamificationService challenges;
-    private final OrganizationService organizations;
-    private final ImpactService goals;
+    private final CategoryService categorias;
+    private final CollectionPointService ecopontos;
+    private final RewardService recompensas;
+    private final GamificationService desafios;
+    private final OrganizationService organizacoes;
+    private final ImpactService metas;
 
-    public AdminCatalogController(CategoryService categories, CollectionPointService points, RewardService rewards,
-                                  GamificationService challenges, OrganizationService organizations, ImpactService goals) {
-        this.categories = categories;
-        this.points = points;
-        this.rewards = rewards;
-        this.challenges = challenges;
-        this.organizations = organizations;
-        this.goals = goals;
+    public AdminCatalogController(CategoryService categorias, CollectionPointService ecopontos, RewardService recompensas,
+                                  GamificationService desafios, OrganizationService organizacoes, ImpactService metas) {
+        this.categorias = categorias;
+        this.ecopontos = ecopontos;
+        this.recompensas = recompensas;
+        this.desafios = desafios;
+        this.organizacoes = organizacoes;
+        this.metas = metas;
     }
 
     @PostMapping("/categories")
     @ResponseStatus(HttpStatus.CREATED)
-    public CategoryDto createCategory(@Valid @RequestBody CategoryInput body) {
-        return categories.create(body);
+    public CategoryDto criarCategoria(@Valid @RequestBody CategoryInput corpo) {
+        return categorias.criar(corpo);
     }
 
     @PutMapping("/categories/{id}")
-    public CategoryDto updateCategory(@PathVariable UUID id, @Valid @RequestBody CategoryInput body) {
-        return categories.update(id, body);
+    public CategoryDto atualizarCategoria(@PathVariable UUID id, @Valid @RequestBody CategoryInput corpo) {
+        return categorias.atualizar(id, corpo);
     }
 
     @PostMapping("/collection-points")
     @ResponseStatus(HttpStatus.CREATED)
-    public CollectionPointDto createPoint(@Valid @RequestBody CollectionPointInput body) {
-        return points.create(body);
+    public CollectionPointDto criarEcoponto(@Valid @RequestBody CollectionPointInput corpo) {
+        return ecopontos.criar(corpo);
     }
 
     @PutMapping("/collection-points/{id}")
-    public CollectionPointDto updatePoint(@PathVariable UUID id, @Valid @RequestBody CollectionPointInput body) {
-        return points.update(id, body);
+    public CollectionPointDto atualizarEcoponto(@PathVariable UUID id, @Valid @RequestBody CollectionPointInput corpo) {
+        return ecopontos.atualizar(id, corpo);
     }
 
     @DeleteMapping("/collection-points/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deletePoint(@PathVariable UUID id) {
-        points.delete(id);
+    public void removerEcoponto(@PathVariable UUID id) {
+        ecopontos.remover(id);
     }
 
     @GetMapping("/rewards")
-    public List<RewardDto> listRewards() {
-        return rewards.listAll();
+    public List<RewardDto> listarRecompensas() {
+        return recompensas.listarTodas();
     }
 
     @PostMapping("/rewards")
     @ResponseStatus(HttpStatus.CREATED)
-    public RewardDto createReward(@Valid @RequestBody RewardInput body) {
-        return rewards.create(body);
+    public RewardDto criarRecompensa(@Valid @RequestBody RewardInput corpo) {
+        return recompensas.criar(corpo);
     }
 
     @PutMapping("/rewards/{id}")
-    public RewardDto updateReward(@PathVariable UUID id, @Valid @RequestBody RewardInput body) {
-        return rewards.update(id, body);
+    public RewardDto atualizarRecompensa(@PathVariable UUID id, @Valid @RequestBody RewardInput corpo) {
+        return recompensas.atualizar(id, corpo);
     }
 
     @GetMapping("/challenges")
-    public List<ChallengeDto> listChallenges() {
-        return challenges.listChallenges();
+    public List<ChallengeDto> listarDesafios() {
+        return desafios.listarDesafios();
     }
 
     @PostMapping("/challenges")
     @ResponseStatus(HttpStatus.CREATED)
-    public ChallengeDto createChallenge(@Valid @RequestBody ChallengeInput body) {
-        return challenges.createChallenge(body);
+    public ChallengeDto criarDesafio(@Valid @RequestBody ChallengeInput corpo) {
+        return desafios.criarDesafio(corpo);
     }
 
     @PutMapping("/challenges/{id}")
-    public ChallengeDto updateChallenge(@PathVariable UUID id, @Valid @RequestBody ChallengeInput body) {
-        return challenges.updateChallenge(id, body);
+    public ChallengeDto atualizarDesafio(@PathVariable UUID id, @Valid @RequestBody ChallengeInput corpo) {
+        return desafios.atualizarDesafio(id, corpo);
     }
 
     @GetMapping("/organizations")
-    public List<OrganizationDto> listOrganizations() {
-        return organizations.list();
+    public List<OrganizationDto> listarOrganizacoes() {
+        return organizacoes.listar();
     }
 
     @PostMapping("/organizations")
     @ResponseStatus(HttpStatus.CREATED)
-    public OrganizationDto createOrganization(@Valid @RequestBody OrganizationDto.Input body) {
-        return organizations.create(body);
+    public OrganizationDto criarOrganizacao(@Valid @RequestBody OrganizationDto.Input corpo) {
+        return organizacoes.criar(corpo);
     }
 
     @GetMapping("/goals")
-    public List<GoalDto> listGoals() {
-        return goals.goalDtos();
+    public List<GoalDto> listarMetas() {
+        return metas.metasDto();
     }
 
     @PostMapping("/goals")
     @ResponseStatus(HttpStatus.CREATED)
-    public GoalDto createGoal(@Valid @RequestBody GoalInput body) {
-        return goals.createGoal(body);
+    public GoalDto criarMeta(@Valid @RequestBody GoalInput corpo) {
+        return metas.criarMeta(corpo);
     }
 
     @PutMapping("/goals/{id}")
-    public GoalDto updateGoal(@PathVariable UUID id, @Valid @RequestBody GoalInput body) {
-        return goals.updateGoal(id, body);
+    public GoalDto atualizarMeta(@PathVariable UUID id, @Valid @RequestBody GoalInput corpo) {
+        return metas.atualizarMeta(id, corpo);
     }
 }

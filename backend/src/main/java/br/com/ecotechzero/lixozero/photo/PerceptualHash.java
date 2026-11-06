@@ -20,29 +20,29 @@ public final class PerceptualHash {
     private PerceptualHash() {
     }
 
-    public static long dHash(BufferedImage image) {
+    public static long dHash(BufferedImage imagem) {
         // Etapa 1: reduz para 144x128 em cinza; Etapa 2: média de blocos 16x16 -> grade 9x8
-        int stageW = 144, stageH = 128;
-        BufferedImage gray = new BufferedImage(stageW, stageH, BufferedImage.TYPE_BYTE_GRAY);
-        Graphics2D g = gray.createGraphics();
+        int larguraEtapa = 144, alturaEtapa = 128;
+        BufferedImage cinza = new BufferedImage(larguraEtapa, alturaEtapa, BufferedImage.TYPE_BYTE_GRAY);
+        Graphics2D g = cinza.createGraphics();
         try {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.drawImage(image, 0, 0, stageW, stageH, null);
+            g.drawImage(imagem, 0, 0, larguraEtapa, alturaEtapa, null);
         } finally {
             g.dispose();
         }
-        double[][] cells = new double[8][9];
-        var raster = gray.getRaster();
-        for (int y = 0; y < stageH; y++) {
-            for (int x = 0; x < stageW; x++) {
-                cells[y / 16][x / 16] += raster.getSample(x, y, 0);
+        double[][] celulas = new double[8][9];
+        var raster = cinza.getRaster();
+        for (int y = 0; y < alturaEtapa; y++) {
+            for (int x = 0; x < larguraEtapa; x++) {
+                celulas[y / 16][x / 16] += raster.getSample(x, y, 0);
             }
         }
         long hash = 0;
-        for (int row = 0; row < 8; row++) {
-            for (int col = 0; col < 8; col++) {
+        for (int linha = 0; linha < 8; linha++) {
+            for (int coluna = 0; coluna < 8; coluna++) {
                 hash <<= 1;
-                if (cells[row][col] > cells[row][col + 1]) {
+                if (celulas[linha][coluna] > celulas[linha][coluna + 1]) {
                     hash |= 1;
                 }
             }
@@ -51,7 +51,7 @@ public final class PerceptualHash {
     }
 
     /** Quantidade de bits diferentes entre dois hashes (0 = idênticos, 64 = opostos). */
-    public static int hammingDistance(long a, long b) {
+    public static int distanciaHamming(long a, long b) {
         return Long.bitCount(a ^ b);
     }
 }

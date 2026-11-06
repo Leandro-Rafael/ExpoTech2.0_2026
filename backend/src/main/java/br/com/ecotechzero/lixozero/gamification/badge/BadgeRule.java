@@ -19,5 +19,5 @@ public interface BadgeRule {
 
     Tier tier();
 
-    boolean isEarned(BadgeStats stats);
+    boolean isEarned(BadgeStats estatisticas);
 }

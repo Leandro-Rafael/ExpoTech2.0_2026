@@ -104,19 +104,19 @@ public class CollectionRoute extends BaseEntity {
         for (int i = 0; i < stops.size(); i++) {
             stops.get(i).setSequence(i + 1);
         }
-        GeoPoint depot = new GeoPoint(depotLatitude, depotLongitude);
-        List<GeoPoint> optimizedOrder = stops.stream().map(s -> pointOf(s.getRequest())).toList();
-        List<GeoPoint> creationOrder = stops.stream()
+        GeoPoint garagem = new GeoPoint(depotLatitude, depotLongitude);
+        List<GeoPoint> ordemOtimizada = stops.stream().map(s -> pontoDe(s.getRequest())).toList();
+        List<GeoPoint> ordemDeCriacao = stops.stream()
                 .sorted(Comparator.comparing((RouteStop s) -> s.getRequest().getCreatedAt(), Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(s -> pointOf(s.getRequest()))
+                .map(s -> pontoDe(s.getRequest()))
                 .toList();
-        this.totalDistanceKm = Numbers.round2(RouteOptimizer.closedTourKm(depot, optimizedOrder));
-        this.naiveDistanceKm = Math.max(totalDistanceKm, Numbers.round2(RouteOptimizer.closedTourKm(depot, creationOrder)));
-        this.estimatedMinutes = RouteOptimizer.estimateMinutes(totalDistanceKm, stops.size());
-        this.loadKg = Numbers.round2(stops.stream().mapToDouble(s -> s.getRequest().getEstimatedKg()).sum());
+        this.totalDistanceKm = Numbers.arredondar2(RouteOptimizer.kmRotaFechada(garagem, ordemOtimizada));
+        this.naiveDistanceKm = Math.max(totalDistanceKm, Numbers.arredondar2(RouteOptimizer.kmRotaFechada(garagem, ordemDeCriacao)));
+        this.estimatedMinutes = RouteOptimizer.estimarMinutos(totalDistanceKm, stops.size());
+        this.loadKg = Numbers.arredondar2(stops.stream().mapToDouble(s -> s.getRequest().getEstimatedKg()).sum());
     }
 
-    private static GeoPoint pointOf(CollectionRequest request) {
+    private static GeoPoint pontoDe(CollectionRequest request) {
         return new GeoPoint(request.getLatitude(), request.getLongitude());
     }
 

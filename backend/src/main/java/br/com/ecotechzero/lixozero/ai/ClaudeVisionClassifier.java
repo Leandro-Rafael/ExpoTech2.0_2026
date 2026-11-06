@@ -32,7 +32,7 @@ public class ClaudeVisionClassifier implements WasteClassifier {
 
     private static final Logger log = LoggerFactory.getLogger(ClaudeVisionClassifier.class);
 
-    private static final String SYSTEM_PROMPT = """
+    private static final String PROMPT_SISTEMA = """
             Você é um especialista em coleta seletiva no Brasil. Analise a foto e identifique o resíduo principal.
             Categorias possíveis:
             PLASTICO (garrafas PET, potes, sacolas, embalagens plásticas),
@@ -46,37 +46,37 @@ public class ClaudeVisionClassifier implements WasteClassifier {
             "reasoning" é uma frase curta em português do Brasil explicando a escolha e uma dica de descarte.
             Se a imagem não mostrar um resíduo, use REJEITO com confidence baixa.""";
 
-    private final AppProperties.Ai config;
+    private final AppProperties.Ai configuracao;
     private final JsonMapper json;
     private final HttpClient http;
 
-    public ClaudeVisionClassifier(AppProperties.Ai config, JsonMapper json) {
-        this.config = config;
+    public ClaudeVisionClassifier(AppProperties.Ai configuracao, JsonMapper json) {
+        this.configuracao = configuracao;
         this.json = json;
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }
 
     @Override
-    public boolean isAvailable() {
+    public boolean estaDisponivel() {
         return true;
     }
 
     @Override
-    public Optional<Classification> classify(byte[] jpeg) {
+    public Optional<Classification> classificar(byte[] jpeg) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(config.baseUrl() + "/v1/messages"))
-                    .timeout(config.timeout())
+            HttpRequest request = HttpRequest.newBuilder(URI.create(configuracao.baseUrl() + "/v1/messages"))
+                    .timeout(configuracao.timeout())
                     .header("content-type", "application/json")
-                    .header("x-api-key", config.apiKey())
-                    .header("anthropic-version", config.apiVersion())
-                    .POST(HttpRequest.BodyPublishers.ofString(buildBody(jpeg), StandardCharsets.UTF_8))
+                    .header("x-api-key", configuracao.apiKey())
+                    .header("anthropic-version", configuracao.apiVersion())
+                    .POST(HttpRequest.BodyPublishers.ofString(montarCorpo(jpeg), StandardCharsets.UTF_8))
                     .build();
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() != 200) {
                 log.warn("Classificação por IA falhou: HTTP {}", response.statusCode());
                 return Optional.empty();
             }
-            return parseResponse(response.body());
+            return interpretarResposta(response.body());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return Optional.empty();
@@ -86,72 +86,72 @@ public class ClaudeVisionClassifier implements WasteClassifier {
         }
     }
 
-    String buildBody(byte[] jpeg) {
-        ObjectNode body = json.createObjectNode();
-        body.put("model", config.model());
-        body.put("max_tokens", 2048);
-        body.put("system", SYSTEM_PROMPT);
+    String montarCorpo(byte[] jpeg) {
+        ObjectNode corpo = json.createObjectNode();
+        corpo.put("model", configuracao.model());
+        corpo.put("max_tokens", 2048);
+        corpo.put("system", PROMPT_SISTEMA);
 
-        ObjectNode outputConfig = body.putObject("output_config");
-        outputConfig.put("effort", "low");
-        ObjectNode format = outputConfig.putObject("format");
-        format.put("type", "json_schema");
-        ObjectNode schema = format.putObject("schema");
-        schema.put("type", "object");
-        ObjectNode properties = schema.putObject("properties");
-        ObjectNode code = properties.putObject("categoryCode");
-        code.put("type", "string");
-        ArrayNode codes = code.putArray("enum");
-        Arrays.stream(CategoryCode.values()).forEach(c -> codes.add(c.name()));
-        properties.putObject("confidence").put("type", "number");
-        properties.putObject("reasoning").put("type", "string");
-        schema.putArray("required").add("categoryCode").add("confidence").add("reasoning");
-        schema.put("additionalProperties", false);
+        ObjectNode configSaida = corpo.putObject("output_config");
+        configSaida.put("effort", "low");
+        ObjectNode formato = configSaida.putObject("format");
+        formato.put("type", "json_schema");
+        ObjectNode esquema = formato.putObject("schema");
+        esquema.put("type", "object");
+        ObjectNode propriedades = esquema.putObject("properties");
+        ObjectNode codigo = propriedades.putObject("categoryCode");
+        codigo.put("type", "string");
+        ArrayNode codigos = codigo.putArray("enum");
+        Arrays.stream(CategoryCode.values()).forEach(c -> codigos.add(c.name()));
+        propriedades.putObject("confidence").put("type", "number");
+        propriedades.putObject("reasoning").put("type", "string");
+        esquema.putArray("required").add("categoryCode").add("confidence").add("reasoning");
+        esquema.put("additionalProperties", false);
 
-        ObjectNode message = body.putArray("messages").addObject();
-        message.put("role", "user");
-        ArrayNode content = message.putArray("content");
-        ObjectNode image = content.addObject();
-        image.put("type", "image");
-        ObjectNode source = image.putObject("source");
-        source.put("type", "base64");
-        source.put("media_type", "image/jpeg");
-        source.put("data", Base64.getEncoder().encodeToString(jpeg));
-        content.addObject().put("type", "text").put("text", "Classifique o resíduo principal desta foto.");
-        return json.writeValueAsString(body);
+        ObjectNode mensagem = corpo.putArray("messages").addObject();
+        mensagem.put("role", "user");
+        ArrayNode conteudo = mensagem.putArray("content");
+        ObjectNode imagem = conteudo.addObject();
+        imagem.put("type", "image");
+        ObjectNode origem = imagem.putObject("source");
+        origem.put("type", "base64");
+        origem.put("media_type", "image/jpeg");
+        origem.put("data", Base64.getEncoder().encodeToString(jpeg));
+        conteudo.addObject().put("type", "text").put("text", "Classifique o resíduo principal desta foto.");
+        return json.writeValueAsString(corpo);
     }
 
     /** Extrai o JSON da resposta de forma tolerante (ignora blocos de raciocínio e cercas de código). */
-    Optional<Classification> parseResponse(String responseBody) {
-        JsonNode root = json.readTree(responseBody);
-        if ("refusal".equals(root.path("stop_reason").asString(""))) {
+    Optional<Classification> interpretarResposta(String corpoResposta) {
+        JsonNode raiz = json.readTree(corpoResposta);
+        if ("refusal".equals(raiz.path("stop_reason").asString(""))) {
             return Optional.empty();
         }
-        for (JsonNode block : root.path("content")) {
-            if (!"text".equals(block.path("type").asString(""))) {
+        for (JsonNode bloco : raiz.path("content")) {
+            if (!"text".equals(bloco.path("type").asString(""))) {
                 continue;
             }
-            String text = block.path("text").asString("");
-            int start = text.indexOf('{');
-            int end = text.lastIndexOf('}');
-            if (start < 0 || end <= start) {
+            String texto = bloco.path("text").asString("");
+            int inicio = texto.indexOf('{');
+            int fim = texto.lastIndexOf('}');
+            if (inicio < 0 || fim <= inicio) {
                 continue;
             }
-            JsonNode result = json.readTree(text.substring(start, end + 1));
-            String codeText = result.path("categoryCode").asString("");
-            CategoryCode code;
+            JsonNode resultado = json.readTree(texto.substring(inicio, fim + 1));
+            String textoCodigo = resultado.path("categoryCode").asString("");
+            CategoryCode codigo;
             try {
-                code = CategoryCode.valueOf(codeText.strip().toUpperCase());
+                codigo = CategoryCode.valueOf(textoCodigo.strip().toUpperCase());
             } catch (IllegalArgumentException e) {
                 return Optional.empty();
             }
-            double confidence = result.path("confidence").asDouble(0.5);
-            if (Double.isNaN(confidence)) {
-                confidence = 0.5;
+            double confianca = resultado.path("confidence").asDouble(0.5);
+            if (Double.isNaN(confianca)) {
+                confianca = 0.5;
             }
-            String reasoning = Text.truncate(Text.clean(result.path("reasoning").asString("")), 300);
-            return Optional.of(new Classification(code, Math.clamp(confidence, 0.0, 1.0), reasoning, AiSource.CLAUDE,
-                    Text.truncate(config.model(), 60)));
+            String justificativa = Text.truncar(Text.limpar(resultado.path("reasoning").asString("")), 300);
+            return Optional.of(new Classification(codigo, Math.clamp(confianca, 0.0, 1.0), justificativa, AiSource.CLAUDE,
+                    Text.truncar(configuracao.model(), 60)));
         }
         return Optional.empty();
     }

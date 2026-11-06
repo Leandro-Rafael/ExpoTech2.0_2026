@@ -41,185 +41,185 @@ import java.util.stream.Collectors;
 @Service
 public class RouteService {
 
-    public static final GeoPoint DEFAULT_DEPOT = new GeoPoint(-23.6019, -46.7526); // central de coleta (Taboão da Serra)
-    public static final double DEFAULT_CAPACITY_KG = 1000;
-    static final String ALGORITHM = "Vizinho mais próximo + 2-opt (com capacidade)";
+    public static final GeoPoint GARAGEM_PADRAO = new GeoPoint(-23.6019, -46.7526); // central de coleta (Taboão da Serra)
+    public static final double CAPACIDADE_PADRAO_KG = 1000;
+    static final String ALGORITMO = "Vizinho mais próximo + 2-opt (com capacidade)";
 
-    private final CollectionRouteRepository routes;
-    private final CollectionRequestRepository requests;
-    private final UserRepository users;
-    private final SmartBinService smartBins;
-    private final AuditService audit;
-    private final AppProperties props;
-    private final Clock clock;
+    private final CollectionRouteRepository rotas;
+    private final CollectionRequestRepository solicitacoes;
+    private final UserRepository usuarios;
+    private final SmartBinService lixeiras;
+    private final AuditService auditoria;
+    private final AppProperties propriedades;
+    private final Clock relogio;
 
-    public RouteService(CollectionRouteRepository routes, CollectionRequestRepository requests, UserRepository users,
-                        SmartBinService smartBins, AuditService audit, AppProperties props, Clock clock) {
-        this.routes = routes;
-        this.requests = requests;
-        this.users = users;
-        this.smartBins = smartBins;
-        this.audit = audit;
-        this.props = props;
-        this.clock = clock;
+    public RouteService(CollectionRouteRepository rotas, CollectionRequestRepository solicitacoes, UserRepository usuarios,
+                        SmartBinService lixeiras, AuditService auditoria, AppProperties propriedades, Clock relogio) {
+        this.rotas = rotas;
+        this.solicitacoes = solicitacoes;
+        this.usuarios = usuarios;
+        this.lixeiras = lixeiras;
+        this.auditoria = auditoria;
+        this.propriedades = propriedades;
+        this.relogio = relogio;
     }
 
     /** Simula o plano de rotas sem gravar nada (pré-visualização no painel). */
     @Transactional(readOnly = true)
-    public RouteOptimizationDto optimize(OptimizeRequest input) {
-        List<CollectionRequest> selected = loadSchedulable(input.requestIds(), false);
-        GeoPoint depot = input.depot() != null ? input.depot() : DEFAULT_DEPOT;
-        RouteOptimizer.Plan plan = plan(selected, depot, input.vehicleCapacityKg());
-        Map<UUID, CollectionRequest> byId = selected.stream().collect(Collectors.toMap(CollectionRequest::getId, Function.identity()));
-        List<OptimizedRoute> optimized = plan.routes().stream().map(r -> {
-            List<OptimizedStop> stops = new ArrayList<>();
+    public RouteOptimizationDto otimizar(OptimizeRequest entrada) {
+        List<CollectionRequest> selecionadas = carregarAgendaveis(entrada.requestIds(), false);
+        GeoPoint garagem = entrada.depot() != null ? entrada.depot() : GARAGEM_PADRAO;
+        RouteOptimizer.Plan plano = plano(selecionadas, garagem, entrada.vehicleCapacityKg());
+        Map<UUID, CollectionRequest> porId = selecionadas.stream().collect(Collectors.toMap(CollectionRequest::getId, Function.identity()));
+        List<OptimizedRoute> rotasOtimizadas = plano.routes().stream().map(r -> {
+            List<OptimizedStop> paradas = new ArrayList<>();
             for (int i = 0; i < r.stops().size(); i++) {
-                CollectionRequest req = byId.get(r.stops().get(i).id());
-                stops.add(new OptimizedStop(req.getId(), i + 1, req.getLatitude(), req.getLongitude(), req.getAddress(), Numbers.round2(req.getEstimatedKg())));
+                CollectionRequest solicitacao = porId.get(r.stops().get(i).id());
+                paradas.add(new OptimizedStop(solicitacao.getId(), i + 1, solicitacao.getLatitude(), solicitacao.getLongitude(), solicitacao.getAddress(), Numbers.arredondar2(solicitacao.getEstimatedKg())));
             }
-            return new OptimizedRoute(stops, r.distanceKm(), r.naiveDistanceKm(), r.estimatedMinutes(), r.loadKg());
+            return new OptimizedRoute(paradas, r.distanceKm(), r.naiveDistanceKm(), r.estimatedMinutes(), r.loadKg());
         }).toList();
-        return new RouteOptimizationDto(ALGORITHM, optimized, plan.totalDistanceKm(), plan.naiveTotalDistanceKm(), plan.savingsPercent(), depot);
+        return new RouteOptimizationDto(ALGORITMO, rotasOtimizadas, plano.totalDistanceKm(), plano.naiveTotalDistanceKm(), plano.savingsPercent(), garagem);
     }
 
     /** Cria uma rota por viagem do caminhão e agenda as solicitações escolhidas. */
     @Transactional
-    public List<RouteDto> create(CreateRouteRequest input) {
-        LocalDate today = LocalDate.now(clock.withZone(props.zoneId()));
-        if (input.plannedDate().isBefore(today) || input.plannedDate().isAfter(today.plusDays(90))) {
-            throw ApiException.field("plannedDate", "a data deve estar entre hoje e os próximos 90 dias");
+    public List<RouteDto> criar(CreateRouteRequest entrada) {
+        LocalDate hoje = LocalDate.now(relogio.withZone(propriedades.zoneId()));
+        if (entrada.plannedDate().isBefore(hoje) || entrada.plannedDate().isAfter(hoje.plusDays(90))) {
+            throw ApiException.campo("plannedDate", "a data deve estar entre hoje e os próximos 90 dias");
         }
-        User collector = null;
-        if (input.collectorId() != null) {
-            collector = users.findById(input.collectorId())
+        User coletor = null;
+        if (entrada.collectorId() != null) {
+            coletor = usuarios.findById(entrada.collectorId())
                     .filter(u -> u.isEnabled() && (u.getRole() == Role.COLLECTOR || u.getRole() == Role.ADMIN))
-                    .orElseThrow(() -> ApiException.field("collectorId", "coletor não encontrado"));
+                    .orElseThrow(() -> ApiException.campo("collectorId", "coletor não encontrado"));
         }
-        List<CollectionRequest> selected = loadSchedulable(input.requestIds(), true);
-        GeoPoint depot = input.depot() != null ? input.depot() : DEFAULT_DEPOT;
-        RouteOptimizer.Plan plan = plan(selected, depot, input.vehicleCapacityKg());
-        Map<UUID, CollectionRequest> byId = selected.stream().collect(Collectors.toMap(CollectionRequest::getId, Function.identity()));
-        String baseName = Text.clean(input.name());
+        List<CollectionRequest> selecionadas = carregarAgendaveis(entrada.requestIds(), true);
+        GeoPoint garagem = entrada.depot() != null ? entrada.depot() : GARAGEM_PADRAO;
+        RouteOptimizer.Plan plano = plano(selecionadas, garagem, entrada.vehicleCapacityKg());
+        Map<UUID, CollectionRequest> porId = selecionadas.stream().collect(Collectors.toMap(CollectionRequest::getId, Function.identity()));
+        String nomeBase = Text.limpar(entrada.name());
 
-        List<CollectionRoute> created = new ArrayList<>();
-        int index = 1;
-        for (RouteOptimizer.PlannedRoute planned : plan.routes()) {
-            String name = plan.routes().size() > 1 ? baseName + " (" + index++ + "/" + plan.routes().size() + ")" : baseName;
-            CollectionRoute route = new CollectionRoute(Text.truncate(name, 120), collector, input.plannedDate(), depot.latitude(), depot.longitude());
-            route.setMetrics(planned.distanceKm(), planned.naiveDistanceKm(), planned.estimatedMinutes(), planned.loadKg());
-            routes.save(route);
-            for (RouteOptimizer.Stop stop : planned.stops()) {
-                CollectionRequest request = byId.get(stop.id());
-                route.addStop(request);
-                request.schedule(route, input.plannedDate());
+        List<CollectionRoute> criadas = new ArrayList<>();
+        int indice = 1;
+        for (RouteOptimizer.PlannedRoute planejada : plano.routes()) {
+            String nome = plano.routes().size() > 1 ? nomeBase + " (" + indice++ + "/" + plano.routes().size() + ")" : nomeBase;
+            CollectionRoute rota = new CollectionRoute(Text.truncar(nome, 120), coletor, entrada.plannedDate(), garagem.latitude(), garagem.longitude());
+            rota.setMetrics(planejada.distanceKm(), planejada.naiveDistanceKm(), planejada.estimatedMinutes(), planejada.loadKg());
+            rotas.save(rota);
+            for (RouteOptimizer.Stop parada : planejada.stops()) {
+                CollectionRequest solicitacao = porId.get(parada.id());
+                rota.addStop(solicitacao);
+                solicitacao.schedule(rota, entrada.plannedDate());
             }
-            created.add(route);
-            audit.record(AuditAction.ROUTE_CREATED, "Route", route.getId(),
-                    route.getStops().size() + " paradas, " + planned.distanceKm() + " km (economia de " + plan.savingsPercent() + "%)");
+            criadas.add(rota);
+            auditoria.registrar(AuditAction.ROUTE_CREATED, "Route", rota.getId(),
+                    rota.getStops().size() + " paradas, " + planejada.distanceKm() + " km (economia de " + plano.savingsPercent() + "%)");
         }
-        return created.stream().map(this::toDto).toList();
+        return criadas.stream().map(this::paraDto).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<RouteDto> listAll() {
-        return routes.findAllByOrderByPlannedDateDescCreatedAtDesc().stream().map(this::toDto).toList();
+    public List<RouteDto> listarTodas() {
+        return rotas.findAllByOrderByPlannedDateDescCreatedAtDesc().stream().map(this::paraDto).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<RouteDto> listForCollector(AuthUser me) {
-        var list = me.isAdmin() ? routes.findAllByOrderByPlannedDateDescCreatedAtDesc() : routes.findForCollector(me.id());
-        return list.stream().map(this::toDto).toList();
+    public List<RouteDto> listarDoColetor(AuthUser logado) {
+        var lista = logado.isAdmin() ? rotas.findAllByOrderByPlannedDateDescCreatedAtDesc() : rotas.findForCollector(logado.id());
+        return lista.stream().map(this::paraDto).toList();
     }
 
     @Transactional
-    public RouteDto start(AuthUser me, UUID routeId) {
-        CollectionRoute route = requireForCollector(me, routeId);
-        if (route.getStatus() == RouteStatus.DONE) {
-            throw ApiException.conflict("Esta rota já foi concluída.");
+    public RouteDto iniciar(AuthUser logado, UUID rotaId) {
+        CollectionRoute rota = exigirDoColetor(logado, rotaId);
+        if (rota.getStatus() == RouteStatus.DONE) {
+            throw ApiException.conflito("Esta rota já foi concluída.");
         }
-        if (route.getStatus() == RouteStatus.PLANNED && route.getStops().isEmpty()) {
+        if (rota.getStatus() == RouteStatus.PLANNED && rota.getStops().isEmpty()) {
             // todas as solicitações foram canceladas: a rota nunca terminaria
-            throw ApiException.business("Esta rota não tem mais paradas (as solicitações foram canceladas).");
+            throw ApiException.regraNegocio("Esta rota não tem mais paradas (as solicitações foram canceladas).");
         }
-        if (route.getStatus() == RouteStatus.PLANNED) {
-            route.start(users.getReferenceById(me.id()), clock.instant());
-            route.getStops().forEach(s -> {
+        if (rota.getStatus() == RouteStatus.PLANNED) {
+            rota.start(usuarios.getReferenceById(logado.id()), relogio.instant());
+            rota.getStops().forEach(s -> {
                 if (s.getRequest().getStatus() == CollectionRequestStatus.SCHEDULED) {
                     s.getRequest().setStatus(CollectionRequestStatus.IN_ROUTE);
                 }
             });
-            audit.record(AuditAction.ROUTE_STARTED, "Route", routeId, route.getName());
+            auditoria.registrar(AuditAction.ROUTE_STARTED, "Route", rotaId, rota.getName());
         }
-        return toDto(route);
+        return paraDto(rota);
     }
 
     @Transactional
-    public RouteDto completeStop(AuthUser me, UUID routeId, UUID stopId, Double collectedKg) {
-        CollectionRoute route = requireForCollector(me, routeId);
-        if (route.getStatus() == RouteStatus.PLANNED) {
-            throw ApiException.business("Inicie a rota antes de concluir as paradas.");
+    public RouteDto concluirParada(AuthUser logado, UUID rotaId, UUID paradaId, Double kgColetado) {
+        CollectionRoute rota = exigirDoColetor(logado, rotaId);
+        if (rota.getStatus() == RouteStatus.PLANNED) {
+            throw ApiException.regraNegocio("Inicie a rota antes de concluir as paradas.");
         }
-        RouteStop stop = route.getStops().stream().filter(s -> s.getId().equals(stopId)).findFirst()
-                .orElseThrow(() -> ApiException.notFound("Parada não encontrada nesta rota."));
-        if (stop.getStatus() == StopStatus.DONE) {
-            return toDto(route); // idempotente
+        RouteStop parada = rota.getStops().stream().filter(s -> s.getId().equals(paradaId)).findFirst()
+                .orElseThrow(() -> ApiException.naoEncontrado("Parada não encontrada nesta rota."));
+        if (parada.getStatus() == StopStatus.DONE) {
+            return paraDto(rota); // idempotente
         }
-        Double kg = collectedKg == null ? null : Numbers.round2(collectedKg);
-        stop.complete(kg, clock.instant());
-        CollectionRequest request = stop.getRequest();
-        request.markCollected(kg != null ? kg : request.getEstimatedKg());
-        if (request.getSmartBin() != null) {
-            smartBins.emptyAfterCollection(request.getSmartBin().getId());
+        Double kg = kgColetado == null ? null : Numbers.arredondar2(kgColetado);
+        parada.complete(kg, relogio.instant());
+        CollectionRequest solicitacao = parada.getRequest();
+        solicitacao.markCollected(kg != null ? kg : solicitacao.getEstimatedKg());
+        if (solicitacao.getSmartBin() != null) {
+            lixeiras.esvaziarAposColeta(solicitacao.getSmartBin().getId());
         }
-        if (route.allStopsDone()) {
-            route.finish(clock.instant());
+        if (rota.allStopsDone()) {
+            rota.finish(relogio.instant());
         }
-        audit.record(AuditAction.ROUTE_STOP_COMPLETED, "RouteStop", stopId, "parada " + stop.getSequence() + " de " + route.getName());
-        return toDto(route);
+        auditoria.registrar(AuditAction.ROUTE_STOP_COMPLETED, "RouteStop", paradaId, "parada " + parada.getSequence() + " de " + rota.getName());
+        return paraDto(rota);
     }
 
     /** Coletor só acessa rotas atribuídas a ele (ou sem coletor); admin acessa todas. Demais: 404. */
-    private CollectionRoute requireForCollector(AuthUser me, UUID routeId) {
-        CollectionRoute route = routes.findByIdForUpdate(routeId).orElseThrow(() -> ApiException.notFound("Rota não encontrada."));
-        boolean allowed = me.isAdmin() || route.getCollector() == null || route.getCollector().getId().equals(me.id());
-        if (!allowed) {
-            throw ApiException.notFound("Rota não encontrada.");
+    private CollectionRoute exigirDoColetor(AuthUser logado, UUID rotaId) {
+        CollectionRoute rota = rotas.findByIdForUpdate(rotaId).orElseThrow(() -> ApiException.naoEncontrado("Rota não encontrada."));
+        boolean permitido = logado.isAdmin() || rota.getCollector() == null || rota.getCollector().getId().equals(logado.id());
+        if (!permitido) {
+            throw ApiException.naoEncontrado("Rota não encontrada.");
         }
-        return route;
+        return rota;
     }
 
     /** Carrega as solicitações; somente as que aguardam agendamento podem entrar em uma rota. */
-    private List<CollectionRequest> loadSchedulable(List<UUID> ids, boolean lock) {
-        var unique = new LinkedHashSet<>(ids);
-        List<CollectionRequest> found = lock ? requests.findAllForUpdate(unique) : requests.findAllByIdOrdered(unique);
-        if (found.size() != unique.size()) {
-            var missing = new HashSet<>(unique);
-            found.forEach(r -> missing.remove(r.getId()));
-            throw ApiException.field("requestIds", "solicitações não encontradas: " + missing);
+    private List<CollectionRequest> carregarAgendaveis(List<UUID> ids, boolean comTrava) {
+        var unicas = new LinkedHashSet<>(ids);
+        List<CollectionRequest> encontradas = comTrava ? solicitacoes.findAllForUpdate(unicas) : solicitacoes.findAllByIdOrdered(unicas);
+        if (encontradas.size() != unicas.size()) {
+            var faltantes = new HashSet<>(unicas);
+            encontradas.forEach(r -> faltantes.remove(r.getId()));
+            throw ApiException.campo("requestIds", "solicitações não encontradas: " + faltantes);
         }
-        for (CollectionRequest r : found) {
+        for (CollectionRequest r : encontradas) {
             if (r.getStatus() != CollectionRequestStatus.REQUESTED) {
-                throw ApiException.field("requestIds", "a solicitação " + r.getId() + " não está aguardando agendamento");
+                throw ApiException.campo("requestIds", "a solicitação " + r.getId() + " não está aguardando agendamento");
             }
         }
-        return found; // já em ordem de criação
+        return encontradas; // já em ordem de criação
     }
 
-    private static RouteOptimizer.Plan plan(List<CollectionRequest> selected, GeoPoint depot, Double capacity) {
-        List<RouteOptimizer.Stop> stops = selected.stream()
+    private static RouteOptimizer.Plan plano(List<CollectionRequest> selecionadas, GeoPoint garagem, Double capacidade) {
+        List<RouteOptimizer.Stop> paradas = selecionadas.stream()
                 .map(r -> new RouteOptimizer.Stop(r.getId(), r.getLatitude(), r.getLongitude(), r.getEstimatedKg()))
                 .toList();
-        return RouteOptimizer.optimize(depot, stops, capacity != null ? capacity : DEFAULT_CAPACITY_KG);
+        return RouteOptimizer.otimizar(garagem, paradas, capacidade != null ? capacidade : CAPACIDADE_PADRAO_KG);
     }
 
-    RouteDto toDto(CollectionRoute r) {
-        List<RouteStopDto> stops = r.getStops().stream().map(s -> {
-            CollectionRequest req = s.getRequest();
-            return new RouteStopDto(s.getId(), s.getSequence(), req.getId(), req.getAddress(), req.getLatitude(), req.getLongitude(),
-                    Numbers.round2(req.getEstimatedKg()), s.getStatus(), s.getCompletedAt());
+    RouteDto paraDto(CollectionRoute r) {
+        List<RouteStopDto> paradas = r.getStops().stream().map(s -> {
+            CollectionRequest solicitacao = s.getRequest();
+            return new RouteStopDto(s.getId(), s.getSequence(), solicitacao.getId(), solicitacao.getAddress(), solicitacao.getLatitude(), solicitacao.getLongitude(),
+                    Numbers.arredondar2(solicitacao.getEstimatedKg()), s.getStatus(), s.getCompletedAt());
         }).toList();
         return new RouteDto(r.getId(), r.getName(), r.getStatus(), UserRef.of(r.getCollector()), r.getPlannedDate(),
-                Numbers.round2(r.getTotalDistanceKm()), Numbers.round2(r.getNaiveDistanceKm()), r.getEstimatedMinutes(),
-                Numbers.round2(r.getLoadKg()), new GeoPoint(r.getDepotLatitude(), r.getDepotLongitude()), stops, r.getCreatedAt());
+                Numbers.arredondar2(r.getTotalDistanceKm()), Numbers.arredondar2(r.getNaiveDistanceKm()), r.getEstimatedMinutes(),
+                Numbers.arredondar2(r.getLoadKg()), new GeoPoint(r.getDepotLatitude(), r.getDepotLongitude()), paradas, r.getCreatedAt());
     }
 }

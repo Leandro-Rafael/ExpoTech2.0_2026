@@ -25,37 +25,37 @@ import java.util.UUID;
 @RequestMapping("/api/disposals")
 public class DisposalController {
 
-    private final DisposalService service;
+    private final DisposalService servico;
 
-    public DisposalController(DisposalService service) {
-        this.service = service;
+    public DisposalController(DisposalService servico) {
+        this.servico = servico;
     }
 
     @PostMapping
-    public ResponseEntity<DisposalDto> create(@AuthenticationPrincipal AuthUser me,
-                                              @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-                                              @Valid @RequestBody CreateDisposalRequest body) {
-        String key = DisposalService.validateIdempotencyKey(idempotencyKey);
+    public ResponseEntity<DisposalDto> criar(@AuthenticationPrincipal AuthUser logado,
+                                              @RequestHeader(value = "Idempotency-Key", required = false) String chaveIdempotencia,
+                                              @Valid @RequestBody CreateDisposalRequest corpo) {
+        String chave = DisposalService.validarChaveIdempotencia(chaveIdempotencia);
         try {
-            return ResponseEntity.status(HttpStatus.CREATED).body(service.create(me, body, key));
-        } catch (DataIntegrityViolationException race) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(servico.criar(logado, corpo, chave));
+        } catch (DataIntegrityViolationException conflito) {
             // duas requisições simultâneas com a mesma chave: a segunda devolve o resultado da primeira
-            return service.findByIdempotencyKey(me.id(), key)
-                    .map(existing -> ResponseEntity.status(HttpStatus.CREATED).body(existing))
-                    .orElseThrow(() -> race);
+            return servico.buscarPorChaveIdempotencia(logado.id(), chave)
+                    .map(existente -> ResponseEntity.status(HttpStatus.CREATED).body(existente))
+                    .orElseThrow(() -> conflito);
         }
     }
 
     @GetMapping
-    public PageResponse<DisposalDto> mine(@AuthenticationPrincipal AuthUser me,
+    public PageResponse<DisposalDto> meus(@AuthenticationPrincipal AuthUser logado,
                                           @RequestParam(required = false) DisposalStatus status,
                                           @RequestParam(required = false) Integer page,
                                           @RequestParam(required = false) Integer size) {
-        return service.listMine(me.id(), status, page, size);
+        return servico.listarMeus(logado.id(), status, page, size);
     }
 
     @GetMapping("/{id}")
-    public DisposalDto get(@AuthenticationPrincipal AuthUser me, @PathVariable UUID id) {
-        return service.get(me, id);
+    public DisposalDto buscar(@AuthenticationPrincipal AuthUser logado, @PathVariable UUID id) {
+        return servico.buscar(logado, id);
     }
 }

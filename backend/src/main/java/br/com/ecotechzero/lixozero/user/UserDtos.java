@@ -28,7 +28,7 @@ public final class UserDtos {
                          Instant createdAt, int securityWarnings) {
         public static UserMe of(User u) {
             return new UserMe(u.getId(), u.getName(), u.getEmail(), u.getRole(), u.getPoints(), u.getTotalEarned(),
-                    LevelCatalog.levelFor(u.getTotalEarned()), HouseholdRef.of(u.getHousehold()),
+                    LevelCatalog.nivelPara(u.getTotalEarned()), HouseholdRef.of(u.getHousehold()),
                     OrganizationDto.of(u.getOrganization()), u.getCreatedAt(), u.activeSecurityWarnings(Instant.now()));
         }
     }

@@ -6,12 +6,12 @@ import java.util.Optional;
 public class UnavailableClassifier implements WasteClassifier {
 
     @Override
-    public boolean isAvailable() {
+    public boolean estaDisponivel() {
         return false;
     }
 
     @Override
-    public Optional<Classification> classify(byte[] jpeg) {
+    public Optional<Classification> classificar(byte[] jpeg) {
         return Optional.empty();
     }
 }

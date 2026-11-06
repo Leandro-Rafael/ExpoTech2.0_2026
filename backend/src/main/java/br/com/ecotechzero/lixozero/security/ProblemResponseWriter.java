@@ -15,22 +15,22 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class ProblemResponseWriter {
 
-    private final JsonMapper jsonMapper;
+    private final JsonMapper mapeadorJson;
 
-    public ProblemResponseWriter(JsonMapper jsonMapper) {
-        this.jsonMapper = jsonMapper;
+    public ProblemResponseWriter(JsonMapper mapeadorJson) {
+        this.mapeadorJson = mapeadorJson;
     }
 
-    public void write(HttpServletResponse response, ErrorCode code, int status, String detail, Long retryAfterSeconds) throws IOException {
+    public void escrever(HttpServletResponse response, ErrorCode codigo, int status, String detalhe, Long segundosAteNovaTentativa) throws IOException {
         if (response.isCommitted()) {
             return;
         }
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        if (retryAfterSeconds != null) {
-            response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds));
+        if (segundosAteNovaTentativa != null) {
+            response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(segundosAteNovaTentativa));
         }
-        response.getWriter().write(jsonMapper.writeValueAsString(ApiProblem.of(code, status, detail, null)));
+        response.getWriter().write(mapeadorJson.writeValueAsString(ApiProblem.of(codigo, status, detalhe, null)));
     }
 }

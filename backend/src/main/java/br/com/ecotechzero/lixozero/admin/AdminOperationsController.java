@@ -28,46 +28,46 @@ import java.util.List;
 @RequestMapping("/api/admin")
 public class AdminOperationsController {
 
-    private final CollectionRequestService requests;
-    private final AdminService admin;
-    private final RouteService routes;
-    private final SmartBinService bins;
+    private final CollectionRequestService solicitacoes;
+    private final AdminService servicoAdmin;
+    private final RouteService rotas;
+    private final SmartBinService lixeiras;
 
-    public AdminOperationsController(CollectionRequestService requests, AdminService admin, RouteService routes, SmartBinService bins) {
-        this.requests = requests;
-        this.admin = admin;
-        this.routes = routes;
-        this.bins = bins;
+    public AdminOperationsController(CollectionRequestService solicitacoes, AdminService servicoAdmin, RouteService rotas, SmartBinService lixeiras) {
+        this.solicitacoes = solicitacoes;
+        this.servicoAdmin = servicoAdmin;
+        this.rotas = rotas;
+        this.lixeiras = lixeiras;
     }
 
     @GetMapping("/collection-requests")
-    public List<CollectionRequestDto> collectionRequests(@RequestParam(required = false) CollectionRequestStatus status) {
-        return requests.listAll(status);
+    public List<CollectionRequestDto> solicitacoesColeta(@RequestParam(required = false) CollectionRequestStatus status) {
+        return solicitacoes.listarTodas(status);
     }
 
     @GetMapping("/collectors")
-    public List<UserRef> collectors() {
-        return admin.collectors();
+    public List<UserRef> coletores() {
+        return servicoAdmin.coletores();
     }
 
     @PostMapping("/routes/optimize")
-    public RouteOptimizationDto optimize(@Valid @RequestBody OptimizeRequest body) {
-        return routes.optimize(body);
+    public RouteOptimizationDto otimizar(@Valid @RequestBody OptimizeRequest corpo) {
+        return rotas.otimizar(corpo);
     }
 
     @PostMapping("/routes")
     @ResponseStatus(HttpStatus.CREATED)
-    public List<RouteDto> createRoutes(@Valid @RequestBody CreateRouteRequest body) {
-        return routes.create(body);
+    public List<RouteDto> criarRotas(@Valid @RequestBody CreateRouteRequest corpo) {
+        return rotas.criar(corpo);
     }
 
     @GetMapping("/routes")
-    public List<RouteDto> listRoutes() {
-        return routes.listAll();
+    public List<RouteDto> listarRotas() {
+        return rotas.listarTodas();
     }
 
     @GetMapping("/bins")
-    public List<SmartBinDto> bins() {
-        return bins.listAll();
+    public List<SmartBinDto> lixeiras() {
+        return lixeiras.listarTodas();
     }
 }

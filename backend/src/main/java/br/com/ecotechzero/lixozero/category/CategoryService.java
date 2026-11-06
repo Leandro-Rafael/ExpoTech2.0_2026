@@ -15,49 +15,49 @@ import java.util.UUID;
 @Service
 public class CategoryService {
 
-    private final CategoryRepository repository;
-    private final AuditService audit;
+    private final CategoryRepository repositorio;
+    private final AuditService auditoria;
 
-    public CategoryService(CategoryRepository repository, AuditService audit) {
-        this.repository = repository;
-        this.audit = audit;
+    public CategoryService(CategoryRepository repositorio, AuditService auditoria) {
+        this.repositorio = repositorio;
+        this.auditoria = auditoria;
     }
 
     @Transactional(readOnly = true)
-    public List<CategoryDto> list(boolean includeInactive) {
-        var categories = includeInactive ? repository.findAllByOrderByName() : repository.findByActiveTrueOrderByName();
-        return categories.stream().map(CategoryDto::of).toList();
+    public List<CategoryDto> listar(boolean incluirInativas) {
+        var categorias = incluirInativas ? repositorio.findAllByOrderByName() : repositorio.findByActiveTrueOrderByName();
+        return categorias.stream().map(CategoryDto::of).toList();
     }
 
     /** Categoria ativa (para novos descartes e lixeiras). */
     @Transactional(readOnly = true)
-    public Category requireActive(UUID id, String field) {
-        return repository.findById(id).filter(Category::isActive)
-                .orElseThrow(() -> ApiException.field(field, "categoria não encontrada ou inativa"));
+    public Category exigirAtiva(UUID id, String campo) {
+        return repositorio.findById(id).filter(Category::isActive)
+                .orElseThrow(() -> ApiException.campo(campo, "categoria não encontrada ou inativa"));
     }
 
     @Transactional
-    public CategoryDto create(CategoryInput input) {
-        if (repository.findByCode(input.code()).isPresent()) {
-            throw ApiException.conflict("Já existe uma categoria com o código " + input.code() + ".");
+    public CategoryDto criar(CategoryInput entrada) {
+        if (repositorio.findByCode(entrada.code()).isPresent()) {
+            throw ApiException.conflito("Já existe uma categoria com o código " + entrada.code() + ".");
         }
-        Category category = new Category(input.code());
-        category.apply(input);
-        repository.save(category);
-        audit.record(AuditAction.CATEGORY_CREATED, "Category", category.getId(), input.code().name());
-        return CategoryDto.of(category);
+        Category categoria = new Category(entrada.code());
+        categoria.apply(entrada);
+        repositorio.save(categoria);
+        auditoria.registrar(AuditAction.CATEGORY_CREATED, "Category", categoria.getId(), entrada.code().name());
+        return CategoryDto.of(categoria);
     }
 
     @Transactional
-    public CategoryDto update(UUID id, CategoryInput input) {
-        Category category = repository.findById(id).orElseThrow(() -> ApiException.notFound("Categoria não encontrada."));
-        repository.findByCode(input.code())
-                .filter(other -> !other.getId().equals(id))
-                .ifPresent(other -> {
-                    throw ApiException.conflict("Já existe uma categoria com o código " + input.code() + ".");
+    public CategoryDto atualizar(UUID id, CategoryInput entrada) {
+        Category categoria = repositorio.findById(id).orElseThrow(() -> ApiException.naoEncontrado("Categoria não encontrada."));
+        repositorio.findByCode(entrada.code())
+                .filter(outra -> !outra.getId().equals(id))
+                .ifPresent(outra -> {
+                    throw ApiException.conflito("Já existe uma categoria com o código " + entrada.code() + ".");
                 });
-        category.apply(input);
-        audit.record(AuditAction.CATEGORY_UPDATED, "Category", id, input.code().name());
-        return CategoryDto.of(category);
+        categoria.apply(entrada);
+        auditoria.registrar(AuditAction.CATEGORY_UPDATED, "Category", id, entrada.code().name());
+        return CategoryDto.of(categoria);
     }
 }

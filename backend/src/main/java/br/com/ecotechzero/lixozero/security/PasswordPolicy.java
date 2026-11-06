@@ -23,45 +23,45 @@ public class PasswordPolicy {
     public static final int MIN_LENGTH = 10;
     public static final int MAX_LENGTH = 128;
 
-    private final Set<String> commonPasswords;
+    private final Set<String> senhasComuns;
 
     public PasswordPolicy() {
-        this.commonPasswords = loadCommonPasswords();
+        this.senhasComuns = carregarSenhasComuns();
     }
 
     /** Devolve a mensagem de erro, ou vazio se a senha é aceitável. */
-    public Optional<String> check(String password, String email) {
-        if (password == null || password.length() < MIN_LENGTH || password.length() > MAX_LENGTH) {
+    public Optional<String> verificar(String senha, String email) {
+        if (senha == null || senha.length() < MIN_LENGTH || senha.length() > MAX_LENGTH) {
             return Optional.of("a senha deve ter entre " + MIN_LENGTH + " e " + MAX_LENGTH + " caracteres");
         }
-        if (password.chars().noneMatch(Character::isLetter) || password.chars().noneMatch(Character::isDigit)) {
+        if (senha.chars().noneMatch(Character::isLetter) || senha.chars().noneMatch(Character::isDigit)) {
             return Optional.of("a senha deve conter pelo menos uma letra e um número");
         }
-        String lower = password.toLowerCase(Locale.ROOT);
+        String minuscula = senha.toLowerCase(Locale.ROOT);
         if (email != null && !email.isBlank()) {
-            String normalizedEmail = email.strip().toLowerCase(Locale.ROOT);
-            String localPart = normalizedEmail.contains("@") ? normalizedEmail.substring(0, normalizedEmail.indexOf('@')) : normalizedEmail;
-            if (lower.contains(normalizedEmail) || (localPart.length() >= 3 && lower.contains(localPart))) {
+            String emailNormalizado = email.strip().toLowerCase(Locale.ROOT);
+            String parteLocal = emailNormalizado.contains("@") ? emailNormalizado.substring(0, emailNormalizado.indexOf('@')) : emailNormalizado;
+            if (minuscula.contains(emailNormalizado) || (parteLocal.length() >= 3 && minuscula.contains(parteLocal))) {
                 return Optional.of("a senha não pode conter o seu e-mail");
             }
         }
-        String alnumOnly = lower.replaceAll("[^a-z0-9]", "");
-        if (commonPasswords.contains(lower) || commonPasswords.contains(alnumOnly)) {
+        String soAlfanumerico = minuscula.replaceAll("[^a-z0-9]", "");
+        if (senhasComuns.contains(minuscula) || senhasComuns.contains(soAlfanumerico)) {
             return Optional.of("esta senha é muito comum; escolha outra");
         }
         return Optional.empty();
     }
 
     /** Valida e lança VALIDATION_ERROR no campo indicado. */
-    public void validate(String field, String password, String email) {
-        check(password, email).ifPresent(msg -> {
-            throw ApiException.field(field, msg);
+    public void validar(String campo, String senha, String email) {
+        verificar(senha, email).ifPresent(mensagem -> {
+            throw ApiException.campo(campo, mensagem);
         });
     }
 
-    private static Set<String> loadCommonPasswords() {
-        try (var in = new ClassPathResource("security/common-passwords.txt").getInputStream()) {
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8).lines()
+    private static Set<String> carregarSenhasComuns() {
+        try (var entrada = new ClassPathResource("security/common-passwords.txt").getInputStream()) {
+            return new String(entrada.readAllBytes(), StandardCharsets.UTF_8).lines()
                     .map(String::strip)
                     .filter(s -> !s.isEmpty() && !s.startsWith("#"))
                     .map(s -> s.toLowerCase(Locale.ROOT))

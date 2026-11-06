@@ -17,23 +17,23 @@ public class VelocityRule implements FraudRule {
     static final Duration WINDOW = Duration.ofMinutes(10);
     static final int SCORE = 30;
 
-    private final DisposalRepository disposals;
+    private final DisposalRepository descartes;
 
-    public VelocityRule(DisposalRepository disposals) {
-        this.disposals = disposals;
+    public VelocityRule(DisposalRepository descartes) {
+        this.descartes = descartes;
     }
 
     @Override
-    public String code() {
+    public String codigo() {
         return "MUITOS_REGISTROS";
     }
 
     @Override
-    public Optional<FraudSignal> evaluate(FraudContext ctx) {
-        long recent = disposals.countByUserIdAndCreatedAtAfter(ctx.userId(), ctx.now().minus(WINDOW));
-        if (recent >= MAX_IN_WINDOW) {
-            return Optional.of(new FraudSignal(code(), SCORE,
-                    "Muitos registros em pouco tempo (" + (recent + 1) + " em " + WINDOW.toMinutes() + " minutos)."));
+    public Optional<FraudSignal> avaliar(FraudContext contexto) {
+        long recentes = descartes.countByUserIdAndCreatedAtAfter(contexto.userId(), contexto.now().minus(WINDOW));
+        if (recentes >= MAX_IN_WINDOW) {
+            return Optional.of(new FraudSignal(codigo(), SCORE,
+                    "Muitos registros em pouco tempo (" + (recentes + 1) + " em " + WINDOW.toMinutes() + " minutos)."));
         }
         return Optional.empty();
     }

@@ -24,13 +24,13 @@ import java.util.UUID;
  * ({@code prev_hash}) e o seu próprio HMAC. A tabela é append-only (trigger no banco), então a única
  * operação possível é inserir no fim da cadeia.
  * <p>
- * Concorrência: quem chama já travou a linha do usuário (PointsService.lockUser), então a leitura do
+ * Concorrência: quem chama já travou a linha do usuário (PointsService.travarUsuario), então a leitura do
  * último elo e a inserção do próximo nunca correm em paralelo para o mesmo usuário.
  */
 @Component
 public class LedgerChain {
 
-    private static final String INSERT = """
+    private static final String INSERCAO = """
             insert into point_transactions (id, user_id, type, amount, balance_after, description, disposal_id,
                                             challenge_id, redemption_id, created_at, updated_at, seq, prev_hash, hash)
             values (:id, :userId, :type, :amount, :balanceAfter, :description, :disposalId,
@@ -41,57 +41,57 @@ public class LedgerChain {
     }
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final IntegrityKey key;
+    private final IntegrityKey chave;
     private final EntityManager em;
 
-    public LedgerChain(NamedParameterJdbcTemplate jdbc, IntegrityKey key, EntityManager em) {
+    public LedgerChain(NamedParameterJdbcTemplate jdbc, IntegrityKey chave, EntityManager em) {
         this.jdbc = jdbc;
-        this.key = key;
+        this.chave = chave;
         this.em = em;
     }
 
     /** Novo lançamento (id gerado aqui). A linha do usuário deve estar travada pelo chamador. */
     @Transactional(propagation = Propagation.MANDATORY)
-    public UUID append(UUID userId, String type, int amount, long balanceAfter, String description,
-                       UUID disposalId, UUID challengeId, UUID redemptionId, Instant createdAt) {
-        LedgerRow row = new LedgerRow(UUID.randomUUID(), userId, type, amount, balanceAfter, description,
-                disposalId, challengeId, redemptionId, createdAt);
-        appendAll(List.of(row));
-        return row.id();
+    public UUID anexar(UUID idUsuario, String tipo, int valor, long saldoApos, String descricao,
+                       UUID idDescarte, UUID idDesafio, UUID idResgate, Instant criadoEm) {
+        LedgerRow linha = new LedgerRow(UUID.randomUUID(), idUsuario, tipo, valor, saldoApos, descricao,
+                idDescarte, idDesafio, idResgate, criadoEm);
+        anexarTodos(List.of(linha));
+        return linha.id();
     }
 
     /** Vários lançamentos em lote (dados de demonstração), na ordem da lista dentro de cada usuário. */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void appendAll(List<LedgerRow> rows) {
-        if (rows.isEmpty()) {
+    public void anexarTodos(List<LedgerRow> linhas) {
+        if (linhas.isEmpty()) {
             return;
         }
         em.flush(); // descartes/resgates referenciados (FK) precisam existir antes do INSERT via JDBC
-        Mac mac = key.newMac();
-        Map<UUID, Head> heads = new HashMap<>();
-        List<SqlParameterSource> batch = new ArrayList<>(rows.size());
-        for (LedgerRow input : rows) {
-            LedgerRow r = new LedgerRow(input.id() == null ? UUID.randomUUID() : input.id(), input.userId(), input.type(),
-                    input.amount(), input.balanceAfter(), input.description(), input.disposalId(), input.challengeId(),
-                    input.redemptionId(), ChainHashes.truncate(input.createdAt()));
-            Head head = heads.computeIfAbsent(r.userId(), this::head);
-            long seq = head.seq() + 1;
-            String hash = IntegrityKey.sign(mac, ChainHashes.ledger(seq, head.hash(), r));
-            batch.add(new MapSqlParameterSource()
+        Mac mac = chave.novoMac();
+        Map<UUID, Head> cabecas = new HashMap<>();
+        List<SqlParameterSource> lote = new ArrayList<>(linhas.size());
+        for (LedgerRow entrada : linhas) {
+            LedgerRow r = new LedgerRow(entrada.id() == null ? UUID.randomUUID() : entrada.id(), entrada.userId(), entrada.type(),
+                    entrada.amount(), entrada.balanceAfter(), entrada.description(), entrada.disposalId(), entrada.challengeId(),
+                    entrada.redemptionId(), ChainHashes.truncar(entrada.createdAt()));
+            Head cabeca = cabecas.computeIfAbsent(r.userId(), this::cabeca);
+            long seq = cabeca.seq() + 1;
+            String hash = IntegrityKey.assinar(mac, ChainHashes.extrato(seq, cabeca.hash(), r));
+            lote.add(new MapSqlParameterSource()
                     .addValue("id", r.id()).addValue("userId", r.userId()).addValue("type", r.type())
                     .addValue("amount", r.amount()).addValue("balanceAfter", r.balanceAfter())
                     .addValue("description", r.description()).addValue("disposalId", r.disposalId())
                     .addValue("challengeId", r.challengeId()).addValue("redemptionId", r.redemptionId())
                     .addValue("createdAt", OffsetDateTime.ofInstant(r.createdAt(), ZoneOffset.UTC))
-                    .addValue("seq", seq).addValue("prevHash", head.hash()).addValue("hash", hash));
-            heads.put(r.userId(), new Head(seq, hash));
+                    .addValue("seq", seq).addValue("prevHash", cabeca.hash()).addValue("hash", hash));
+            cabecas.put(r.userId(), new Head(seq, hash));
         }
-        jdbc.batchUpdate(INSERT, batch.toArray(SqlParameterSource[]::new));
+        jdbc.batchUpdate(INSERCAO, lote.toArray(SqlParameterSource[]::new));
     }
 
-    private Head head(UUID userId) {
-        List<Head> last = jdbc.query("select seq, hash from point_transactions where user_id = :u order by seq desc limit 1",
-                new MapSqlParameterSource("u", userId), (rs, i) -> new Head(rs.getLong("seq"), rs.getString("hash")));
-        return last.isEmpty() ? new Head(0, ChainHashes.GENESIS) : last.getFirst();
+    private Head cabeca(UUID idUsuario) {
+        List<Head> ultimo = jdbc.query("select seq, hash from point_transactions where user_id = :u order by seq desc limit 1",
+                new MapSqlParameterSource("u", idUsuario), (rs, i) -> new Head(rs.getLong("seq"), rs.getString("hash")));
+        return ultimo.isEmpty() ? new Head(0, ChainHashes.GENESIS) : ultimo.getFirst();
     }
 }

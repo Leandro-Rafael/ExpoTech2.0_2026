@@ -17,7 +17,7 @@ public class JacksonConfig {
 
     @Bean
     public JsonMapperBuilderCustomizer strictJsonCustomizer() {
-        return builder -> builder
+        return construtor -> construtor
                 .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
                 .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)

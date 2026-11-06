@@ -49,84 +49,84 @@ import java.util.UUID;
 @Service
 public class SmartBinService {
 
-    static final int MAX_BINS_PER_HOUSEHOLD = 12;
-    private static final SecureRandom RANDOM = new SecureRandom();
+    static final int MAXIMO_LIXEIRAS_POR_RESIDENCIA = 12;
+    private static final SecureRandom ALEATORIO = new SecureRandom();
 
     /** Densidade aproximada (kg por litro) de cada material numa lixeira doméstica, para estimar o peso. */
-    private static final Map<CategoryCode, Double> DENSITY_KG_PER_LITER = Map.of(
+    private static final Map<CategoryCode, Double> DENSIDADE_KG_POR_LITRO = Map.of(
             CategoryCode.PLASTICO, 0.04, CategoryCode.PAPEL, 0.08, CategoryCode.VIDRO, 0.30,
             CategoryCode.METAL, 0.06, CategoryCode.ORGANICO, 0.45, CategoryCode.ELETRONICO, 0.25,
             CategoryCode.REJEITO, 0.15);
 
-    private final SmartBinRepository bins;
-    private final HouseholdRepository households;
-    private final BinReadingRepository readings;
-    private final CollectionRequestRepository requests;
-    private final UserRepository users;
-    private final CategoryService categories;
-    private final AuditService audit;
-    private final AppProperties props;
-    private final Clock clock;
+    private final SmartBinRepository lixeiras;
+    private final HouseholdRepository residencias;
+    private final BinReadingRepository leituras;
+    private final CollectionRequestRepository solicitacoes;
+    private final UserRepository usuarios;
+    private final CategoryService categorias;
+    private final AuditService auditoria;
+    private final AppProperties propriedades;
+    private final Clock relogio;
 
-    public SmartBinService(SmartBinRepository bins, HouseholdRepository households, BinReadingRepository readings, CollectionRequestRepository requests,
-                           UserRepository users, CategoryService categories, AuditService audit, AppProperties props, Clock clock) {
-        this.bins = bins;
-        this.households = households;
-        this.readings = readings;
-        this.requests = requests;
-        this.users = users;
-        this.categories = categories;
-        this.audit = audit;
-        this.props = props;
-        this.clock = clock;
+    public SmartBinService(SmartBinRepository lixeiras, HouseholdRepository residencias, BinReadingRepository leituras, CollectionRequestRepository solicitacoes,
+                           UserRepository usuarios, CategoryService categorias, AuditService auditoria, AppProperties propriedades, Clock relogio) {
+        this.lixeiras = lixeiras;
+        this.residencias = residencias;
+        this.leituras = leituras;
+        this.solicitacoes = solicitacoes;
+        this.usuarios = usuarios;
+        this.categorias = categorias;
+        this.auditoria = auditoria;
+        this.propriedades = propriedades;
+        this.relogio = relogio;
     }
 
     @Transactional(readOnly = true)
-    public List<SmartBinDto> listMine(AuthUser me) {
-        Household household = currentHousehold(me);
-        if (household == null) {
+    public List<SmartBinDto> listarMinhas(AuthUser logado) {
+        Household residencia = residenciaAtual(logado);
+        if (residencia == null) {
             return List.of();
         }
-        return bins.findByHouseholdIdOrderByName(household.getId()).stream().map(b -> toDto(b, false)).toList();
+        return lixeiras.findByHouseholdIdOrderByName(residencia.getId()).stream().map(b -> paraDto(b, false)).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<SmartBinDto> listAll() {
-        return bins.findAllByOrderByName().stream().map(b -> toDto(b, true)).toList();
+    public List<SmartBinDto> listarTodas() {
+        return lixeiras.findAllByOrderByName().stream().map(b -> paraDto(b, true)).toList();
     }
 
     @Transactional
-    public SmartBinCreated create(AuthUser me, CreateBinRequest input) {
-        Household household = currentHousehold(me);
-        if (household == null) {
-            throw ApiException.business("Crie ou entre em uma residência antes de cadastrar lixeiras.");
+    public SmartBinCreated criar(AuthUser logado, CreateBinRequest entrada) {
+        Household residencia = residenciaAtual(logado);
+        if (residencia == null) {
+            throw ApiException.regraNegocio("Crie ou entre em uma residência antes de cadastrar lixeiras.");
         }
-        households.findByIdForUpdate(household.getId()); // serializa cadastros simultâneos (limite por residência)
-        if (bins.countByHouseholdId(household.getId()) >= MAX_BINS_PER_HOUSEHOLD) {
-            throw ApiException.business("Limite de " + MAX_BINS_PER_HOUSEHOLD + " lixeiras por residência atingido.");
+        residencias.findByIdForUpdate(residencia.getId()); // serializa cadastros simultâneos (limite por residência)
+        if (lixeiras.countByHouseholdId(residencia.getId()) >= MAXIMO_LIXEIRAS_POR_RESIDENCIA) {
+            throw ApiException.regraNegocio("Limite de " + MAXIMO_LIXEIRAS_POR_RESIDENCIA + " lixeiras por residência atingido.");
         }
-        Category category = categories.requireActive(input.categoryId(), "categoryId");
-        String name = Text.clean(input.name());
-        if (name == null || name.length() < 2) {
-            throw ApiException.field("name", "informe um nome para a lixeira");
+        Category categoria = categorias.exigirAtiva(entrada.categoryId(), "categoryId");
+        String nome = Text.limpar(entrada.name());
+        if (nome == null || nome.length() < 2) {
+            throw ApiException.campo("name", "informe um nome para a lixeira");
         }
-        String deviceKey = newDeviceKey();
-        SmartBin bin = new SmartBin(household, category, name, input.capacityLiters(), input.autoRequestThreshold(),
-                UUID.randomUUID(), sha256(deviceKey));
-        bins.save(bin);
-        audit.record(AuditAction.SMART_BIN_CREATED, "SmartBin", bin.getId(), name);
+        String chaveDispositivo = novaChaveDispositivo();
+        SmartBin lixeira = new SmartBin(residencia, categoria, nome, entrada.capacityLiters(), entrada.autoRequestThreshold(),
+                UUID.randomUUID(), sha256(chaveDispositivo));
+        lixeiras.save(lixeira);
+        auditoria.registrar(AuditAction.SMART_BIN_CREATED, "SmartBin", lixeira.getId(), nome);
         // a chave do dispositivo é exibida somente agora; no banco fica apenas o hash
-        return new SmartBinCreated(toDto(bin, false), bin.getDeviceId(), deviceKey);
+        return new SmartBinCreated(paraDto(lixeira, false), lixeira.getDeviceId(), chaveDispositivo);
     }
 
     @Transactional
-    public void delete(AuthUser me, UUID binId) {
-        Household household = currentHousehold(me);
-        SmartBin bin = bins.findById(binId)
-                .filter(b -> household != null && b.getHousehold().getId().equals(household.getId()))
-                .orElseThrow(() -> ApiException.notFound("Lixeira não encontrada."));
-        bins.delete(bin);
-        audit.record(AuditAction.SMART_BIN_DELETED, "SmartBin", binId, bin.getName());
+    public void remover(AuthUser logado, UUID lixeiraId) {
+        Household residencia = residenciaAtual(logado);
+        SmartBin lixeira = lixeiras.findById(lixeiraId)
+                .filter(b -> residencia != null && b.getHousehold().getId().equals(residencia.getId()))
+                .orElseThrow(() -> ApiException.naoEncontrado("Lixeira não encontrada."));
+        lixeiras.delete(lixeira);
+        auditoria.registrar(AuditAction.SMART_BIN_DELETED, "SmartBin", lixeiraId, lixeira.getName());
     }
 
     /**
@@ -134,70 +134,70 @@ public class SmartBinService {
      * leituras simultâneas não abram duas solicitações de coleta.
      */
     @Transactional
-    public void recordReading(UUID binId, int fillLevel, int batteryLevel, Instant at) {
-        SmartBin bin = bins.findByIdForUpdate(binId).orElseThrow(() -> ApiException.notFound("Lixeira não encontrada."));
-        int fill = Math.clamp(fillLevel, 0, 100);
-        int battery = Math.clamp(batteryLevel, 0, 100);
-        bin.applyReading(fill, battery, at);
-        readings.save(new BinReading(bin, fill, battery, at));
-        if (fill >= bin.getAutoRequestThreshold()
-                && !requests.existsBySmartBinIdAndStatusIn(bin.getId(), CollectionRequestStatus.OPEN)) {
-            openAutomaticRequest(bin, fill);
+    public void registrarLeitura(UUID lixeiraId, int nivelEnchimento, int nivelBateria, Instant momento) {
+        SmartBin lixeira = lixeiras.findByIdForUpdate(lixeiraId).orElseThrow(() -> ApiException.naoEncontrado("Lixeira não encontrada."));
+        int enchimento = Math.clamp(nivelEnchimento, 0, 100);
+        int bateria = Math.clamp(nivelBateria, 0, 100);
+        lixeira.applyReading(enchimento, bateria, momento);
+        leituras.save(new BinReading(lixeira, enchimento, bateria, momento));
+        if (enchimento >= lixeira.getAutoRequestThreshold()
+                && !solicitacoes.existsBySmartBinIdAndStatusIn(lixeira.getId(), CollectionRequestStatus.OPEN)) {
+            abrirSolicitacaoAutomatica(lixeira, enchimento);
         }
     }
 
     /** Após a coleta a lixeira volta a 0% (registramos uma leitura para o histórico). */
     @Transactional
-    public void emptyAfterCollection(UUID binId) {
-        bins.findByIdForUpdate(binId).ifPresent(bin -> {
-            Instant now = clock.instant();
-            bin.applyReading(0, bin.getBatteryLevel(), now);
-            readings.save(new BinReading(bin, 0, bin.getBatteryLevel(), now));
+    public void esvaziarAposColeta(UUID lixeiraId) {
+        lixeiras.findByIdForUpdate(lixeiraId).ifPresent(lixeira -> {
+            Instant agora = relogio.instant();
+            lixeira.applyReading(0, lixeira.getBatteryLevel(), agora);
+            leituras.save(new BinReading(lixeira, 0, lixeira.getBatteryLevel(), agora));
         });
     }
 
-    private void openAutomaticRequest(SmartBin bin, int fill) {
-        Household household = bin.getHousehold();
-        GeoPoint location = HouseholdLocation.of(household);
-        CategoryCode code = bin.getCategory().getCode();
-        double kg = Math.max(0.5, bin.getCapacityLiters() * (fill / 100.0) * DENSITY_KG_PER_LITER.getOrDefault(code, 0.1));
-        CollectionRequest request = new CollectionRequest(CollectionSource.SMART_BIN, HouseholdLocation.address(household),
-                location.latitude(), location.longitude(), Set.of(code), Numbers.round2(kg));
-        request.setSmartBin(bin);
-        request.setRequester(household.getOwner());
-        request.setNotes("Solicitação automática: a lixeira \"" + bin.getName() + "\" atingiu " + fill + "%.");
-        requests.save(request);
-        audit.record(AuditAction.SMART_BIN_AUTO_REQUEST, "SmartBin", bin.getId(), "nível " + fill + "%");
+    private void abrirSolicitacaoAutomatica(SmartBin lixeira, int enchimento) {
+        Household residencia = lixeira.getHousehold();
+        GeoPoint localizacao = HouseholdLocation.of(residencia);
+        CategoryCode codigo = lixeira.getCategory().getCode();
+        double kg = Math.max(0.5, lixeira.getCapacityLiters() * (enchimento / 100.0) * DENSIDADE_KG_POR_LITRO.getOrDefault(codigo, 0.1));
+        CollectionRequest solicitacao = new CollectionRequest(CollectionSource.SMART_BIN, HouseholdLocation.endereco(residencia),
+                localizacao.latitude(), localizacao.longitude(), Set.of(codigo), Numbers.arredondar2(kg));
+        solicitacao.setSmartBin(lixeira);
+        solicitacao.setRequester(residencia.getOwner());
+        solicitacao.setNotes("Solicitação automática: a lixeira \"" + lixeira.getName() + "\" atingiu " + enchimento + "%.");
+        solicitacoes.save(solicitacao);
+        auditoria.registrar(AuditAction.SMART_BIN_AUTO_REQUEST, "SmartBin", lixeira.getId(), "nível " + enchimento + "%");
     }
 
-    public SmartBinDto toDto(SmartBin b, boolean includeHousehold) {
-        List<ReadingPoint> history = new ArrayList<>(readings.findTop24ByBinIdOrderByRecordedAtDesc(b.getId()).stream()
+    public SmartBinDto paraDto(SmartBin b, boolean incluirResidencia) {
+        List<ReadingPoint> historico = new ArrayList<>(leituras.findTop24ByBinIdOrderByRecordedAtDesc(b.getId()).stream()
                 .map(r -> new ReadingPoint(r.getFillLevel(), r.getRecordedAt())).toList());
-        Collections.reverse(history); // antigas -> recentes
+        Collections.reverse(historico); // antigas -> recentes
         return new SmartBinDto(b.getId(), b.getName(), CategoryRef.of(b.getCategory()), b.getCapacityLiters(),
-                b.getFillLevel(), b.getBatteryLevel(), b.statusAt(clock.instant(), offlineAfter()),
-                b.getAutoRequestThreshold(), b.getLastReadingAt(), history,
-                includeHousehold ? HouseholdRef.of(b.getHousehold()) : null);
+                b.getFillLevel(), b.getBatteryLevel(), b.statusAt(relogio.instant(), offlineApos()),
+                b.getAutoRequestThreshold(), b.getLastReadingAt(), historico,
+                incluirResidencia ? HouseholdRef.of(b.getHousehold()) : null);
     }
 
-    public Duration offlineAfter() {
-        return Duration.ofHours(props.iot().offlineHours());
+    public Duration offlineApos() {
+        return Duration.ofHours(propriedades.iot().offlineHours());
     }
 
-    private Household currentHousehold(AuthUser me) {
-        User user = users.findById(me.id()).orElseThrow(() -> ApiException.notFound("Usuário não encontrado."));
-        return user.getHousehold();
+    private Household residenciaAtual(AuthUser logado) {
+        User usuario = usuarios.findById(logado.id()).orElseThrow(() -> ApiException.naoEncontrado("Usuário não encontrado."));
+        return usuario.getHousehold();
     }
 
-    static String newDeviceKey() {
+    static String novaChaveDispositivo() {
         byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
+        ALEATORIO.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    public static String sha256(String value) {
+    public static String sha256(String valor) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(valor.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }

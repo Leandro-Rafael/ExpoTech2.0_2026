@@ -48,64 +48,64 @@ public class InspectionService {
     }
 
     private final EntityManager em;
-    private final RefreshTokenService refreshTokens;
-    private final AuditService audit;
-    private final TokenBucketRateLimiter limiter;
-    private final Clock clock;
+    private final RefreshTokenService tokensRenovacao;
+    private final AuditService auditoria;
+    private final TokenBucketRateLimiter limitador;
+    private final Clock relogio;
 
-    public InspectionService(EntityManager em, RefreshTokenService refreshTokens, AuditService audit,
-                             TokenBucketRateLimiter limiter, Clock clock) {
+    public InspectionService(EntityManager em, RefreshTokenService tokensRenovacao, AuditService auditoria,
+                             TokenBucketRateLimiter limitador, Clock relogio) {
         this.em = em;
-        this.refreshTokens = refreshTokens;
-        this.audit = audit;
-        this.limiter = limiter;
-        this.clock = clock;
+        this.tokensRenovacao = tokensRenovacao;
+        this.auditoria = auditoria;
+        this.limitador = limitador;
+        this.relogio = relogio;
     }
 
     @Transactional
-    public InspectionEventResult report(UUID userId, Trigger trigger) {
-        limiter.check(TokenBucketRateLimiter.Policy.INSPECTION_EVENT_USER, userId.toString());
+    public InspectionEventResult registrarAviso(UUID idUsuario, Trigger gatilho) {
+        limitador.verificar(TokenBucketRateLimiter.Policy.INSPECTION_EVENT_USER, idUsuario.toString());
         // 1. Trava a linha do usuário para avisos de várias abas contarem um de cada vez.
-        User user = em.find(User.class, userId);
-        if (user == null) {
+        User usuario = em.find(User.class, idUsuario);
+        if (usuario == null) {
             throw new ApiException(ErrorCode.UNAUTHORIZED, "Sessão inválida.");
         }
-        em.refresh(user, LockModeType.PESSIMISTIC_WRITE); // eventos simultâneos (várias abas) contam em sequência
-        Instant now = clock.instant();
+        em.refresh(usuario, LockModeType.PESSIMISTIC_WRITE); // eventos simultâneos (várias abas) contam em sequência
+        Instant agora = relogio.instant();
         // 2. Se já está bloqueado, ou o aviso veio a menos de 5 s do anterior (mesmo gesto), não conta de novo.
-        user.clearExpiredSecurityLock(now);
-        if (user.isSecurityLocked(now)) {
-            return result(user, now);
+        usuario.clearExpiredSecurityLock(agora);
+        if (usuario.isSecurityLocked(agora)) {
+            return resultado(usuario, agora);
         }
-        Instant last = user.getSecurityLastEventAt();
-        if (last != null && last.plus(DEDUPE_WINDOW).isAfter(now)) {
-            return result(user, now); // mesmo gesto (ex.: F12 + DevTools aberto): já contado
+        Instant ultimo = usuario.getSecurityLastEventAt();
+        if (ultimo != null && ultimo.plus(DEDUPE_WINDOW).isAfter(agora)) {
+            return resultado(usuario, agora); // mesmo gesto (ex.: F12 + DevTools aberto): já contado
         }
         // 3. Conta o aviso e audita; o 3º bloqueia por 30 minutos.
-        boolean lockedNow = user.registerSecurityWarning(now, MAX_WARNINGS, LOCK_DURATION);
-        audit.record(AuditAction.SECURITY_INSPECTION_WARNING, "User", userId,
-                "aviso " + user.getSecurityWarnings() + " de " + MAX_WARNINGS + " (" + trigger + ")");
+        boolean bloqueouAgora = usuario.registerSecurityWarning(agora, MAX_WARNINGS, LOCK_DURATION);
+        auditoria.registrar(AuditAction.SECURITY_INSPECTION_WARNING, "User", idUsuario,
+                "aviso " + usuario.getSecurityWarnings() + " de " + MAX_WARNINGS + " (" + gatilho + ")");
         // 4. No bloqueio, derruba todas as sessões do usuário.
-        if (lockedNow) {
-            refreshTokens.revokeAllForUser(userId, RefreshToken.REASON_SECURITY);
-            audit.record(AuditAction.SECURITY_INSPECTION_LOCK, "User", userId,
-                    "acesso bloqueado até " + user.getSecurityLockedUntil() + "; sessões encerradas");
+        if (bloqueouAgora) {
+            tokensRenovacao.revogarTodasDoUsuario(idUsuario, RefreshToken.REASON_SECURITY);
+            auditoria.registrar(AuditAction.SECURITY_INSPECTION_LOCK, "User", idUsuario,
+                    "acesso bloqueado até " + usuario.getSecurityLockedUntil() + "; sessões encerradas");
         }
-        return result(user, now);
+        return resultado(usuario, agora);
     }
 
-    private static InspectionEventResult result(User user, Instant now) {
-        boolean locked = user.isSecurityLocked(now);
-        return new InspectionEventResult(user.activeSecurityWarnings(now), MAX_WARNINGS, locked,
-                locked ? user.getSecurityLockedUntil() : null);
+    private static InspectionEventResult resultado(User usuario, Instant agora) {
+        boolean bloqueado = usuario.isSecurityLocked(agora);
+        return new InspectionEventResult(usuario.activeSecurityWarnings(agora), MAX_WARNINGS, bloqueado,
+                bloqueado ? usuario.getSecurityLockedUntil() : null);
     }
 
     /** Resposta 423 padronizada (login, refresh e requisições autenticadas). */
-    public static ApiException lockedException(Instant lockedUntil, Instant now) {
-        return new ApiException(ErrorCode.ACCOUNT_LOCKED, HttpStatus.LOCKED, LOCK_MESSAGE, null, retryAfterSeconds(lockedUntil, now));
+    public static ApiException excecaoBloqueio(Instant bloqueadoAte, Instant agora) {
+        return new ApiException(ErrorCode.ACCOUNT_LOCKED, HttpStatus.LOCKED, LOCK_MESSAGE, null, segundosAteLiberar(bloqueadoAte, agora));
     }
 
-    public static long retryAfterSeconds(Instant lockedUntil, Instant now) {
-        return Math.max(1, Duration.between(now, lockedUntil).toSeconds() + 1);
+    public static long segundosAteLiberar(Instant bloqueadoAte, Instant agora) {
+        return Math.max(1, Duration.between(agora, bloqueadoAte).toSeconds() + 1);
     }
 }

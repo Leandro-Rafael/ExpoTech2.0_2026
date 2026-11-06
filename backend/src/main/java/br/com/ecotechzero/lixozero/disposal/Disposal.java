@@ -200,7 +200,7 @@ public class Disposal extends BaseEntity {
      */
     public boolean aiBonusApplies() {
         return photo != null && aiVerified && aiSuggestedCode != null && aiSuggestedCode == category.getCode()
-                && aiConfidence != null && aiConfidence >= PointsCalculator.AI_MIN_CONFIDENCE;
+                && aiConfidence != null && aiConfidence >= PointsCalculator.CONFIANCA_MINIMA_IA;
     }
 
     public User getUser() { return user; }

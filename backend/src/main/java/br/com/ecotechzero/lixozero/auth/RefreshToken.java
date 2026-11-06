@@ -69,14 +69,14 @@ public class RefreshToken extends BaseEntity {
         return revokedAt != null;
     }
 
-    public boolean isExpired(Instant now) {
-        return !expiresAt.isAfter(now);
+    public boolean isExpired(Instant agora) {
+        return !expiresAt.isAfter(agora);
     }
 
-    public void revoke(Instant now, String reason) {
+    public void revoke(Instant agora, String motivo) {
         if (revokedAt == null) {
-            this.revokedAt = now;
-            this.revokedReason = reason;
+            this.revokedAt = agora;
+            this.revokedReason = motivo;
         }
     }
 

@@ -15,15 +15,15 @@ public class QuantityOutlierRule implements FraudRule {
     static final int SCORE = 20;
 
     @Override
-    public String code() {
+    public String codigo() {
         return "QUANTIDADE_ATIPICA";
     }
 
     @Override
-    public Optional<FraudSignal> evaluate(FraudContext ctx) {
-        if (ctx.categoryMaxKg() > 0 && ctx.quantityKg() > ctx.categoryMaxKg() * RATIO) {
-            return Optional.of(new FraudSignal(code(), SCORE,
-                    "Quantidade próxima do máximo permitido para a categoria (" + ctx.categoryMaxKg() + " kg)."));
+    public Optional<FraudSignal> avaliar(FraudContext contexto) {
+        if (contexto.categoryMaxKg() > 0 && contexto.quantityKg() > contexto.categoryMaxKg() * RATIO) {
+            return Optional.of(new FraudSignal(codigo(), SCORE,
+                    "Quantidade próxima do máximo permitido para a categoria (" + contexto.categoryMaxKg() + " kg)."));
         }
         return Optional.empty();
     }

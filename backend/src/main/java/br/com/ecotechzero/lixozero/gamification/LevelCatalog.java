@@ -15,7 +15,7 @@ public final class LevelCatalog {
     public record LevelDto(int index, String name, long minPoints, String nextName, Long nextMinPoints, double progress) {
     }
 
-    public static final List<LevelDef> LEVELS = List.of(
+    public static final List<LevelDef> NIVEIS = List.of(
             new LevelDef(0, "Semente", 0),
             new LevelDef(1, "Broto", 200),
             new LevelDef(2, "Muda", 600),
@@ -26,20 +26,20 @@ public final class LevelCatalog {
     private LevelCatalog() {
     }
 
-    public static LevelDto levelFor(long totalEarned) {
-        LevelDef current = LEVELS.getFirst();
-        for (LevelDef level : LEVELS) {
-            if (totalEarned >= level.minPoints()) {
-                current = level;
+    public static LevelDto nivelPara(long totalGanho) {
+        LevelDef atual = NIVEIS.getFirst();
+        for (LevelDef nivel : NIVEIS) {
+            if (totalGanho >= nivel.minPoints()) {
+                atual = nivel;
             }
         }
-        int nextIndex = current.index() + 1;
-        if (nextIndex >= LEVELS.size()) {
-            return new LevelDto(current.index(), current.name(), current.minPoints(), null, null, 1.0);
+        int indiceProximo = atual.index() + 1;
+        if (indiceProximo >= NIVEIS.size()) {
+            return new LevelDto(atual.index(), atual.name(), atual.minPoints(), null, null, 1.0);
         }
-        LevelDef next = LEVELS.get(nextIndex);
-        double progress = (double) (totalEarned - current.minPoints()) / (next.minPoints() - current.minPoints());
-        return new LevelDto(current.index(), current.name(), current.minPoints(), next.name(), next.minPoints(),
-                Math.round(Math.clamp(progress, 0, 1) * 1000) / 1000.0);
+        LevelDef proximo = NIVEIS.get(indiceProximo);
+        double progresso = (double) (totalGanho - atual.minPoints()) / (proximo.minPoints() - atual.minPoints());
+        return new LevelDto(atual.index(), atual.name(), atual.minPoints(), proximo.name(), proximo.minPoints(),
+                Math.round(Math.clamp(progresso, 0, 1) * 1000) / 1000.0);
     }
 }

@@ -28,26 +28,26 @@ import java.util.UUID;
 @Service
 public class PhotoService {
 
-    private static final Duration DUPLICATE_WINDOW = Duration.ofDays(180);
-    private static final int MAX_HASHES_COMPARED = 5000;
+    private static final Duration JANELA_DUPLICATA = Duration.ofDays(180);
+    private static final int MAX_HASHES_COMPARADOS = 5000;
 
-    private final PhotoRepository photos;
-    private final UserRepository users;
-    private final ImageProcessor processor;
-    private final WasteClassifier classifier;
-    private final TokenBucketRateLimiter limiter;
+    private final PhotoRepository fotos;
+    private final UserRepository usuarios;
+    private final ImageProcessor processador;
+    private final WasteClassifier classificador;
+    private final TokenBucketRateLimiter limitador;
     private final TransactionTemplate tx;
-    private final Clock clock;
+    private final Clock relogio;
 
-    public PhotoService(PhotoRepository photos, UserRepository users, ImageProcessor processor, WasteClassifier classifier,
-                        TokenBucketRateLimiter limiter, TransactionTemplate tx, Clock clock) {
-        this.photos = photos;
-        this.users = users;
-        this.processor = processor;
-        this.classifier = classifier;
-        this.limiter = limiter;
+    public PhotoService(PhotoRepository fotos, UserRepository usuarios, ImageProcessor processador, WasteClassifier classificador,
+                        TokenBucketRateLimiter limitador, TransactionTemplate tx, Clock relogio) {
+        this.fotos = fotos;
+        this.usuarios = usuarios;
+        this.processador = processador;
+        this.classificador = classificador;
+        this.limitador = limitador;
         this.tx = tx;
-        this.clock = clock;
+        this.relogio = relogio;
     }
 
     /** verified = classificação feita pelo servidor (fica gravada na foto e é a única que vale para o bônus). */
@@ -58,54 +58,54 @@ public class PhotoService {
     public record PhotoUpload(UUID id, String url, int width, int height, boolean duplicateSuspected, AiSuggestion ai) {
     }
 
-    public PhotoUpload upload(AuthUser me, MultipartFile file) {
-        limiter.check(TokenBucketRateLimiter.Policy.PHOTO_UPLOAD_USER, me.id().toString());
-        if (file == null || file.isEmpty()) {
+    public PhotoUpload enviar(AuthUser logado, MultipartFile arquivo) {
+        limitador.verificar(TokenBucketRateLimiter.Policy.PHOTO_UPLOAD_USER, logado.id().toString());
+        if (arquivo == null || arquivo.isEmpty()) {
             throw new ApiException(ErrorCode.INVALID_IMAGE, "Selecione uma imagem para enviar.");
         }
-        if (file.getSize() > ImageProcessor.MAX_BYTES) {
+        if (arquivo.getSize() > ImageProcessor.MAX_BYTES) {
             throw new ApiException(ErrorCode.INVALID_IMAGE, "A imagem deve ter no máximo 5 MB.");
         }
         byte[] bytes;
         try {
-            bytes = file.getBytes();
+            bytes = arquivo.getBytes();
         } catch (IOException e) {
             throw new ApiException(ErrorCode.INVALID_IMAGE, "Não foi possível ler o arquivo enviado.");
         }
-        ImageProcessor.ProcessedImage image = processor.process(bytes);
-        Optional<Classification> ai = classifier.classify(image.aiJpeg());
+        ImageProcessor.ProcessedImage imagem = processador.processar(bytes);
+        Optional<Classification> classificacao = classificador.classificar(imagem.aiJpeg());
 
         return tx.execute(status -> {
-            Photo photo = new Photo(users.getReferenceById(me.id()), image.jpeg(), image.width(), image.height(), image.dHash(), image.sha256());
-            ai.ifPresent(c -> photo.setServerAi(c.categoryCode(), c.confidence(), c.reasoning(), c.source(), c.model(), clock.instant()));
-            photos.save(photo);
-            boolean duplicate = isDuplicateSuspected(photo.getId(), image.sha256(), image.dHash());
-            AiSuggestion suggestion = ai
-                    .map(c -> new AiSuggestion(true, c.categoryCode(), c.confidence(), c.reasoning(), c.source(), photo.isAiVerified()))
+            Photo foto = new Photo(usuarios.getReferenceById(logado.id()), imagem.jpeg(), imagem.width(), imagem.height(), imagem.dHash(), imagem.sha256());
+            classificacao.ifPresent(c -> foto.setServerAi(c.categoryCode(), c.confidence(), c.reasoning(), c.source(), c.model(), relogio.instant()));
+            fotos.save(foto);
+            boolean duplicada = suspeitaDeDuplicata(foto.getId(), imagem.sha256(), imagem.dHash());
+            AiSuggestion sugestao = classificacao
+                    .map(c -> new AiSuggestion(true, c.categoryCode(), c.confidence(), c.reasoning(), c.source(), foto.isAiVerified()))
                     .orElse(new AiSuggestion(false, null, null, null, null, false));
-            return new PhotoUpload(photo.getId(), url(photo.getId()), image.width(), image.height(), duplicate, suggestion);
+            return new PhotoUpload(foto.getId(), url(foto.getId()), imagem.width(), imagem.height(), duplicada, sugestao);
         });
     }
 
     /** Foto idêntica (SHA-256) ou visualmente parecida (dHash) com outra enviada nos últimos 180 dias. */
-    boolean isDuplicateSuspected(UUID photoId, String sha256, long dHash) {
-        if (photos.existsSameContent(sha256, photoId)) {
+    boolean suspeitaDeDuplicata(UUID idFoto, String sha256, long dHash) {
+        if (fotos.existsSameContent(sha256, idFoto)) {
             return true;
         }
-        return photos.recentHashes(clock.instant().minus(DUPLICATE_WINDOW), photoId, PageRequest.of(0, MAX_HASHES_COMPARED))
+        return fotos.recentHashes(relogio.instant().minus(JANELA_DUPLICATA), idFoto, PageRequest.of(0, MAX_HASHES_COMPARADOS))
                 .stream()
-                .anyMatch(h -> PerceptualHash.hammingDistance(h.dhash(), dHash) <= PerceptualHash.SIMILARITY_THRESHOLD);
+                .anyMatch(h -> PerceptualHash.distanciaHamming(h.dhash(), dHash) <= PerceptualHash.SIMILARITY_THRESHOLD);
     }
 
     /** Bytes da foto: apenas o dono ou um administrador. Para os demais, 404 (não revela que existe). */
     @Transactional(readOnly = true)
-    public Photo getForViewer(AuthUser me, UUID id) {
-        return photos.findById(id)
-                .filter(p -> me.isAdmin() || p.getOwner().getId().equals(me.id()))
-                .orElseThrow(() -> ApiException.notFound("Foto não encontrada."));
+    public Photo buscarParaVisualizar(AuthUser logado, UUID id) {
+        return fotos.findById(id)
+                .filter(p -> logado.isAdmin() || p.getOwner().getId().equals(logado.id()))
+                .orElseThrow(() -> ApiException.naoEncontrado("Foto não encontrada."));
     }
 
-    public static String url(UUID photoId) {
-        return photoId == null ? null : "/api/photos/" + photoId;
+    public static String url(UUID idFoto) {
+        return idFoto == null ? null : "/api/photos/" + idFoto;
     }
 }

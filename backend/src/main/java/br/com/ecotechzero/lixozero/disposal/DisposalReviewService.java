@@ -40,78 +40,78 @@ import java.util.UUID;
 @Service
 public class DisposalReviewService {
 
-    private final DisposalRepository disposals;
-    private final CategoryRepository categories;
-    private final UserRepository users;
-    private final PointsService points;
-    private final GamificationService gamification;
-    private final AuditService audit;
+    private final DisposalRepository descartes;
+    private final CategoryRepository categorias;
+    private final UserRepository usuarios;
+    private final PointsService pontos;
+    private final GamificationService gamificacao;
+    private final AuditService auditoria;
     private final EntityManager em;
-    private final Clock clock;
+    private final Clock relogio;
 
-    public DisposalReviewService(DisposalRepository disposals, CategoryRepository categories, UserRepository users,
-                                 PointsService points, GamificationService gamification, AuditService audit,
-                                 EntityManager em, Clock clock) {
-        this.disposals = disposals;
-        this.categories = categories;
-        this.users = users;
-        this.points = points;
-        this.gamification = gamification;
-        this.audit = audit;
+    public DisposalReviewService(DisposalRepository descartes, CategoryRepository categorias, UserRepository usuarios,
+                                 PointsService pontos, GamificationService gamificacao, AuditService auditoria,
+                                 EntityManager em, Clock relogio) {
+        this.descartes = descartes;
+        this.categorias = categorias;
+        this.usuarios = usuarios;
+        this.pontos = pontos;
+        this.gamificacao = gamificacao;
+        this.auditoria = auditoria;
         this.em = em;
-        this.clock = clock;
+        this.relogio = relogio;
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DisposalDto> queue(DisposalStatus status, Boolean flagged, Integer page, Integer size) {
-        Boolean flaggedFilter = Boolean.TRUE.equals(flagged) ? Boolean.TRUE : null;
-        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
-        return PageResponse.of(disposals.adminSearch(status, flaggedFilter, Pagination.of(page, size, sort)), d -> DisposalDto.of(d, true));
+    public PageResponse<DisposalDto> fila(DisposalStatus situacao, Boolean sinalizado, Integer pagina, Integer tamanho) {
+        Boolean filtroSinalizado = Boolean.TRUE.equals(sinalizado) ? Boolean.TRUE : null;
+        Sort ordenacao = Sort.by(Sort.Direction.DESC, "createdAt");
+        return PageResponse.of(descartes.adminSearch(situacao, filtroSinalizado, Pagination.criar(pagina, tamanho, ordenacao)), d -> DisposalDto.of(d, true));
     }
 
     @Transactional
-    public DisposalDto approve(AuthUser admin, UUID id, ApproveRequest request) {
+    public DisposalDto aprovar(AuthUser admin, UUID id, ApproveRequest pedido) {
         // 1. Trava a linha do descarte: se dois admins clicarem juntos, um espera o outro.
-        Disposal disposal = lock(id);
+        Disposal descarte = travar(id);
         // 2. Se já foi aprovado, devolve como está (não pontua de novo); recusado não pode virar aprovado.
-        if (disposal.getStatus() == DisposalStatus.APPROVED) {
-            return DisposalDto.of(disposal, true); // idempotente: não pontua de novo
+        if (descarte.getStatus() == DisposalStatus.APPROVED) {
+            return DisposalDto.of(descarte, true); // idempotente: não pontua de novo
         }
-        if (disposal.getStatus() == DisposalStatus.REJECTED) {
-            throw ApiException.conflict("Este descarte já foi recusado e não pode ser aprovado.");
+        if (descarte.getStatus() == DisposalStatus.REJECTED) {
+            throw ApiException.conflito("Este descarte já foi recusado e não pode ser aprovado.");
         }
         // 3. Admin não pode aprovar o próprio descarte.
-        if (disposal.getUser().getId().equals(admin.id())) {
-            throw ApiException.business("Você não pode aprovar o seu próprio descarte.");
+        if (descarte.getUser().getId().equals(admin.id())) {
+            throw ApiException.regraNegocio("Você não pode aprovar o seu próprio descarte.");
         }
         // 4. Aplica a correção de categoria/kg feita pelo admin, se houver.
-        String correction = applyCorrection(disposal, request);
+        String textoCorrecao = aplicarCorrecao(descarte, pedido);
         // 5. Aprova, credita os pontos e registra na auditoria.
-        int awarded = approveInternal(disposal, users.getReferenceById(admin.id()));
-        audit.record(AuditAction.DISPOSAL_APPROVED, "Disposal", id, "+" + awarded + " pontos" + correction);
-        return DisposalDto.of(disposal, true);
+        int concedidos = aprovarInterno(descarte, usuarios.getReferenceById(admin.id()));
+        auditoria.registrar(AuditAction.DISPOSAL_APPROVED, "Disposal", id, "+" + concedidos + " pontos" + textoCorrecao);
+        return DisposalDto.of(descarte, true);
     }
 
     @Transactional
-    public DisposalDto reject(AuthUser admin, UUID id, String reason) {
+    public DisposalDto recusar(AuthUser admin, UUID id, String motivo) {
         // 1. Mesma trava da aprovação.
-        Disposal disposal = lock(id);
+        Disposal descarte = travar(id);
         // 2. Já aprovado não pode ser recusado (os pontos já foram dados).
-        if (disposal.getStatus() == DisposalStatus.REJECTED) {
-            return DisposalDto.of(disposal, true);
+        if (descarte.getStatus() == DisposalStatus.REJECTED) {
+            return DisposalDto.of(descarte, true);
         }
-        if (disposal.getStatus() == DisposalStatus.APPROVED) {
-            throw ApiException.conflict("Este descarte já foi aprovado e não pode ser recusado.");
+        if (descarte.getStatus() == DisposalStatus.APPROVED) {
+            throw ApiException.conflito("Este descarte já foi aprovado e não pode ser recusado.");
         }
         // 3. Motivo é obrigatório: o morador vê no histórico.
-        String cleanReason = Text.clean(reason);
-        if (cleanReason == null || cleanReason.length() < 3) {
-            throw ApiException.field("reason", "informe o motivo da recusa");
+        String motivoLimpo = Text.limpar(motivo);
+        if (motivoLimpo == null || motivoLimpo.length() < 3) {
+            throw ApiException.campo("reason", "informe o motivo da recusa");
         }
         // 4. Marca como recusado e registra na auditoria.
-        disposal.reject(Text.truncate(cleanReason, 300), users.getReferenceById(admin.id()), clock.instant());
-        audit.record(AuditAction.DISPOSAL_REJECTED, "Disposal", id, cleanReason);
-        return DisposalDto.of(disposal, true);
+        descarte.reject(Text.truncar(motivoLimpo, 300), usuarios.getReferenceById(admin.id()), relogio.instant());
+        auditoria.registrar(AuditAction.DISPOSAL_REJECTED, "Disposal", id, motivoLimpo);
+        return DisposalDto.of(descarte, true);
     }
 
     /**
@@ -119,40 +119,40 @@ public class DisposalReviewService {
      * O crédito é feito com a linha do usuário travada; o índice único garante pontuação única.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public int approveInternal(Disposal disposal, User reviewer) {
-        Instant now = clock.instant();
-        Category category = disposal.getCategory();
+    public int aprovarInterno(Disposal descarte, User revisor) {
+        Instant agora = relogio.instant();
+        Category categoria = descarte.getCategory();
         // bônus reavaliado AGORA, com a categoria final (o admin pode ter corrigido)
-        int awarded = PointsCalculator.points(category.getPointsPerKg(), disposal.getQuantityKg(), disposal.aiBonusApplies());
-        disposal.approve(awarded, reviewer, now);
+        int concedidos = PointsCalculator.calcular(categoria.getPointsPerKg(), descarte.getQuantityKg(), descarte.aiBonusApplies());
+        descarte.approve(concedidos, revisor, agora);
         // o extrato de pontos é encadeado por HMAC (assinatura que denuncia se alguém alterar o histórico)
-        String description = String.format(Locale.forLanguageTag("pt-BR"), "Descarte aprovado: %.2f kg de %s",
-                disposal.getQuantityKg(), category.getName());
-        points.credit(disposal.getUser().getId(), awarded, PointTransactionType.EARN, description, disposal, null, now);
-        gamification.onDisposalApproved(disposal.getUser().getId(), disposal.getDisposedAt());
-        return awarded;
+        String descricao = String.format(Locale.forLanguageTag("pt-BR"), "Descarte aprovado: %.2f kg de %s",
+                descarte.getQuantityKg(), categoria.getName());
+        pontos.creditar(descarte.getUser().getId(), concedidos, PointTransactionType.EARN, descricao, descarte, null, agora);
+        gamificacao.aoAprovarDescarte(descarte.getUser().getId(), descarte.getDisposedAt());
+        return concedidos;
     }
 
-    private String applyCorrection(Disposal disposal, ApproveRequest request) {
-        if (request == null || (request.categoryId() == null && request.quantityKg() == null)) {
+    private String aplicarCorrecao(Disposal descarte, ApproveRequest pedido) {
+        if (pedido == null || (pedido.categoryId() == null && pedido.quantityKg() == null)) {
             return "";
         }
-        Category category = request.categoryId() == null ? disposal.getCategory()
-                : categories.findById(request.categoryId()).orElseThrow(() -> ApiException.field("categoryId", "categoria não encontrada"));
-        double kg = request.quantityKg() == null ? disposal.getQuantityKg() : Numbers.round(request.quantityKg(), 3);
-        if (kg > category.getMaxKgPerDisposal()) {
-            throw ApiException.field("quantityKg", "máximo de " + category.getMaxKgPerDisposal() + " kg para " + category.getName());
+        Category categoria = pedido.categoryId() == null ? descarte.getCategory()
+                : categorias.findById(pedido.categoryId()).orElseThrow(() -> ApiException.campo("categoryId", "categoria não encontrada"));
+        double kg = pedido.quantityKg() == null ? descarte.getQuantityKg() : Numbers.arredondar(pedido.quantityKg(), 3);
+        if (kg > categoria.getMaxKgPerDisposal()) {
+            throw ApiException.campo("quantityKg", "máximo de " + categoria.getMaxKgPerDisposal() + " kg para " + categoria.getName());
         }
-        String note = " (corrigido: " + disposal.getCategory().getCode() + " " + disposal.getQuantityKg() + " kg -> "
-                + category.getCode() + " " + kg + " kg)";
-        disposal.correct(category, kg);
-        return note;
+        String nota = " (corrigido: " + descarte.getCategory().getCode() + " " + descarte.getQuantityKg() + " kg -> "
+                + categoria.getCode() + " " + kg + " kg)";
+        descarte.correct(categoria, kg);
+        return nota;
     }
 
     // lock pessimista (SELECT ... FOR UPDATE): ninguém mais altera a linha até a transação terminar
-    private Disposal lock(UUID id) {
-        Disposal disposal = disposals.findById(id).orElseThrow(() -> ApiException.notFound("Descarte não encontrado."));
-        em.refresh(disposal, LockModeType.PESSIMISTIC_WRITE);
-        return disposal;
+    private Disposal travar(UUID id) {
+        Disposal descarte = descartes.findById(id).orElseThrow(() -> ApiException.naoEncontrado("Descarte não encontrado."));
+        em.refresh(descarte, LockModeType.PESSIMISTIC_WRITE);
+        return descarte;
     }
 }

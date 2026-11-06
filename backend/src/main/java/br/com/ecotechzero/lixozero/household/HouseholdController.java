@@ -28,51 +28,51 @@ import java.util.UUID;
 @RequestMapping("/api/household")
 public class HouseholdController {
 
-    private final HouseholdService households;
-    private final SmartBinService bins;
+    private final HouseholdService residencias;
+    private final SmartBinService lixeiras;
 
-    public HouseholdController(HouseholdService households, SmartBinService bins) {
-        this.households = households;
-        this.bins = bins;
+    public HouseholdController(HouseholdService residencias, SmartBinService lixeiras) {
+        this.residencias = residencias;
+        this.lixeiras = lixeiras;
     }
 
     /** 200 com a residência, ou 204 se o usuário ainda não tem residência. */
     @GetMapping
-    public ResponseEntity<HouseholdDto> mine(@AuthenticationPrincipal AuthUser me) {
-        return households.getMine(me).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
+    public ResponseEntity<HouseholdDto> minha(@AuthenticationPrincipal AuthUser logado) {
+        return residencias.buscarMinha(logado).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public HouseholdDto create(@AuthenticationPrincipal AuthUser me, @Valid @RequestBody CreateHouseholdRequest body) {
-        return households.create(me, body);
+    public HouseholdDto criar(@AuthenticationPrincipal AuthUser logado, @Valid @RequestBody CreateHouseholdRequest corpo) {
+        return residencias.criar(logado, corpo);
     }
 
     @PostMapping("/join")
-    public HouseholdDto join(@AuthenticationPrincipal AuthUser me, @Valid @RequestBody JoinHouseholdRequest body) {
-        return households.join(me, body.inviteCode());
+    public HouseholdDto entrar(@AuthenticationPrincipal AuthUser logado, @Valid @RequestBody JoinHouseholdRequest corpo) {
+        return residencias.entrar(logado, corpo.inviteCode());
     }
 
     @PostMapping("/leave")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void leave(@AuthenticationPrincipal AuthUser me) {
-        households.leave(me);
+    public void sair(@AuthenticationPrincipal AuthUser logado) {
+        residencias.sair(logado);
     }
 
     @GetMapping("/bins")
-    public List<SmartBinDto> bins(@AuthenticationPrincipal AuthUser me) {
-        return bins.listMine(me);
+    public List<SmartBinDto> lixeiras(@AuthenticationPrincipal AuthUser logado) {
+        return lixeiras.listarMinhas(logado);
     }
 
     @PostMapping("/bins")
     @ResponseStatus(HttpStatus.CREATED)
-    public SmartBinCreated createBin(@AuthenticationPrincipal AuthUser me, @Valid @RequestBody CreateBinRequest body) {
-        return bins.create(me, body);
+    public SmartBinCreated criarLixeira(@AuthenticationPrincipal AuthUser logado, @Valid @RequestBody CreateBinRequest corpo) {
+        return lixeiras.criar(logado, corpo);
     }
 
     @DeleteMapping("/bins/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteBin(@AuthenticationPrincipal AuthUser me, @PathVariable UUID id) {
-        bins.delete(me, id);
+    public void removerLixeira(@AuthenticationPrincipal AuthUser logado, @PathVariable UUID id) {
+        lixeiras.remover(logado, id);
     }
 }

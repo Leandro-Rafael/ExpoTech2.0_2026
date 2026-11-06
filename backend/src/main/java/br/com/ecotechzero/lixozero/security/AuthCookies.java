@@ -25,56 +25,56 @@ public class AuthCookies {
 
     public static final String ACCESS = "ez_access";
     public static final String REFRESH = "ez_refresh";
-    private static final String ACCESS_PATH = "/api";
-    private static final String REFRESH_PATH = "/api/auth";
+    private static final String CAMINHO_ACESSO = "/api";
+    private static final String CAMINHO_RENOVACAO = "/api/auth";
 
-    private final AppProperties props;
+    private final AppProperties propriedades;
 
-    public AuthCookies(AppProperties props) {
-        this.props = props;
+    public AuthCookies(AppProperties propriedades) {
+        this.propriedades = propriedades;
     }
 
-    public void writeSession(HttpServletRequest request, HttpServletResponse response, String accessToken, String refreshToken) {
-        add(response, build(request, ACCESS, accessToken, ACCESS_PATH, props.jwt().accessTtl()));
-        add(response, build(request, REFRESH, refreshToken, REFRESH_PATH, props.jwt().refreshTtl()));
+    public void gravarSessao(HttpServletRequest request, HttpServletResponse response, String tokenAcesso, String tokenRenovacao) {
+        adicionar(response, montar(request, ACCESS, tokenAcesso, CAMINHO_ACESSO, propriedades.jwt().accessTtl()));
+        adicionar(response, montar(request, REFRESH, tokenRenovacao, CAMINHO_RENOVACAO, propriedades.jwt().refreshTtl()));
     }
 
-    public void clear(HttpServletRequest request, HttpServletResponse response) {
-        add(response, build(request, ACCESS, "", ACCESS_PATH, Duration.ZERO));
-        add(response, build(request, REFRESH, "", REFRESH_PATH, Duration.ZERO));
+    public void limpar(HttpServletRequest request, HttpServletResponse response) {
+        adicionar(response, montar(request, ACCESS, "", CAMINHO_ACESSO, Duration.ZERO));
+        adicionar(response, montar(request, REFRESH, "", CAMINHO_RENOVACAO, Duration.ZERO));
     }
 
-    public static Optional<String> read(HttpServletRequest request, String name) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
+    public static Optional<String> ler(HttpServletRequest request, String nome) {
+        Cookie[] cookiesRecebidos = request.getCookies();
+        if (cookiesRecebidos == null) {
             return Optional.empty();
         }
-        for (Cookie c : cookies) {
-            if (name.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) {
+        for (Cookie c : cookiesRecebidos) {
+            if (nome.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) {
                 return Optional.of(c.getValue());
             }
         }
         return Optional.empty();
     }
 
-    private ResponseCookie build(HttpServletRequest request, String name, String value, String path, Duration maxAge) {
-        return ResponseCookie.from(name, value)
+    private ResponseCookie montar(HttpServletRequest request, String nome, String valor, String caminho, Duration validade) {
+        return ResponseCookie.from(nome, valor)
                 .httpOnly(true)
-                .secure(isSecure(request))
+                .secure(ehSeguro(request))
                 .sameSite("Lax")
-                .path(path)
-                .maxAge(maxAge)
+                .path(caminho)
+                .maxAge(validade)
                 .build();
     }
 
-    private boolean isSecure(HttpServletRequest request) {
-        String mode = props.cookies().secure();
-        if ("true".equalsIgnoreCase(mode)) return true;
-        if ("false".equalsIgnoreCase(mode)) return false;
+    private boolean ehSeguro(HttpServletRequest request) {
+        String modo = propriedades.cookies().secure();
+        if ("true".equalsIgnoreCase(modo)) return true;
+        if ("false".equalsIgnoreCase(modo)) return false;
         return request.isSecure(); // "auto"
     }
 
-    private static void add(HttpServletResponse response, ResponseCookie cookie) {
+    private static void adicionar(HttpServletResponse response, ResponseCookie cookie) {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 }

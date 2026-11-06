@@ -22,31 +22,31 @@ public class SimilarPhotoRule implements FraudRule {
 
     static final int SCORE_SAME_USER = 30;
     static final int SCORE_OTHER_USER = 40;
-    private static final Duration WINDOW = Duration.ofDays(180);
+    private static final Duration JANELA = Duration.ofDays(180);
 
-    private final PhotoRepository photos;
+    private final PhotoRepository fotos;
 
-    public SimilarPhotoRule(PhotoRepository photos) {
-        this.photos = photos;
+    public SimilarPhotoRule(PhotoRepository fotos) {
+        this.fotos = fotos;
     }
 
     @Override
-    public String code() {
+    public String codigo() {
         return "FOTO_SEMELHANTE";
     }
 
     @Override
-    public Optional<FraudSignal> evaluate(FraudContext ctx) {
-        if (ctx.photo() == null) {
+    public Optional<FraudSignal> avaliar(FraudContext contexto) {
+        if (contexto.photo() == null) {
             return Optional.empty();
         }
-        long hash = ctx.photo().dhash();
-        Optional<PhotoHash> match = photos.recentHashes(ctx.now().minus(WINDOW), ctx.photo().id(), PageRequest.of(0, 5000))
+        long hash = contexto.photo().dhash();
+        Optional<PhotoHash> parecida = fotos.recentHashes(contexto.now().minus(JANELA), contexto.photo().id(), PageRequest.of(0, 5000))
                 .stream()
-                .filter(h -> PerceptualHash.hammingDistance(h.dhash(), hash) <= PerceptualHash.SIMILARITY_THRESHOLD)
-                .min((a, b) -> Integer.compare(PerceptualHash.hammingDistance(a.dhash(), hash), PerceptualHash.hammingDistance(b.dhash(), hash)));
-        return match.map(h -> h.ownerId().equals(ctx.userId())
-                ? new FraudSignal(code(), SCORE_SAME_USER, "Foto muito parecida com outra que você já enviou.")
-                : new FraudSignal(code(), SCORE_OTHER_USER, "Foto muito parecida com uma enviada por outro usuário."));
+                .filter(h -> PerceptualHash.distanciaHamming(h.dhash(), hash) <= PerceptualHash.SIMILARITY_THRESHOLD)
+                .min((a, b) -> Integer.compare(PerceptualHash.distanciaHamming(a.dhash(), hash), PerceptualHash.distanciaHamming(b.dhash(), hash)));
+        return parecida.map(h -> h.ownerId().equals(contexto.userId())
+                ? new FraudSignal(codigo(), SCORE_SAME_USER, "Foto muito parecida com outra que você já enviou.")
+                : new FraudSignal(codigo(), SCORE_OTHER_USER, "Foto muito parecida com uma enviada por outro usuário."));
     }
 }

@@ -52,41 +52,41 @@ class FraudRulesTest {
     @Test
     void quantityOutlierFlagsNearCategoryMax() {
         var rule = new QuantityOutlierRule();
-        assertThat(rule.evaluate(ctx(14, null, null, null, null))).isPresent();
-        assertThat(rule.evaluate(ctx(5, null, null, null, null))).isEmpty();
+        assertThat(rule.avaliar(ctx(14, null, null, null, null))).isPresent();
+        assertThat(rule.avaliar(ctx(5, null, null, null, null))).isEmpty();
     }
 
     @Test
     void aiMismatchWeighsServerAiMoreThanLocal() {
         var rule = new AiMismatchRule();
-        int server = rule.evaluate(ctx(1, null, CategoryCode.REJEITO, 0.9, AiSource.CLAUDE)).orElseThrow().score();
-        int local = rule.evaluate(ctx(1, null, CategoryCode.REJEITO, 0.9, AiSource.LOCAL)).orElseThrow().score();
+        int server = rule.avaliar(ctx(1, null, CategoryCode.REJEITO, 0.9, AiSource.CLAUDE)).orElseThrow().score();
+        int local = rule.avaliar(ctx(1, null, CategoryCode.REJEITO, 0.9, AiSource.LOCAL)).orElseThrow().score();
         assertThat(server).isGreaterThan(local);
-        assertThat(rule.evaluate(ctx(1, null, CategoryCode.REJEITO, 0.4, AiSource.CLAUDE))).isEmpty(); // baixa confiança
-        assertThat(rule.evaluate(ctx(1, null, CategoryCode.ELETRONICO, 0.95, AiSource.CLAUDE))).isEmpty(); // concorda
+        assertThat(rule.avaliar(ctx(1, null, CategoryCode.REJEITO, 0.4, AiSource.CLAUDE))).isEmpty(); // baixa confiança
+        assertThat(rule.avaliar(ctx(1, null, CategoryCode.ELETRONICO, 0.95, AiSource.CLAUDE))).isEmpty(); // concorda
     }
 
     @Test
     void clientHintCanRaiseButNeverLowerRisk() {
         var rule = new AiMismatchRule();
         // servidor diverge; palpite forjado do cliente "concordando" não reduz o risco
-        var forged = rule.evaluate(ctx2(1, null, CategoryCode.REJEITO, 0.9, CategoryCode.ELETRONICO, 0.99, AiSource.LOCAL));
+        var forged = rule.avaliar(ctx2(1, null, CategoryCode.REJEITO, 0.9, CategoryCode.ELETRONICO, 0.99, AiSource.LOCAL));
         assertThat(forged).isPresent();
         assertThat(forged.get().score()).isEqualTo(30); // peso da IA do servidor
         // sem IA do servidor: palpite divergente do cliente aumenta o risco
-        assertThat(rule.evaluate(ctx2(1, null, null, null, CategoryCode.REJEITO, 0.9, AiSource.LOCAL))).isPresent();
+        assertThat(rule.avaliar(ctx2(1, null, null, null, CategoryCode.REJEITO, 0.9, AiSource.LOCAL))).isPresent();
         // servidor confirmou a categoria: palpite local divergente é ignorado (sem falso positivo)
-        assertThat(rule.evaluate(ctx2(1, null, CategoryCode.ELETRONICO, 0.9, CategoryCode.REJEITO, 0.9, AiSource.LOCAL))).isEmpty();
+        assertThat(rule.avaliar(ctx2(1, null, CategoryCode.ELETRONICO, 0.9, CategoryCode.REJEITO, 0.9, AiSource.LOCAL))).isEmpty();
         // escolha manual não é IA
-        assertThat(rule.evaluate(ctx2(1, null, null, null, CategoryCode.REJEITO, 0.9, AiSource.MANUAL))).isEmpty();
+        assertThat(rule.avaliar(ctx2(1, null, null, null, CategoryCode.REJEITO, 0.9, AiSource.MANUAL))).isEmpty();
     }
 
     @Test
     void missingPhotoOnlyForHeavyDisposals() {
         var rule = new MissingPhotoRule();
-        assertThat(rule.evaluate(ctx(6, null, null, null, null))).isPresent();
-        assertThat(rule.evaluate(ctx(2, null, null, null, null))).isEmpty();
-        assertThat(rule.evaluate(ctx(6, photo(1), null, null, null))).isEmpty();
+        assertThat(rule.avaliar(ctx(6, null, null, null, null))).isPresent();
+        assertThat(rule.avaliar(ctx(2, null, null, null, null))).isEmpty();
+        assertThat(rule.avaliar(ctx(6, photo(1), null, null, null))).isEmpty();
     }
 
     @Test
@@ -94,32 +94,32 @@ class FraudRulesTest {
         DisposalRepository repo = mock(DisposalRepository.class);
         when(repo.sumKgBetween(any(), any(), any(), any())).thenReturn(45.0);
         var rule = new DailyLimitRule(repo);
-        assertThat(rule.evaluate(ctx(6, null, null, null, null))).isPresent();
-        assertThat(rule.evaluate(ctx(4, null, null, null, null))).isEmpty();
+        assertThat(rule.avaliar(ctx(6, null, null, null, null))).isPresent();
+        assertThat(rule.avaliar(ctx(4, null, null, null, null))).isEmpty();
     }
 
     @Test
     void velocityFlagsBursts() {
         DisposalRepository repo = mock(DisposalRepository.class);
         when(repo.countByUserIdAndCreatedAtAfter(any(), any())).thenReturn(4L);
-        assertThat(new VelocityRule(repo).evaluate(ctx(1, null, null, null, null))).isPresent();
+        assertThat(new VelocityRule(repo).avaliar(ctx(1, null, null, null, null))).isPresent();
         when(repo.countByUserIdAndCreatedAtAfter(any(), any())).thenReturn(1L);
-        assertThat(new VelocityRule(repo).evaluate(ctx(1, null, null, null, null))).isEmpty();
+        assertThat(new VelocityRule(repo).avaliar(ctx(1, null, null, null, null))).isEmpty();
     }
 
     @Test
     void photoRulesDetectExactAndPerceptualDuplicates() {
         PhotoRepository photos = mock(PhotoRepository.class);
         when(photos.existsSameContent(anyString(), any())).thenReturn(true);
-        assertThat(new PhotoReuseRule(photos).evaluate(ctx(1, photo(0L), null, null, null))).isPresent();
+        assertThat(new PhotoReuseRule(photos).avaliar(ctx(1, photo(0L), null, null, null))).isPresent();
 
         long hash = 0b1011_0110L;
         long nearlyEqual = hash ^ 0b11L;      // 2 bits diferentes
         long different = ~hash;               // 64 bits diferentes
         when(photos.recentHashes(any(), any(), any())).thenReturn(List.of(new PhotoHash(UUID.randomUUID(), different, UUID.randomUUID())));
-        assertThat(new SimilarPhotoRule(photos).evaluate(ctx(1, photo(hash), null, null, null))).isEmpty();
+        assertThat(new SimilarPhotoRule(photos).avaliar(ctx(1, photo(hash), null, null, null))).isEmpty();
         when(photos.recentHashes(any(), any(), any())).thenReturn(List.of(new PhotoHash(UUID.randomUUID(), nearlyEqual, UUID.randomUUID())));
-        Optional<FraudSignal> signal = new SimilarPhotoRule(photos).evaluate(ctx(1, photo(hash), null, null, null));
+        Optional<FraudSignal> signal = new SimilarPhotoRule(photos).avaliar(ctx(1, photo(hash), null, null, null));
         assertThat(signal).isPresent();
         assertThat(signal.get().message()).contains("outro usuário");
     }
@@ -130,22 +130,22 @@ class FraudRulesTest {
         FraudRule big = new FixedRule(60);
         FraudRule medium = new FixedRule(30);
         FraudRule broken = new FraudRule() {
-            public String code() { return "QUEBRADA"; }
-            public Optional<FraudSignal> evaluate(FraudContext c) { throw new IllegalStateException("falha"); }
+            public String codigo() { return "QUEBRADA"; }
+            public Optional<FraudSignal> avaliar(FraudContext c) { throw new IllegalStateException("falha"); }
         };
-        var result = new FraudEngine(List.of(big, medium, broken), props).assess(ctx(1, null, null, null, null));
+        var result = new FraudEngine(List.of(big, medium, broken), props).avaliar(ctx(1, null, null, null, null));
         assertThat(result.score()).isEqualTo(90);
         assertThat(result.flagged()).isTrue();
         assertThat(result.flags()).hasSize(2);
 
-        var low = new FraudEngine(List.of(medium), props).assess(ctx(1, null, null, null, null));
+        var low = new FraudEngine(List.of(medium), props).avaliar(ctx(1, null, null, null, null));
         assertThat(low.flagged()).isFalse();
-        var capped = new FraudEngine(List.of(big, big), props).assess(ctx(1, null, null, null, null));
+        var capped = new FraudEngine(List.of(big, big), props).avaliar(ctx(1, null, null, null, null));
         assertThat(capped.score()).isEqualTo(100);
     }
 
     private record FixedRule(int score) implements FraudRule {
-        public String code() { return "FIXA_" + score; }
-        public Optional<FraudSignal> evaluate(FraudContext c) { return Optional.of(new FraudSignal(code(), score, "regra " + score)); }
+        public String codigo() { return "FIXA_" + score; }
+        public Optional<FraudSignal> avaliar(FraudContext c) { return Optional.of(new FraudSignal(codigo(), score, "regra " + score)); }
     }
 }

@@ -18,23 +18,23 @@ import java.io.IOException;
 @Component
 public class SpaFallbackFilter extends OncePerRequestFilter {
 
-    private final boolean spaPresent = new ClassPathResource("static/index.html").exists();
+    private final boolean spaPresente = new ClassPathResource("static/index.html").exists();
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        if (!spaPresent || !"GET".equals(request.getMethod())) {
+        if (!spaPresente || !"GET".equals(request.getMethod())) {
             return true;
         }
-        String path = request.getRequestURI().substring(request.getContextPath().length());
-        if (path.equals("/") || path.startsWith("/api") || path.startsWith("/actuator")) {
+        String caminho = request.getRequestURI().substring(request.getContextPath().length());
+        if (caminho.equals("/") || caminho.startsWith("/api") || caminho.startsWith("/actuator")) {
             return true;
         }
-        String lastSegment = path.substring(path.lastIndexOf('/') + 1);
-        return lastSegment.contains(".");
+        String ultimoSegmento = caminho.substring(caminho.lastIndexOf('/') + 1);
+        return ultimoSegmento.contains(".");
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadeia)
             throws ServletException, IOException {
         request.getRequestDispatcher("/index.html").forward(request, response);
     }

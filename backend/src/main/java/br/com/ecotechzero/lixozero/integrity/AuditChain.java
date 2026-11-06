@@ -28,9 +28,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class AuditChain {
 
     /** Chave fixa e arbitrária do advisory lock da auditoria. */
-    private static final long LOCK_ID = 0x4C5A_4155_4449_5431L;
+    private static final long ID_TRAVA = 0x4C5A_4155_4449_5431L;
 
-    private static final String INSERT = """
+    private static final String INSERCAO = """
             insert into audit_log (id, actor_id, actor_label, action, entity, entity_id, details, ip,
                                    created_at, updated_at, seq, prev_hash, hash)
             values (:id, :actorId, :actorLabel, :action, :entity, :entityId, :details, :ip,
@@ -41,36 +41,36 @@ public class AuditChain {
     }
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final IntegrityKey key;
-    private final AtomicReference<Head> lastCommitted = new AtomicReference<>();
+    private final IntegrityKey chave;
+    private final AtomicReference<Head> ultimoConfirmado = new AtomicReference<>();
 
-    public AuditChain(NamedParameterJdbcTemplate jdbc, IntegrityKey key) {
+    public AuditChain(NamedParameterJdbcTemplate jdbc, IntegrityKey chave) {
         this.jdbc = jdbc;
-        this.key = key;
+        this.chave = chave;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public UUID append(AuditRow input) {
-        AuditRow r = new AuditRow(input.id() == null ? UUID.randomUUID() : input.id(), input.actorId(), input.actorLabel(),
-                input.action(), input.entity(), input.entityId(), input.details(), input.ip(), ChainHashes.truncate(input.createdAt()));
-        jdbc.query("select pg_advisory_xact_lock(:k)", new MapSqlParameterSource("k", LOCK_ID), rs -> null);
-        List<Head> last = jdbc.query("select seq, hash from audit_log order by seq desc limit 1", new MapSqlParameterSource(),
+    public UUID anexar(AuditRow entrada) {
+        AuditRow r = new AuditRow(entrada.id() == null ? UUID.randomUUID() : entrada.id(), entrada.actorId(), entrada.actorLabel(),
+                entrada.action(), entrada.entity(), entrada.entityId(), entrada.details(), entrada.ip(), ChainHashes.truncar(entrada.createdAt()));
+        jdbc.query("select pg_advisory_xact_lock(:k)", new MapSqlParameterSource("k", ID_TRAVA), rs -> null);
+        List<Head> ultimo = jdbc.query("select seq, hash from audit_log order by seq desc limit 1", new MapSqlParameterSource(),
                 (rs, i) -> new Head(rs.getLong("seq"), rs.getString("hash")));
-        Head prev = last.isEmpty() ? new Head(0, ChainHashes.GENESIS) : last.getFirst();
-        long seq = prev.seq() + 1;
-        String hash = IntegrityKey.sign(key.newMac(), ChainHashes.audit(seq, prev.hash(), r));
-        jdbc.update(INSERT, new MapSqlParameterSource()
+        Head anterior = ultimo.isEmpty() ? new Head(0, ChainHashes.GENESIS) : ultimo.getFirst();
+        long seq = anterior.seq() + 1;
+        String hash = IntegrityKey.assinar(chave.novoMac(), ChainHashes.auditoria(seq, anterior.hash(), r));
+        jdbc.update(INSERCAO, new MapSqlParameterSource()
                 .addValue("id", r.id()).addValue("actorId", r.actorId()).addValue("actorLabel", r.actorLabel())
                 .addValue("action", r.action()).addValue("entity", r.entity()).addValue("entityId", r.entityId())
                 .addValue("details", r.details()).addValue("ip", r.ip())
                 .addValue("createdAt", OffsetDateTime.ofInstant(r.createdAt(), ZoneOffset.UTC))
-                .addValue("seq", seq).addValue("prevHash", prev.hash()).addValue("hash", hash));
-        Head appended = new Head(seq, hash);
+                .addValue("seq", seq).addValue("prevHash", anterior.hash()).addValue("hash", hash));
+        Head anexado = new Head(seq, hash);
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    lastCommitted.accumulateAndGet(appended, (a, b) -> a == null || b.seq() > a.seq() ? b : a);
+                    ultimoConfirmado.accumulateAndGet(anexado, (a, b) -> a == null || b.seq() > a.seq() ? b : a);
                 }
             });
         }
@@ -78,7 +78,7 @@ public class AuditChain {
     }
 
     /** Último elo gravado (e confirmado) por este processo. */
-    public Optional<Head> lastCommitted() {
-        return Optional.ofNullable(lastCommitted.get());
+    public Optional<Head> ultimoConfirmado() {
+        return Optional.ofNullable(ultimoConfirmado.get());
     }
 }

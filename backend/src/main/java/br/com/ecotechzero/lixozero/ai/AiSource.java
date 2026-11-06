@@ -8,7 +8,7 @@ public enum AiSource {
      * Classificação feita pelo próprio servidor (única considerada VERIFICADA). LOCAL e MANUAL vêm do navegador,
      * que o usuário controla: servem só como palpite informativo.
      */
-    public boolean isServerSide() {
+    public boolean doServidor() {
         return this == CLAUDE;
     }
 }

@@ -49,16 +49,16 @@ public class ImageProcessor {
      * No máximo 2 decodificações ao mesmo tempo: cada imagem grande ocupa dezenas de MB de memória
      * enquanto é decodificada; sem esse limite, muitos uploads simultâneos poderiam esgotar a memória (DoS).
      */
-    private static final Semaphore DECODE_SLOTS = new Semaphore(2, true);
-    private static final long DECODE_WAIT_SECONDS = 15;
+    private static final Semaphore VAGAS_DECODIFICACAO = new Semaphore(2, true);
+    private static final long ESPERA_DECODIFICACAO_SEGUNDOS = 15;
 
     static {
         ImageIO.setUseCache(false); // processa em memória, sem arquivos temporários
     }
 
-    private static void acquireDecodeSlot() {
+    private static void reservarVagaDecodificacao() {
         try {
-            if (DECODE_SLOTS.tryAcquire(DECODE_WAIT_SECONDS, TimeUnit.SECONDS)) {
+            if (VAGAS_DECODIFICACAO.tryAcquire(ESPERA_DECODIFICACAO_SEGUNDOS, TimeUnit.SECONDS)) {
                 return;
             }
         } catch (InterruptedException e) {
@@ -74,118 +74,118 @@ public class ImageProcessor {
 
     enum Format { JPEG, PNG }
 
-    public ProcessedImage process(byte[] bytes) {
+    public ProcessedImage processar(byte[] bytes) {
         if (bytes == null || bytes.length < 64) {
-            throw invalid("Arquivo de imagem vazio ou corrompido.");
+            throw invalida("Arquivo de imagem vazio ou corrompido.");
         }
         if (bytes.length > MAX_BYTES) {
-            throw invalid("A imagem deve ter no máximo 5 MB.");
+            throw invalida("A imagem deve ter no máximo 5 MB.");
         }
-        Format format = detectFormat(bytes);
-        acquireDecodeSlot();
-        BufferedImage output;
+        Format formato = detectarFormato(bytes);
+        reservarVagaDecodificacao();
+        BufferedImage saida;
         try {
-            output = resizeToRgb(decodeSafely(bytes, format), OUTPUT_MAX_SIDE);
+            saida = redimensionarParaRgb(decodificarComSeguranca(bytes, formato), OUTPUT_MAX_SIDE);
         } finally {
-            DECODE_SLOTS.release();
+            VAGAS_DECODIFICACAO.release();
         }
-        byte[] jpeg = encodeJpeg(output, 0.85f);
-        byte[] aiJpeg = Math.max(output.getWidth(), output.getHeight()) > AI_MAX_SIDE
-                ? encodeJpeg(resizeToRgb(output, AI_MAX_SIDE), 0.8f)
+        byte[] jpeg = codificarJpeg(saida, 0.85f);
+        byte[] jpegIa = Math.max(saida.getWidth(), saida.getHeight()) > AI_MAX_SIDE
+                ? codificarJpeg(redimensionarParaRgb(saida, AI_MAX_SIDE), 0.8f)
                 : jpeg;
-        return new ProcessedImage(jpeg, aiJpeg, output.getWidth(), output.getHeight(), PerceptualHash.dHash(output), sha256(bytes));
+        return new ProcessedImage(jpeg, jpegIa, saida.getWidth(), saida.getHeight(), PerceptualHash.dHash(saida), sha256(bytes));
     }
 
-    static Format detectFormat(byte[] b) {
+    static Format detectarFormato(byte[] b) {
         if (b.length > 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) {
             return Format.JPEG;
         }
         byte[] png = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
         if (b.length > png.length) {
-            boolean match = true;
+            boolean confere = true;
             for (int i = 0; i < png.length; i++) {
-                match &= b[i] == png[i];
+                confere &= b[i] == png[i];
             }
-            if (match) {
+            if (confere) {
                 return Format.PNG;
             }
         }
-        throw invalid("Formato não suportado. Envie uma foto JPEG ou PNG.");
+        throw invalida("Formato não suportado. Envie uma foto JPEG ou PNG.");
     }
 
-    private static BufferedImage decodeSafely(byte[] bytes, Format format) {
-        try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
-            Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName(format.name().toLowerCase());
-            if (!readers.hasNext() || in == null) {
-                throw invalid("Formato de imagem não suportado.");
+    private static BufferedImage decodificarComSeguranca(byte[] bytes, Format formato) {
+        try (ImageInputStream entrada = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            Iterator<ImageReader> leitores = ImageIO.getImageReadersByFormatName(formato.name().toLowerCase());
+            if (!leitores.hasNext() || entrada == null) {
+                throw invalida("Formato de imagem não suportado.");
             }
-            ImageReader reader = readers.next();
+            ImageReader leitor = leitores.next();
             try {
-                reader.setInput(in, true, true);
-                int width = reader.getWidth(0);
-                int height = reader.getHeight(0);
-                if (width < 16 || height < 16) {
-                    throw invalid("Imagem muito pequena.");
+                leitor.setInput(entrada, true, true);
+                int largura = leitor.getWidth(0);
+                int altura = leitor.getHeight(0);
+                if (largura < 16 || altura < 16) {
+                    throw invalida("Imagem muito pequena.");
                 }
-                if (width > MAX_DIMENSION || height > MAX_DIMENSION || (long) width * height > MAX_PIXELS) {
-                    throw invalid("Imagem muito grande (máximo 8000 x 8000 pixels).");
+                if (largura > MAX_DIMENSION || altura > MAX_DIMENSION || (long) largura * altura > MAX_PIXELS) {
+                    throw invalida("Imagem muito grande (máximo 8000 x 8000 pixels).");
                 }
                 // Subamostragem na leitura: imagens enormes são lidas já reduzidas (economiza memória)
-                ImageReadParam param = reader.getDefaultReadParam();
-                int factor = Math.max(1, Math.max(width, height) / (OUTPUT_MAX_SIDE * 2));
-                if (factor > 1) {
-                    param.setSourceSubsampling(factor, factor, 0, 0);
+                ImageReadParam parametros = leitor.getDefaultReadParam();
+                int fator = Math.max(1, Math.max(largura, altura) / (OUTPUT_MAX_SIDE * 2));
+                if (fator > 1) {
+                    parametros.setSourceSubsampling(fator, fator, 0, 0);
                 }
-                BufferedImage image = reader.read(0, param);
-                if (image == null) {
-                    throw invalid("Não foi possível ler a imagem.");
+                BufferedImage imagem = leitor.read(0, parametros);
+                if (imagem == null) {
+                    throw invalida("Não foi possível ler a imagem.");
                 }
-                return image;
+                return imagem;
             } finally {
-                reader.dispose();
+                leitor.dispose();
             }
         } catch (ApiException e) {
             throw e;
         } catch (IOException | RuntimeException e) {
-            throw invalid("Não foi possível ler a imagem. Verifique se o arquivo não está corrompido.");
+            throw invalida("Não foi possível ler a imagem. Verifique se o arquivo não está corrompido.");
         }
     }
 
     /** Redimensiona mantendo a proporção e converte para RGB (fundo branco onde havia transparência). */
-    static BufferedImage resizeToRgb(BufferedImage source, int maxSide) {
-        int w = source.getWidth();
-        int h = source.getHeight();
-        double scale = Math.min(1.0, (double) maxSide / Math.max(w, h));
-        int targetW = Math.max(1, (int) Math.round(w * scale));
-        int targetH = Math.max(1, (int) Math.round(h * scale));
-        BufferedImage out = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = out.createGraphics();
+    static BufferedImage redimensionarParaRgb(BufferedImage origem, int ladoMaximo) {
+        int w = origem.getWidth();
+        int h = origem.getHeight();
+        double escala = Math.min(1.0, (double) ladoMaximo / Math.max(w, h));
+        int larguraAlvo = Math.max(1, (int) Math.round(w * escala));
+        int alturaAlvo = Math.max(1, (int) Math.round(h * escala));
+        BufferedImage destino = new BufferedImage(larguraAlvo, alturaAlvo, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = destino.createGraphics();
         try {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             g.setColor(Color.WHITE);
-            g.fillRect(0, 0, targetW, targetH);
-            g.drawImage(source, 0, 0, targetW, targetH, null);
+            g.fillRect(0, 0, larguraAlvo, alturaAlvo);
+            g.drawImage(origem, 0, 0, larguraAlvo, alturaAlvo, null);
         } finally {
             g.dispose();
         }
-        return out;
+        return destino;
     }
 
-    private static byte[] encodeJpeg(BufferedImage image, float quality) {
-        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream(); ImageOutputStream out = ImageIO.createImageOutputStream(bos)) {
-            writer.setOutput(out);
-            ImageWriteParam param = writer.getDefaultWriteParam();
-            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            param.setCompressionQuality(quality);
-            writer.write(null, new IIOImage(image, null, null), param); // sem metadados: EXIF descartado
-            out.flush();
+    private static byte[] codificarJpeg(BufferedImage imagem, float qualidade) {
+        ImageWriter escritor = ImageIO.getImageWritersByFormatName("jpeg").next();
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream(); ImageOutputStream destino = ImageIO.createImageOutputStream(bos)) {
+            escritor.setOutput(destino);
+            ImageWriteParam parametros = escritor.getDefaultWriteParam();
+            parametros.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            parametros.setCompressionQuality(qualidade);
+            escritor.write(null, new IIOImage(imagem, null, null), parametros); // sem metadados: EXIF descartado
+            destino.flush();
             return bos.toByteArray();
         } catch (IOException e) {
             throw new IllegalStateException("Falha ao codificar JPEG", e);
         } finally {
-            writer.dispose();
+            escritor.dispose();
         }
     }
 
@@ -197,7 +197,7 @@ public class ImageProcessor {
         }
     }
 
-    private static ApiException invalid(String detail) {
-        return new ApiException(ErrorCode.INVALID_IMAGE, detail);
+    private static ApiException invalida(String detalhe) {
+        return new ApiException(ErrorCode.INVALID_IMAGE, detalhe);
     }
 }

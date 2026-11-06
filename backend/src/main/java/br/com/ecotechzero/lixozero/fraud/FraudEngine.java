@@ -19,34 +19,34 @@ public class FraudEngine {
 
     private static final Logger log = LoggerFactory.getLogger(FraudEngine.class);
 
-    private final List<FraudRule> rules;
-    private final int threshold;
+    private final List<FraudRule> regras;
+    private final int limite;
 
-    public FraudEngine(List<FraudRule> rules, AppProperties props) {
-        this.rules = List.copyOf(rules);
-        this.threshold = props.fraudThreshold();
+    public FraudEngine(List<FraudRule> regras, AppProperties propriedades) {
+        this.regras = List.copyOf(regras);
+        this.limite = propriedades.fraudThreshold();
     }
 
     public record FraudAssessment(int score, List<String> flags, boolean flagged, List<FraudSignal> signals) {
     }
 
-    public FraudAssessment assess(FraudContext context) {
-        List<FraudSignal> signals = new ArrayList<>();
-        for (FraudRule rule : rules) {
+    public FraudAssessment avaliar(FraudContext contexto) {
+        List<FraudSignal> sinais = new ArrayList<>();
+        for (FraudRule regra : regras) {
             try {
-                Optional<FraudSignal> signal = rule.evaluate(context);
-                signal.ifPresent(signals::add);
+                Optional<FraudSignal> sinal = regra.avaliar(contexto);
+                sinal.ifPresent(sinais::add);
             } catch (RuntimeException e) {
                 // uma regra com problema não pode impedir o registro do descarte
-                log.warn("Regra antifraude {} falhou: {}", rule.code(), e.toString());
+                log.warn("Regra antifraude {} falhou: {}", regra.codigo(), e.toString());
             }
         }
-        int score = Math.min(100, signals.stream().mapToInt(FraudSignal::score).sum());
-        List<String> flags = signals.stream().map(FraudSignal::message).toList();
-        return new FraudAssessment(score, flags, score >= threshold, signals);
+        int pontuacao = Math.min(100, sinais.stream().mapToInt(FraudSignal::score).sum());
+        List<String> alertas = sinais.stream().map(FraudSignal::message).toList();
+        return new FraudAssessment(pontuacao, alertas, pontuacao >= limite, sinais);
     }
 
-    public int threshold() {
-        return threshold;
+    public int limite() {
+        return limite;
     }
 }

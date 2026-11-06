@@ -33,22 +33,22 @@ public class SignedProxyFilter extends OncePerRequestFilter {
     static final String CLIENT_IP_HEADER = "x-nf-client-connection-ip";
     static final String HEALTH_PATH = "/actuator/health";
 
-    private final SecretKey key;
-    private final ProblemResponseWriter problems;
+    private final SecretKey chave;
+    private final ProblemResponseWriter problemas;
 
-    public SignedProxyFilter(@Value("${app.proxy.signing-secret:}") String secret, ProblemResponseWriter problems) {
-        this.key = secret.isBlank() ? null : Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.problems = problems;
+    public SignedProxyFilter(@Value("${app.proxy.signing-secret:}") String segredo, ProblemResponseWriter problemas) {
+        this.chave = segredo.isBlank() ? null : Keys.hmacShaKeyFor(segredo.getBytes(StandardCharsets.UTF_8));
+        this.problemas = problemas;
     }
 
     /** Assinatura exigida em tudo; só a checagem de saúde do Render fica de fora (caminho já decodificado). */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return key == null || HEALTH_PATH.equals(request.getServletPath());
+        return chave == null || HEALTH_PATH.equals(request.getServletPath());
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadeia)
             throws ServletException, IOException {
         // 1. Sem assinatura válida do Netlify (ex.: alguém chamando o Render direto), responde 403.
         String token = request.getHeader(SIGNATURE_HEADER);
@@ -56,17 +56,17 @@ public class SignedProxyFilter extends OncePerRequestFilter {
             if (token == null) {
                 throw new JwtException("sem assinatura");
             }
-            Jwts.parser().verifyWith(key).requireIssuer("netlify").build().parseSignedClaims(token);
+            Jwts.parser().verifyWith(chave).requireIssuer("netlify").build().parseSignedClaims(token);
         } catch (JwtException | IllegalArgumentException e) {
-            problems.write(response, ErrorCode.FORBIDDEN, 403, "Acesso permitido apenas pelo site oficial.", null);
+            problemas.escrever(response, ErrorCode.FORBIDDEN, 403, "Acesso permitido apenas pelo site oficial.", null);
             return;
         }
         // 2. Assinatura ok: troca o IP do proxy pelo IP real do visitante e segue a fila.
-        String clientIp = clientIp(request);
-        chain.doFilter(clientIp == null ? request : new HttpServletRequestWrapper(request) {
+        String ipCliente = ipCliente(request);
+        cadeia.doFilter(ipCliente == null ? request : new HttpServletRequestWrapper(request) {
             @Override
             public String getRemoteAddr() {
-                return clientIp;
+                return ipCliente;
             }
         }, response);
     }
@@ -75,7 +75,7 @@ public class SignedProxyFilter extends OncePerRequestFilter {
      * IP real do visitante, definido pelo próprio Netlify. X-Forwarded-For não é usado: o visitante
      * pode preenchê-lo e burlar os limites. Sem o cabeçalho, mantém o IP da conexão.
      */
-    static String clientIp(HttpServletRequest request) {
+    static String ipCliente(HttpServletRequest request) {
         String ip = request.getHeader(CLIENT_IP_HEADER);
         return ip == null || ip.isBlank() ? null : ip.trim();
     }

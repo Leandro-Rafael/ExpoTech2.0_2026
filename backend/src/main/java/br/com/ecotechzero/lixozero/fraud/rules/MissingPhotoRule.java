@@ -15,14 +15,14 @@ public class MissingPhotoRule implements FraudRule {
     static final int SCORE = 15;
 
     @Override
-    public String code() {
+    public String codigo() {
         return "SEM_FOTO";
     }
 
     @Override
-    public Optional<FraudSignal> evaluate(FraudContext ctx) {
-        if (ctx.photo() == null && ctx.quantityKg() > MIN_KG) {
-            return Optional.of(new FraudSignal(code(), SCORE, "Descarte acima de 5 kg sem foto de comprovação."));
+    public Optional<FraudSignal> avaliar(FraudContext contexto) {
+        if (contexto.photo() == null && contexto.quantityKg() > MIN_KG) {
+            return Optional.of(new FraudSignal(codigo(), SCORE, "Descarte acima de 5 kg sem foto de comprovação."));
         }
         return Optional.empty();
     }

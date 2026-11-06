@@ -12,17 +12,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class IntegrityController {
 
-    private final IntegrityService service;
-    private final TokenBucketRateLimiter limiter;
+    private final IntegrityService servico;
+    private final TokenBucketRateLimiter limitador;
 
-    public IntegrityController(IntegrityService service, TokenBucketRateLimiter limiter) {
-        this.service = service;
-        this.limiter = limiter;
+    public IntegrityController(IntegrityService servico, TokenBucketRateLimiter limitador) {
+        this.servico = servico;
+        this.limitador = limitador;
     }
 
     @GetMapping("/api/admin/integrity")
-    public ResponseEntity<IntegrityService.IntegrityReport> integrity(@AuthenticationPrincipal AuthUser me) {
-        limiter.check(TokenBucketRateLimiter.Policy.INTEGRITY_CHECK_USER, me.id().toString());
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.verify());
+    public ResponseEntity<IntegrityService.IntegrityReport> integridade(@AuthenticationPrincipal AuthUser logado) {
+        limitador.verificar(TokenBucketRateLimiter.Policy.INTEGRITY_CHECK_USER, logado.id().toString());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(servico.verificar());
     }
 }

@@ -90,33 +90,33 @@ public class User extends BaseEntity {
         this.role = role;
     }
 
-    public boolean isLocked(Instant now) {
-        return lockedUntil != null && lockedUntil.isAfter(now);
+    public boolean isLocked(Instant agora) {
+        return lockedUntil != null && lockedUntil.isAfter(agora);
     }
 
     /** Credita pontos ganhos (aprovação ou bônus): aumenta saldo e total acumulado (que define o nível). */
-    public void earn(long amount) {
-        this.points += amount;
-        this.totalEarned += amount;
+    public void earn(long quantidade) {
+        this.points += quantidade;
+        this.totalEarned += quantidade;
     }
 
     /** Debita pontos (resgate). A verificação de saldo é feita antes pelo serviço. */
-    public void spend(long amount) {
-        this.points -= amount;
+    public void spend(long quantidade) {
+        this.points -= quantidade;
     }
 
-    public boolean isSecurityLocked(Instant now) {
-        return securityLockedUntil != null && securityLockedUntil.isAfter(now);
+    public boolean isSecurityLocked(Instant agora) {
+        return securityLockedUntil != null && securityLockedUntil.isAfter(agora);
     }
 
     /** Avisos vigentes: depois que o bloqueio expira, a contagem recomeça do zero. */
-    public int activeSecurityWarnings(Instant now) {
-        return securityLockedUntil != null && !securityLockedUntil.isAfter(now) ? 0 : securityWarnings;
+    public int activeSecurityWarnings(Instant agora) {
+        return securityLockedUntil != null && !securityLockedUntil.isAfter(agora) ? 0 : securityWarnings;
     }
 
     /** Zera avisos e bloqueio de inspeção já vencidos. */
-    public void clearExpiredSecurityLock(Instant now) {
-        if (securityLockedUntil != null && !securityLockedUntil.isAfter(now)) {
+    public void clearExpiredSecurityLock(Instant agora) {
+        if (securityLockedUntil != null && !securityLockedUntil.isAfter(agora)) {
             securityWarnings = 0;
             securityLockedUntil = null;
             securityLastEventAt = null;
@@ -124,11 +124,11 @@ public class User extends BaseEntity {
     }
 
     /** Conta um aviso; ao atingir o máximo, bloqueia até {@code now + lockDuration}. Devolve true se bloqueou agora. */
-    public boolean registerSecurityWarning(Instant now, int maxWarnings, java.time.Duration lockDuration) {
-        securityWarnings = Math.min(maxWarnings, securityWarnings + 1);
-        securityLastEventAt = now;
-        if (securityWarnings >= maxWarnings) {
-            securityLockedUntil = now.plus(lockDuration);
+    public boolean registerSecurityWarning(Instant agora, int maximoAvisos, java.time.Duration duracaoBloqueio) {
+        securityWarnings = Math.min(maximoAvisos, securityWarnings + 1);
+        securityLastEventAt = agora;
+        if (securityWarnings >= maximoAvisos) {
+            securityLockedUntil = agora.plus(duracaoBloqueio);
             return true;
         }
         return false;

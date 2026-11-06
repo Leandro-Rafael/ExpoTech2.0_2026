@@ -28,70 +28,70 @@ public class LoginAttemptService {
     /** Teto de e-mails acompanhados em memória (o rate limit por IP já limita o ritmo de novas entradas). */
     static final int MAX_TRACKED = 50_000;
 
-    private record Attempt(int failures, Instant lastFailure, Instant lockedUntil) {
+    private record Attempt(int falhas, Instant ultimaFalha, Instant bloqueadoAte) {
     }
 
-    private final Map<String, Attempt> attempts = new ConcurrentHashMap<>();
-    private final UserRepository users;
-    private final Clock clock;
+    private final Map<String, Attempt> tentativas = new ConcurrentHashMap<>();
+    private final UserRepository usuarios;
+    private final Clock relogio;
 
-    public LoginAttemptService(UserRepository users, Clock clock) {
-        this.users = users;
-        this.clock = clock;
+    public LoginAttemptService(UserRepository usuarios, Clock relogio) {
+        this.usuarios = usuarios;
+        this.relogio = relogio;
     }
 
     /** Tempo restante de bloqueio, se houver. */
-    public Optional<Duration> lockRemaining(String email, User user) {
-        Instant now = clock.instant();
-        Instant until = null;
-        Attempt a = attempts.get(email);
-        if (a != null && a.lockedUntil() != null && a.lockedUntil().isAfter(now)) {
-            until = a.lockedUntil();
+    public Optional<Duration> tempoBloqueioRestante(String email, User usuario) {
+        Instant agora = relogio.instant();
+        Instant ate = null;
+        Attempt a = tentativas.get(email);
+        if (a != null && a.bloqueadoAte() != null && a.bloqueadoAte().isAfter(agora)) {
+            ate = a.bloqueadoAte();
         }
-        if (user != null && user.isLocked(now) && (until == null || user.getLockedUntil().isAfter(until))) {
-            until = user.getLockedUntil();
+        if (usuario != null && usuario.isLocked(agora) && (ate == null || usuario.getLockedUntil().isAfter(ate))) {
+            ate = usuario.getLockedUntil();
         }
-        return until == null ? Optional.empty() : Optional.of(Duration.between(now, until));
+        return ate == null ? Optional.empty() : Optional.of(Duration.between(agora, ate));
     }
 
     /** Registra uma falha. Devolve true se esta falha disparou o bloqueio. */
     @Transactional
-    public boolean recordFailure(String email, User user) {
-        Instant now = clock.instant();
-        if (attempts.size() >= MAX_TRACKED && !attempts.containsKey(email)) {
-            evictStale(); // memória limitada: e-mails inventados não podem crescer o mapa sem fim
-            if (attempts.size() >= MAX_TRACKED) {
+    public boolean registrarFalha(String email, User usuario) {
+        Instant agora = relogio.instant();
+        if (tentativas.size() >= MAX_TRACKED && !tentativas.containsKey(email)) {
+            removerAntigas(); // memória limitada: e-mails inventados não podem crescer o mapa sem fim
+            if (tentativas.size() >= MAX_TRACKED) {
                 // ainda cheio: descarta contadores parciais (bloqueios ativos e o estado no banco são mantidos)
-                attempts.values().removeIf(a -> a.lockedUntil() == null);
+                tentativas.values().removeIf(a -> a.bloqueadoAte() == null);
             }
         }
-        Attempt updated = attempts.compute(email, (k, old) -> {
-            int previous = old == null || old.lastFailure().plus(LOCK_DURATION).isBefore(now) ? 0 : old.failures();
-            int failures = previous + 1;
-            Instant lockedUntil = failures >= MAX_FAILURES ? now.plus(LOCK_DURATION) : null;
-            return new Attempt(lockedUntil != null ? 0 : failures, now, lockedUntil);
+        Attempt atualizada = tentativas.compute(email, (k, anterior) -> {
+            int falhasAnteriores = anterior == null || anterior.ultimaFalha().plus(LOCK_DURATION).isBefore(agora) ? 0 : anterior.falhas();
+            int falhas = falhasAnteriores + 1;
+            Instant bloqueadoAte = falhas >= MAX_FAILURES ? agora.plus(LOCK_DURATION) : null;
+            return new Attempt(bloqueadoAte != null ? 0 : falhas, agora, bloqueadoAte);
         });
-        if (user != null) {
-            users.updateLoginFailures(user.getId(), updated.lockedUntil() != null ? MAX_FAILURES : updated.failures(), updated.lockedUntil());
+        if (usuario != null) {
+            usuarios.updateLoginFailures(usuario.getId(), atualizada.bloqueadoAte() != null ? MAX_FAILURES : atualizada.falhas(), atualizada.bloqueadoAte());
         }
-        return updated.lockedUntil() != null;
+        return atualizada.bloqueadoAte() != null;
     }
 
     @Transactional
-    public void recordSuccess(String email, User user) {
-        attempts.remove(email);
-        users.registerSuccessfulLogin(user.getId(), clock.instant());
+    public void registrarSucesso(String email, User usuario) {
+        tentativas.remove(email);
+        usuarios.registerSuccessfulLogin(usuario.getId(), relogio.instant());
     }
 
     /** Usado pelo admin ao reativar uma conta. */
-    public void clear(String email) {
-        attempts.remove(email);
+    public void limpar(String email) {
+        tentativas.remove(email);
     }
 
     @Scheduled(fixedDelay = 600_000)
-    public void evictStale() {
-        Instant cutoff = clock.instant().minus(LOCK_DURATION);
-        attempts.values().removeIf(a -> a.lastFailure().isBefore(cutoff)
-                && (a.lockedUntil() == null || a.lockedUntil().isBefore(clock.instant())));
+    public void removerAntigas() {
+        Instant limite = relogio.instant().minus(LOCK_DURATION);
+        tentativas.values().removeIf(a -> a.ultimaFalha().isBefore(limite)
+                && (a.bloqueadoAte() == null || a.bloqueadoAte().isBefore(relogio.instant())));
     }
 }

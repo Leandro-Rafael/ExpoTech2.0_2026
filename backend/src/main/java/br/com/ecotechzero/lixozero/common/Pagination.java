@@ -7,14 +7,14 @@ import org.springframework.data.domain.Sort;
 public final class Pagination {
 
     public static final int MAX_SIZE = 100;
-    private static final int MAX_PAGE = 10_000;
+    private static final int PAGINA_MAXIMA = 10_000;
 
     private Pagination() {
     }
 
-    public static PageRequest of(Integer page, Integer size, Sort sort) {
-        int p = page == null ? 0 : Math.clamp(page, 0, MAX_PAGE);
-        int s = size == null ? 20 : Math.clamp(size, 1, MAX_SIZE);
-        return PageRequest.of(p, s, sort);
+    public static PageRequest criar(Integer pagina, Integer tamanho, Sort ordenacao) {
+        int p = pagina == null ? 0 : Math.clamp(pagina, 0, PAGINA_MAXIMA);
+        int s = tamanho == null ? 20 : Math.clamp(tamanho, 1, MAX_SIZE);
+        return PageRequest.of(p, s, ordenacao);
     }
 }

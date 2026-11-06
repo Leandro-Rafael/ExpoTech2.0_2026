@@ -14,10 +14,10 @@ public class AiConfig {
     private static final Logger log = LoggerFactory.getLogger(AiConfig.class);
 
     @Bean
-    public WasteClassifier wasteClassifier(AppProperties props, JsonMapper jsonMapper) {
-        if (props.ai().enabled()) {
-            log.info("IA de classificação habilitada (modelo {})", props.ai().model());
-            return new ClaudeVisionClassifier(props.ai(), jsonMapper);
+    public WasteClassifier wasteClassifier(AppProperties propriedades, JsonMapper mapeadorJson) {
+        if (propriedades.ai().enabled()) {
+            log.info("IA de classificação habilitada (modelo {})", propriedades.ai().model());
+            return new ClaudeVisionClassifier(propriedades.ai(), mapeadorJson);
         }
         log.info("ANTHROPIC_API_KEY ausente: IA do servidor indisponível (o front-end usará o modelo local)");
         return new UnavailableClassifier();

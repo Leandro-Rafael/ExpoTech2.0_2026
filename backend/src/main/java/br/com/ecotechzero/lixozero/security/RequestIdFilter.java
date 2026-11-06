@@ -24,19 +24,19 @@ import java.util.regex.Pattern;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestIdFilter extends OncePerRequestFilter {
 
-    private static final Pattern SAFE_ID = Pattern.compile("^[A-Za-z0-9-]{8,64}$");
+    private static final Pattern ID_SEGURO = Pattern.compile("^[A-Za-z0-9-]{8,64}$");
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadeia)
             throws ServletException, IOException {
-        String incoming = request.getHeader(RequestIdFilterConstants.HEADER);
-        String requestId = incoming != null && SAFE_ID.matcher(incoming).matches()
-                ? incoming
+        String recebido = request.getHeader(RequestIdFilterConstants.HEADER);
+        String idRequisicao = recebido != null && ID_SEGURO.matcher(recebido).matches()
+                ? recebido
                 : UUID.randomUUID().toString().substring(0, 13);
-        MDC.put(RequestIdFilterConstants.MDC_KEY, requestId);
-        response.setHeader(RequestIdFilterConstants.HEADER, requestId);
+        MDC.put(RequestIdFilterConstants.MDC_KEY, idRequisicao);
+        response.setHeader(RequestIdFilterConstants.HEADER, idRequisicao);
         try {
-            chain.doFilter(request, response);
+            cadeia.doFilter(request, response);
         } finally {
             MDC.remove(RequestIdFilterConstants.MDC_KEY);
         }

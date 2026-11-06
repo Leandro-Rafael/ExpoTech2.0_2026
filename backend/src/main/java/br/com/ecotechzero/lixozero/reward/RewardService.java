@@ -28,103 +28,103 @@ import java.util.UUID;
 @Service
 public class RewardService {
 
-    private static final String VOUCHER_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final String ALFABETO_VOUCHER = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final SecureRandom ALEATORIO = new SecureRandom();
 
-    private final RewardRepository rewards;
-    private final RedemptionRepository redemptions;
-    private final PointsService points;
+    private final RewardRepository recompensas;
+    private final RedemptionRepository resgates;
+    private final PointsService pontos;
     private final EntityManager em;
-    private final AuditService audit;
-    private final TokenBucketRateLimiter limiter;
-    private final Clock clock;
+    private final AuditService auditoria;
+    private final TokenBucketRateLimiter limitador;
+    private final Clock relogio;
 
-    public RewardService(RewardRepository rewards, RedemptionRepository redemptions, PointsService points, EntityManager em,
-                         AuditService audit, TokenBucketRateLimiter limiter, Clock clock) {
-        this.rewards = rewards;
-        this.redemptions = redemptions;
-        this.points = points;
+    public RewardService(RewardRepository recompensas, RedemptionRepository resgates, PointsService pontos, EntityManager em,
+                         AuditService auditoria, TokenBucketRateLimiter limitador, Clock relogio) {
+        this.recompensas = recompensas;
+        this.resgates = resgates;
+        this.pontos = pontos;
         this.em = em;
-        this.audit = audit;
-        this.limiter = limiter;
-        this.clock = clock;
+        this.auditoria = auditoria;
+        this.limitador = limitador;
+        this.relogio = relogio;
     }
 
     @Transactional(readOnly = true)
-    public List<RewardDto> listActive() {
-        return rewards.findByActiveTrueOrderByCostPoints().stream().map(RewardDto::of).toList();
+    public List<RewardDto> listarAtivas() {
+        return recompensas.findByActiveTrueOrderByCostPoints().stream().map(RewardDto::of).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<RewardDto> listAll() {
-        return rewards.findAllByOrderByCostPoints().stream().map(RewardDto::of).toList();
+    public List<RewardDto> listarTodas() {
+        return recompensas.findAllByOrderByCostPoints().stream().map(RewardDto::of).toList();
     }
 
     @Transactional
-    public RedemptionDto redeem(UUID userId, UUID rewardId) {
+    public RedemptionDto resgatar(UUID usuarioId, UUID recompensaId) {
         // 1. Limite de frequência por usuário.
-        limiter.check(TokenBucketRateLimiter.Policy.REDEEM_USER, userId.toString());
+        limitador.verificar(TokenBucketRateLimiter.Policy.REDEEM_USER, usuarioId.toString());
         // 2. Trava o usuário e depois a recompensa: dois resgates ao mesmo tempo não gastam o mesmo saldo
         //    nem a última unidade do estoque.
-        User user = points.lockUser(userId); // 1º lock: usuário
-        Reward reward = em.find(Reward.class, rewardId);
-        if (reward == null) {
-            throw ApiException.notFound("Recompensa não encontrada.");
+        User usuario = pontos.travarUsuario(usuarioId); // 1º lock: usuário
+        Reward recompensa = em.find(Reward.class, recompensaId);
+        if (recompensa == null) {
+            throw ApiException.naoEncontrado("Recompensa não encontrada.");
         }
-        em.refresh(reward, LockModeType.PESSIMISTIC_WRITE); // 2º lock: recompensa
+        em.refresh(recompensa, LockModeType.PESSIMISTIC_WRITE); // 2º lock: recompensa
         // 3. Confere se está ativa, se tem estoque e se o saldo cobre o custo.
-        if (!reward.isActive()) {
-            throw ApiException.notFound("Recompensa não encontrada.");
+        if (!recompensa.isActive()) {
+            throw ApiException.naoEncontrado("Recompensa não encontrada.");
         }
-        if (reward.getStock() <= 0) {
+        if (recompensa.getStock() <= 0) {
             throw new ApiException(ErrorCode.OUT_OF_STOCK, "Esta recompensa está esgotada.");
         }
-        if (user.getPoints() < reward.getCostPoints()) {
+        if (usuario.getPoints() < recompensa.getCostPoints()) {
             throw new ApiException(ErrorCode.INSUFFICIENT_POINTS,
-                    "Saldo insuficiente: você tem " + user.getPoints() + " pontos e a recompensa custa " + reward.getCostPoints() + ".");
+                    "Saldo insuficiente: você tem " + usuario.getPoints() + " pontos e a recompensa custa " + recompensa.getCostPoints() + ".");
         }
         // 4. Baixa o estoque e grava o resgate com um código de voucher único (LZ50-XXXX-XXXX).
-        reward.decrementStock();
-        Redemption redemption = redemptions.save(new Redemption(user, reward, reward.getCostPoints(), newVoucherCode()));
+        recompensa.decrementStock();
+        Redemption resgate = resgates.save(new Redemption(usuario, recompensa, recompensa.getCostPoints(), novoCodigoVoucher()));
         // 5. Debita os pontos no extrato e registra na auditoria.
-        points.debit(userId, reward.getCostPoints(), "Resgate: " + reward.getName(), redemption, clock.instant());
-        audit.record(AuditAction.REWARD_REDEEMED, "Redemption", redemption.getId(), reward.getName() + " (" + reward.getCostPoints() + " pts)");
-        return RedemptionDto.of(redemption);
+        pontos.debitar(usuarioId, recompensa.getCostPoints(), "Resgate: " + recompensa.getName(), resgate, relogio.instant());
+        auditoria.registrar(AuditAction.REWARD_REDEEMED, "Redemption", resgate.getId(), recompensa.getName() + " (" + recompensa.getCostPoints() + " pts)");
+        return RedemptionDto.of(resgate);
     }
 
     @Transactional(readOnly = true)
-    public List<RedemptionDto> history(UUID userId) {
-        return redemptions.findByUserIdOrderByCreatedAtDesc(userId).stream().map(RedemptionDto::of).toList();
+    public List<RedemptionDto> historico(UUID usuarioId) {
+        return resgates.findByUserIdOrderByCreatedAtDesc(usuarioId).stream().map(RedemptionDto::of).toList();
     }
 
     @Transactional
-    public RewardDto create(RewardInput input) {
-        Reward reward = new Reward(input.name());
-        reward.apply(input);
-        rewards.save(reward);
-        audit.record(AuditAction.REWARD_CREATED, "Reward", reward.getId(), reward.getName());
-        return RewardDto.of(reward);
+    public RewardDto criar(RewardInput entrada) {
+        Reward recompensa = new Reward(entrada.name());
+        recompensa.apply(entrada);
+        recompensas.save(recompensa);
+        auditoria.registrar(AuditAction.REWARD_CREATED, "Reward", recompensa.getId(), recompensa.getName());
+        return RewardDto.of(recompensa);
     }
 
     @Transactional
-    public RewardDto update(UUID id, RewardInput input) {
-        Reward reward = rewards.findById(id).orElseThrow(() -> ApiException.notFound("Recompensa não encontrada."));
-        reward.apply(input);
-        audit.record(AuditAction.REWARD_UPDATED, "Reward", id, reward.getName());
-        return RewardDto.of(reward);
+    public RewardDto atualizar(UUID id, RewardInput entrada) {
+        Reward recompensa = recompensas.findById(id).orElseThrow(() -> ApiException.naoEncontrado("Recompensa não encontrada."));
+        recompensa.apply(entrada);
+        auditoria.registrar(AuditAction.REWARD_UPDATED, "Reward", id, recompensa.getName());
+        return RewardDto.of(recompensa);
     }
 
     /** Voucher no formato LZ50-XXXX-XXXX gerado com SecureRandom (imprevisível). */
-    String newVoucherCode() {
-        for (int attempt = 0; attempt < 10; attempt++) {
+    String novoCodigoVoucher() {
+        for (int tentativa = 0; tentativa < 10; tentativa++) {
             StringBuilder sb = new StringBuilder("LZ50-");
             for (int i = 0; i < 8; i++) {
                 if (i == 4) sb.append('-');
-                sb.append(VOUCHER_ALPHABET.charAt(RANDOM.nextInt(VOUCHER_ALPHABET.length())));
+                sb.append(ALFABETO_VOUCHER.charAt(ALEATORIO.nextInt(ALFABETO_VOUCHER.length())));
             }
-            String code = sb.toString();
-            if (!redemptions.existsByCode(code)) {
-                return code;
+            String codigo = sb.toString();
+            if (!resgates.existsByCode(codigo)) {
+                return codigo;
             }
         }
         throw new IllegalStateException("Não foi possível gerar um voucher único");

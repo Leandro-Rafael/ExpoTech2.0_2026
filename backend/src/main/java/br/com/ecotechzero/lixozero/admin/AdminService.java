@@ -49,101 +49,101 @@ import java.util.UUID;
 @Service
 public class AdminService {
 
-    private final UserRepository users;
-    private final DisposalRepository disposals;
-    private final CollectionRequestRepository requests;
-    private final PointTransactionRepository transactions;
-    private final RedemptionRepository redemptions;
-    private final RefreshTokenService refreshTokens;
-    private final LoginAttemptService loginAttempts;
-    private final AuditService audit;
+    private final UserRepository usuarios;
+    private final DisposalRepository descartes;
+    private final CollectionRequestRepository solicitacoes;
+    private final PointTransactionRepository transacoes;
+    private final RedemptionRepository resgates;
+    private final RefreshTokenService tokensRenovacao;
+    private final LoginAttemptService tentativasLogin;
+    private final AuditService auditoria;
     private final NamedParameterJdbcTemplate jdbc;
-    private final AppProperties props;
-    private final Clock clock;
+    private final AppProperties propriedades;
+    private final Clock relogio;
 
-    public AdminService(UserRepository users, DisposalRepository disposals, CollectionRequestRepository requests,
-                        PointTransactionRepository transactions, RedemptionRepository redemptions, RefreshTokenService refreshTokens,
-                        LoginAttemptService loginAttempts, AuditService audit, NamedParameterJdbcTemplate jdbc,
-                        AppProperties props, Clock clock) {
-        this.users = users;
-        this.disposals = disposals;
-        this.requests = requests;
-        this.transactions = transactions;
-        this.redemptions = redemptions;
-        this.refreshTokens = refreshTokens;
-        this.loginAttempts = loginAttempts;
-        this.audit = audit;
+    public AdminService(UserRepository usuarios, DisposalRepository descartes, CollectionRequestRepository solicitacoes,
+                        PointTransactionRepository transacoes, RedemptionRepository resgates, RefreshTokenService tokensRenovacao,
+                        LoginAttemptService tentativasLogin, AuditService auditoria, NamedParameterJdbcTemplate jdbc,
+                        AppProperties propriedades, Clock relogio) {
+        this.usuarios = usuarios;
+        this.descartes = descartes;
+        this.solicitacoes = solicitacoes;
+        this.transacoes = transacoes;
+        this.resgates = resgates;
+        this.tokensRenovacao = tokensRenovacao;
+        this.tentativasLogin = tentativasLogin;
+        this.auditoria = auditoria;
         this.jdbc = jdbc;
-        this.props = props;
-        this.clock = clock;
+        this.propriedades = propriedades;
+        this.relogio = relogio;
     }
 
     @Transactional(readOnly = true)
-    public AdminOverview overview() {
-        Instant now = clock.instant();
-        var params = new MapSqlParameterSource().addValue("zone", props.zone());
+    public AdminOverview visaoGeral() {
+        Instant agora = relogio.instant();
+        var parametros = new MapSqlParameterSource().addValue("zone", propriedades.zone());
         Map<String, Object> kg = jdbc.queryForMap("""
                 select coalesce(sum(d.quantity_kg), 0) as total,
                        coalesce(sum(d.quantity_kg) filter (where c.recyclable), 0) as recycled
                 from disposals d join categories c on c.id = d.category_id where d.status = 'APPROVED'
-                """, params);
-        Long bins = jdbc.queryForObject(
-                "select count(*) from smart_bins where fill_level >= least(auto_request_threshold, 90)", params, Long.class);
+                """, parametros);
+        Long lixeirasCheias = jdbc.queryForObject(
+                "select count(*) from smart_bins where fill_level >= least(auto_request_threshold, 90)", parametros, Long.class);
 
-        LocalDate today = LocalDate.now(clock.withZone(props.zoneId()));
-        LocalDate first = today.minusDays(13);
-        params.addValue("from", Timestamp.from(first.atStartOfDay(props.zoneId()).toInstant()));
-        Map<LocalDate, DayPoint> byDay = new HashMap<>();
+        LocalDate hoje = LocalDate.now(relogio.withZone(propriedades.zoneId()));
+        LocalDate primeiroDia = hoje.minusDays(13);
+        parametros.addValue("from", Timestamp.from(primeiroDia.atStartOfDay(propriedades.zoneId()).toInstant()));
+        Map<LocalDate, DayPoint> porDia = new HashMap<>();
         jdbc.query("""
                 select cast(disposed_at at time zone :zone as date) as day, count(*) as cnt, sum(quantity_kg) as kg
                 from disposals where disposed_at >= :from and status <> 'REJECTED' group by day
-                """, params, rs -> {
-            LocalDate day = rs.getObject("day", Date.class).toLocalDate();
-            byDay.put(day, new DayPoint(day, rs.getLong("cnt"), Numbers.round2(rs.getDouble("kg"))));
+                """, parametros, rs -> {
+            LocalDate dia = rs.getObject("day", Date.class).toLocalDate();
+            porDia.put(dia, new DayPoint(dia, rs.getLong("cnt"), Numbers.arredondar2(rs.getDouble("kg"))));
         });
-        List<DayPoint> series = new ArrayList<>();
-        for (LocalDate d = first; !d.isAfter(today); d = d.plusDays(1)) {
-            series.add(byDay.getOrDefault(d, new DayPoint(d, 0, 0)));
+        List<DayPoint> serie = new ArrayList<>();
+        for (LocalDate d = primeiroDia; !d.isAfter(hoje); d = d.plusDays(1)) {
+            serie.add(porDia.getOrDefault(d, new DayPoint(d, 0, 0)));
         }
-        return new AdminOverview(users.count(), users.countActiveSince(now.minus(Duration.ofDays(30))),
-                disposals.countByStatus(DisposalStatus.PENDING), disposals.countByStatusAndFlaggedTrue(DisposalStatus.PENDING),
-                requests.countByStatusIn(CollectionRequestStatus.OPEN), bins == null ? 0 : bins,
-                Numbers.round2(Numbers.toDouble(kg.get("total"))), Numbers.round2(Numbers.toDouble(kg.get("recycled"))),
-                transactions.totalIssued(), redemptions.count(), series, audit.recent());
+        return new AdminOverview(usuarios.count(), usuarios.countActiveSince(agora.minus(Duration.ofDays(30))),
+                descartes.countByStatus(DisposalStatus.PENDING), descartes.countByStatusAndFlaggedTrue(DisposalStatus.PENDING),
+                solicitacoes.countByStatusIn(CollectionRequestStatus.OPEN), lixeirasCheias == null ? 0 : lixeirasCheias,
+                Numbers.arredondar2(Numbers.paraDouble(kg.get("total"))), Numbers.arredondar2(Numbers.paraDouble(kg.get("recycled"))),
+                transacoes.totalIssued(), resgates.count(), serie, auditoria.recentes());
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<AdminUser> searchUsers(String q, Role role, Integer page, Integer size) {
-        String cleaned = Text.clean(q);
-        String pattern = cleaned == null ? null : "%" + Text.truncate(cleaned, 100).toLowerCase(Locale.ROOT)
+    public PageResponse<AdminUser> buscarUsuarios(String busca, Role perfil, Integer pagina, Integer tamanho) {
+        String limpo = Text.limpar(busca);
+        String padrao = limpo == null ? null : "%" + Text.truncar(limpo, 100).toLowerCase(Locale.ROOT)
                 .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
-        var pageable = Pagination.of(page, size, Sort.by("name"));
-        return PageResponse.of(users.search(pattern, role, pageable), this::toAdminUser);
+        var paginacao = Pagination.criar(pagina, tamanho, Sort.by("name"));
+        return PageResponse.of(usuarios.search(padrao, perfil, paginacao), this::paraAdminUser);
     }
 
     @Transactional
-    public AdminUser updateUser(AuthUser admin, UUID id, UpdateUserRequest request) {
-        User user = users.findById(id).orElseThrow(() -> ApiException.notFound("Usuário não encontrado."));
-        if (user.getId().equals(admin.id()) && (request.role() != null || Boolean.FALSE.equals(request.enabled()))) {
-            throw ApiException.business("Você não pode alterar o próprio perfil nem desativar a própria conta.");
+    public AdminUser atualizarUsuario(AuthUser adminLogado, UUID id, UpdateUserRequest dados) {
+        User usuario = usuarios.findById(id).orElseThrow(() -> ApiException.naoEncontrado("Usuário não encontrado."));
+        if (usuario.getId().equals(adminLogado.id()) && (dados.role() != null || Boolean.FALSE.equals(dados.enabled()))) {
+            throw ApiException.regraNegocio("Você não pode alterar o próprio perfil nem desativar a própria conta.");
         }
-        if (request.role() != null && request.role() != user.getRole()) {
-            audit.record(AuditAction.USER_ROLE_CHANGED, "User", id, user.getRole() + " -> " + request.role());
-            user.setRole(request.role()); // vale na próxima requisição: o filtro JWT relê o perfil do banco
+        if (dados.role() != null && dados.role() != usuario.getRole()) {
+            auditoria.registrar(AuditAction.USER_ROLE_CHANGED, "User", id, usuario.getRole() + " -> " + dados.role());
+            usuario.setRole(dados.role()); // vale na próxima requisição: o filtro JWT relê o perfil do banco
         }
-        if (request.enabled() != null && request.enabled() != user.isEnabled()) {
-            user.setEnabled(request.enabled());
-            audit.record(AuditAction.USER_ENABLED_CHANGED, "User", id, request.enabled() ? "reativado" : "desativado");
-            if (!request.enabled()) {
-                refreshTokens.revokeAllForUser(id, RefreshToken.REASON_DISABLED);
+        if (dados.enabled() != null && dados.enabled() != usuario.isEnabled()) {
+            usuario.setEnabled(dados.enabled());
+            auditoria.registrar(AuditAction.USER_ENABLED_CHANGED, "User", id, dados.enabled() ? "reativado" : "desativado");
+            if (!dados.enabled()) {
+                tokensRenovacao.revogarTodasDoUsuario(id, RefreshToken.REASON_DISABLED);
             }
         }
-        if (Boolean.TRUE.equals(request.enabled())) {
-            user.setFailedLoginAttempts(0);
-            user.setLockedUntil(null);
-            loginAttempts.clear(user.getEmail());
+        if (Boolean.TRUE.equals(dados.enabled())) {
+            usuario.setFailedLoginAttempts(0);
+            usuario.setLockedUntil(null);
+            tentativasLogin.limpar(usuario.getEmail());
         }
-        return toAdminUser(user);
+        return paraAdminUser(usuario);
     }
 
     /**
@@ -151,39 +151,39 @@ public class AdminService {
      * e o bloqueio/avisos de inspeção. As sessões revogadas não voltam: o usuário faz login de novo.
      */
     @Transactional
-    public AdminUser unlockUser(UUID id) {
-        User user = users.findById(id).orElseThrow(() -> ApiException.notFound("Usuário não encontrado."));
-        Instant now = clock.instant();
-        String before = "senha: " + (user.isLocked(now) ? "bloqueado" : "livre") + ", inspeção: "
-                + (user.isSecurityLocked(now) ? "bloqueado" : "livre") + ", avisos: " + user.activeSecurityWarnings(now);
-        user.unlockAll();
-        loginAttempts.clear(user.getEmail());
-        audit.record(AuditAction.USER_UNLOCKED, "User", id, before);
-        return toAdminUser(user);
+    public AdminUser desbloquearUsuario(UUID id) {
+        User usuario = usuarios.findById(id).orElseThrow(() -> ApiException.naoEncontrado("Usuário não encontrado."));
+        Instant agora = relogio.instant();
+        String antes = "senha: " + (usuario.isLocked(agora) ? "bloqueado" : "livre") + ", inspeção: "
+                + (usuario.isSecurityLocked(agora) ? "bloqueado" : "livre") + ", avisos: " + usuario.activeSecurityWarnings(agora);
+        usuario.unlockAll();
+        tentativasLogin.limpar(usuario.getEmail());
+        auditoria.registrar(AuditAction.USER_UNLOCKED, "User", id, antes);
+        return paraAdminUser(usuario);
     }
 
     @Transactional(readOnly = true)
-    public List<UserRef> collectors() {
-        List<UserRef> list = new ArrayList<>();
-        users.findByRoleAndEnabledTrueOrderByName(Role.COLLECTOR).forEach(u -> list.add(UserRef.withEmail(u)));
-        return list;
+    public List<UserRef> coletores() {
+        List<UserRef> lista = new ArrayList<>();
+        usuarios.findByRoleAndEnabledTrueOrderByName(Role.COLLECTOR).forEach(u -> lista.add(UserRef.withEmail(u)));
+        return lista;
     }
 
-    private AdminUser toAdminUser(User u) {
-        Instant now = clock.instant();
-        boolean inspection = u.isSecurityLocked(now);
-        boolean password = u.isLocked(now);
-        String reason = null;
-        Instant until = null;
-        if (inspection && (!password || !u.getLockedUntil().isAfter(u.getSecurityLockedUntil()))) {
-            reason = "INSPECTION";
-            until = u.getSecurityLockedUntil();
-        } else if (password) {
-            reason = "PASSWORD";
-            until = u.getLockedUntil();
+    private AdminUser paraAdminUser(User u) {
+        Instant agora = relogio.instant();
+        boolean porInspecao = u.isSecurityLocked(agora);
+        boolean porSenha = u.isLocked(agora);
+        String motivo = null;
+        Instant ate = null;
+        if (porInspecao && (!porSenha || !u.getLockedUntil().isAfter(u.getSecurityLockedUntil()))) {
+            motivo = "INSPECTION";
+            ate = u.getSecurityLockedUntil();
+        } else if (porSenha) {
+            motivo = "PASSWORD";
+            ate = u.getLockedUntil();
         }
-        return new AdminUser(u.getId(), u.getName(), u.getEmail(), u.getRole(), u.isEnabled(), inspection || password,
-                reason, until, u.activeSecurityWarnings(now), u.getPoints(), u.getTotalEarned(),
+        return new AdminUser(u.getId(), u.getName(), u.getEmail(), u.getRole(), u.isEnabled(), porInspecao || porSenha,
+                motivo, ate, u.activeSecurityWarnings(agora), u.getPoints(), u.getTotalEarned(),
                 u.getHousehold() == null ? null : u.getHousehold().getName(), u.getCreatedAt(), u.getLastLoginAt());
     }
 }

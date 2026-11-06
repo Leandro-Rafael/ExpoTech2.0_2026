@@ -11,7 +11,7 @@ import {
   Car, Popcorn, Pizza, IceCreamCone, Film, Music, Tv, Plug, Footprints, type LucideIcon,
 } from 'lucide-react';
 
-export const ICONS: Record<string, LucideIcon> = {
+export const ICONES: Record<string, LucideIcon> = {
   apple: Apple, award: Award, battery: Battery, 'battery-charging': BatteryCharging, beer: Beer, bike: Bike,
   'book-open': BookOpen, 'bottle-wine': Wine, box: Box, bus: Bus, coffee: Coffee, cpu: Cpu, crown: Crown, cylinder: Cylinder,
   droplet: Droplet, droplets: Droplets, flame: Flame, flower: Flower2, 'flower-2': Flower2, gem: Gem, gift: Gift,
@@ -25,8 +25,8 @@ export const ICONS: Record<string, LucideIcon> = {
 };
 
 /** Resolve nome lucide (kebab-case ou PascalCase) → componente; fallback ♻. */
-export function iconByName(name: string | null | undefined, fallback: LucideIcon = Recycle): LucideIcon {
-  if (!name) return fallback;
-  const key = name.trim().replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-  return ICONS[key] ?? ICONS[key.replace(/-\d+$/, '')] ?? fallback;
+export function iconePorNome(nome: string | null | undefined, padrao: LucideIcon = Recycle): LucideIcon {
+  if (!nome) return padrao;
+  const chave = nome.trim().replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  return ICONES[chave] ?? ICONES[chave.replace(/-\d+$/, '')] ?? padrao;
 }

@@ -1,12 +1,12 @@
 /** Selo discreto "Modo demonstração" (DOM puro, fora do React), com botão de resetar os dados. */
-const DISMISS_KEY = 'lixozero2050.mock.bannerHidden';
+const CHAVE_OCULTAR = 'lixozero2050.mock.bannerHidden';
 
-export function mountBanner(onReset: () => void) {
+export function montarSelo(aoResetar: () => void) {
   try {
-    if (sessionStorage.getItem(DISMISS_KEY) === '1') return;
+    if (sessionStorage.getItem(CHAVE_OCULTAR) === '1') return;
   } catch { /* */ }
 
-  const mount = () => {
+  const montar = () => {
     if (document.getElementById('lz-mock-banner')) return;
     const el = document.createElement('div');
     el.id = 'lz-mock-banner';
@@ -19,17 +19,17 @@ export function mountBanner(onReset: () => void) {
       'box-shadow:0 6px 24px rgba(0,0,0,.25)', 'backdrop-filter:blur(6px)', '-webkit-backdrop-filter:blur(6px)', 'max-width:calc(100vw - 24px)',
     ].join(';');
 
-    const dot = document.createElement('span');
-    dot.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#84cc16;flex:none;box-shadow:0 0 0 3px rgba(132,204,22,.25)';
-    const label = document.createElement('span');
-    label.textContent = 'Modo demonstração — dados simulados';
-    label.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    const ponto = document.createElement('span');
+    ponto.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#84cc16;flex:none;box-shadow:0 0 0 3px rgba(132,204,22,.25)';
+    const rotulo = document.createElement('span');
+    rotulo.textContent = 'Modo demonstração — dados simulados';
+    rotulo.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
 
-    const btn = (text: string, title: string) => {
+    const botao = (texto: string, titulo: string) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.textContent = text;
-      b.title = title;
+      b.textContent = texto;
+      b.title = titulo;
       b.style.cssText = 'all:unset;cursor:pointer;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:#eafff3;font:600 12px/1.2 inherit;white-space:nowrap';
       b.onmouseenter = () => { b.style.background = 'rgba(255,255,255,.2)'; };
       b.onmouseleave = () => { b.style.background = 'rgba(255,255,255,.1)'; };
@@ -37,22 +37,22 @@ export function mountBanner(onReset: () => void) {
       b.onblur = () => { b.style.outline = 'none'; };
       return b;
     };
-    const reset = btn('Resetar dados', 'Apaga as alterações e recria os dados de demonstração');
-    reset.onclick = () => {
-      if (confirm('Resetar todos os dados da demonstração? Suas alterações serão perdidas.')) onReset();
+    const botaoResetar = botao('Resetar dados', 'Apaga as alterações e recria os dados de demonstração');
+    botaoResetar.onclick = () => {
+      if (confirm('Resetar todos os dados da demonstração? Suas alterações serão perdidas.')) aoResetar();
     };
-    const close = btn('✕', 'Ocultar este aviso');
-    close.setAttribute('aria-label', 'Ocultar aviso do modo demonstração');
-    close.style.padding = '4px 8px';
-    close.onclick = () => {
-      try { sessionStorage.setItem(DISMISS_KEY, '1'); } catch { /* */ }
+    const botaoFechar = botao('✕', 'Ocultar este aviso');
+    botaoFechar.setAttribute('aria-label', 'Ocultar aviso do modo demonstração');
+    botaoFechar.style.padding = '4px 8px';
+    botaoFechar.onclick = () => {
+      try { sessionStorage.setItem(CHAVE_OCULTAR, '1'); } catch { /* */ }
       el.remove();
     };
 
-    el.append(dot, label, reset, close);
+    el.append(ponto, rotulo, botaoResetar, botaoFechar);
     document.body.appendChild(el);
   };
 
-  if (document.body) mount();
-  else document.addEventListener('DOMContentLoaded', mount, { once: true });
+  if (document.body) montar();
+  else document.addEventListener('DOMContentLoaded', montar, { once: true });
 }

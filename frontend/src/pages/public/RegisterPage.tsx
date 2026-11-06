@@ -4,93 +4,93 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowRight, Lock, Mail, Timer, UserRound } from 'lucide-react';
-import { ApiError, applyServerErrors, errorMessage } from '@/api';
-import { useAuth } from '@/auth/AuthProvider';
-import { safeRedirect } from '@/auth/guards';
-import { Button, Checkbox, Field, FormError, Input, PasswordInput, toast } from '@/components/ui';
-import { AuthLayout } from '@/features/auth/AuthLayout';
-import { PasswordStrength } from '@/features/auth/PasswordStrength';
-import { useCooldown } from '@/features/auth/useCooldown';
-import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { emailSchema, nameSchema, passwordNotContainingEmail, passwordSchema } from '@/lib/validation';
+import { ErroApi, aplicarErrosDoServidor, mensagemDeErro } from '@/api';
+import { useAutenticacao } from '@/auth/AuthProvider';
+import { redirecionamentoSeguro } from '@/auth/guards';
+import { Botao, CaixaSelecao, Campo, ErroFormulario, CampoTexto, CampoSenha, toast } from '@/components/ui';
+import { LayoutAuth } from '@/features/auth/AuthLayout';
+import { MedidorSenha } from '@/features/auth/PasswordStrength';
+import { useEspera } from '@/features/auth/useCooldown';
+import { useTituloDocumento } from '@/hooks/useDocumentTitle';
+import { esquemaEmail, esquemaNome, senhaSemEmail, esquemaSenha } from '@/lib/validation';
 
 // 1. Validação no navegador: senha forte, sem conter o e-mail, confirmação igual e termos aceitos.
 //    O servidor valida tudo de novo; isto aqui é só para avisar o usuário mais rápido.
-const schema = z
+const esquema = z
   .object({
-    name: nameSchema,
-    email: emailSchema,
-    password: passwordSchema,
+    name: esquemaNome,
+    email: esquemaEmail,
+    password: esquemaSenha,
     confirm: z.string().min(1, 'Confirme sua senha'),
     terms: z.boolean().refine((v) => v, 'Aceite os termos para continuar'),
   })
-  .superRefine((data, ctx) => {
-    passwordNotContainingEmail(data, ctx);
-    if (data.confirm && data.password !== data.confirm) {
+  .superRefine((dados, ctx) => {
+    senhaSemEmail(dados, ctx);
+    if (dados.confirm && dados.password !== dados.confirm) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['confirm'], message: 'As senhas não coincidem' });
     }
   });
-type FormValues = z.infer<typeof schema>;
+type ValoresFormulario = z.infer<typeof esquema>;
 
-export default function RegisterPage() {
-  useDocumentTitle('Criar conta');
-  const { register: registerUser } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const cooldown = useCooldown();
+export default function PaginaCadastro() {
+  useTituloDocumento('Criar conta');
+  const { register: cadastrarUsuario } = useAutenticacao();
+  const navegar = useNavigate();
+  const localizacao = useLocation();
+  const espera = useEspera();
 
-  const { register, handleSubmit, watch, setError, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+  const { register, handleSubmit, watch, setError, formState: { errors, isSubmitting } } = useForm<ValoresFormulario>({
+    resolver: zodResolver(esquema),
     defaultValues: { name: '', email: '', password: '', confirm: '', terms: false },
     mode: 'onTouched',
   });
-  const password = watch('password');
+  const senha = watch('password');
   const email = watch('email');
 
-  const onSubmit = handleSubmit(async ({ name, email, password }) => {
+  const aoEnviar = handleSubmit(async ({ name, email, password }) => {
     try {
       // 2. Cria a conta no servidor; ele já devolve o usuário logado.
-      const user = await registerUser({ name: name.trim(), email: email.trim(), password });
-      toast.success(`Conta criada! Bem-vindo(a), ${user.name.split(' ')[0]}.`);
-      navigate(safeRedirect(location.search), { replace: true });
+      const usuario = await cadastrarUsuario({ name: name.trim(), email: email.trim(), password });
+      toast.success(`Conta criada! Bem-vindo(a), ${usuario.name.split(' ')[0]}.`);
+      navegar(redirecionamentoSeguro(localizacao.search), { replace: true });
     } catch (e) {
       // 3. Erros: muitas tentativas seguidas (espera) ou e-mail já cadastrado.
-      if (e instanceof ApiError && e.isRateLimited) {
-        cooldown.start(e.retryAfter ?? 30);
-        setError('root.server', { message: errorMessage(e) });
+      if (e instanceof ErroApi && e.ehLimiteExcedido) {
+        espera.start(e.retryAfter ?? 30);
+        setError('root.server', { message: mensagemDeErro(e) });
         return;
       }
-      if (e instanceof ApiError && e.code === 'CONFLICT') {
+      if (e instanceof ErroApi && e.code === 'CONFLICT') {
         setError('email', { message: 'Já existe uma conta com este e-mail.' }, { shouldFocus: true });
         return;
       }
-      applyServerErrors(e, setError, { knownFields: ['name', 'email', 'password'], toast: false });
+      aplicarErrosDoServidor(e, setError, { knownFields: ['name', 'email', 'password'], toast: false });
     }
   });
 
   return (
-    <AuthLayout
+    <LayoutAuth
       title="Criar sua conta"
-      subtitle="Em menos de um minuto você começa a ganhar pontos reciclando."
-      footer={<>Já tem conta? <Link to={`/entrar${location.search}`} className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg">Entrar</Link></>}
+      subtitulo="Em menos de um minuto você começa a ganhar pontos reciclando."
+      rodape={<>Já tem conta? <Link to={`/entrar${localizacao.search}`} className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg">Entrar</Link></>}
     >
-      <form onSubmit={onSubmit} noValidate className="space-y-5">
-        <FormError error={errors.root?.server} />
-        <Field label="Nome completo" error={errors.name} required>
-          <Input autoComplete="name" leftIcon={UserRound} placeholder="Como devemos te chamar?" inputSize="lg" {...register('name')} />
-        </Field>
-        <Field label="E-mail" error={errors.email} required>
-          <Input type="email" autoComplete="email" inputMode="email" leftIcon={Mail} placeholder="voce@exemplo.com" inputSize="lg" {...register('email')} />
-        </Field>
-        <Field label="Senha" error={errors.password} required>
-          <PasswordInput autoComplete="new-password" leftIcon={Lock} placeholder="Mínimo de 10 caracteres" inputSize="lg" maxLength={128} {...register('password')} />
-        </Field>
-        <PasswordStrength password={password ?? ''} email={email} className="-mt-2" />
-        <Field label="Confirmar senha" error={errors.confirm} required>
-          <PasswordInput autoComplete="new-password" leftIcon={Lock} placeholder="Repita a senha" inputSize="lg" maxLength={128} {...register('confirm')} />
-        </Field>
+      <form onSubmit={aoEnviar} noValidate className="space-y-5">
+        <ErroFormulario erro={errors.root?.server} />
+        <Campo label="Nome completo" erro={errors.name} required>
+          <CampoTexto autoComplete="name" iconeEsquerda={UserRound} placeholder="Como devemos te chamar?" tamanhoCampo="lg" {...register('name')} />
+        </Campo>
+        <Campo label="E-mail" erro={errors.email} required>
+          <CampoTexto type="email" autoComplete="email" inputMode="email" iconeEsquerda={Mail} placeholder="voce@exemplo.com" tamanhoCampo="lg" {...register('email')} />
+        </Campo>
+        <Campo label="Senha" erro={errors.password} required>
+          <CampoSenha autoComplete="new-password" iconeEsquerda={Lock} placeholder="Mínimo de 10 caracteres" tamanhoCampo="lg" maxLength={128} {...register('password')} />
+        </Campo>
+        <MedidorSenha senha={senha ?? ''} email={email} className="-mt-2" />
+        <Campo label="Confirmar senha" erro={errors.confirm} required>
+          <CampoSenha autoComplete="new-password" iconeEsquerda={Lock} placeholder="Repita a senha" tamanhoCampo="lg" maxLength={128} {...register('confirm')} />
+        </Campo>
         <div>
-          <Checkbox
+          <CaixaSelecao
             {...register('terms')}
             aria-invalid={errors.terms ? true : undefined}
             label="Concordo com os termos de uso e a política de privacidade"
@@ -98,10 +98,10 @@ export default function RegisterPage() {
           />
           {errors.terms && <p role="alert" className="mt-1.5 text-[13px] text-danger">{errors.terms.message}</p>}
         </div>
-        <Button type="submit" size="lg" fullWidth loading={isSubmitting} disabled={cooldown.active} rightIcon={cooldown.active ? undefined : ArrowRight}>
-          {cooldown.active ? <span className="inline-flex items-center gap-2"><Timer className="size-4" aria-hidden /> Aguarde {cooldown.remaining}s</span> : 'Criar conta'}
-        </Button>
+        <Botao type="submit" size="lg" larguraTotal carregando={isSubmitting} disabled={espera.active} iconeDireita={espera.active ? undefined : ArrowRight}>
+          {espera.active ? <span className="inline-flex items-center gap-2"><Timer className="size-4" aria-hidden /> Aguarde {espera.remaining}s</span> : 'Criar conta'}
+        </Botao>
       </form>
-    </AuthLayout>
+    </LayoutAuth>
   );
 }

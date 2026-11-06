@@ -2,20 +2,20 @@ import { useId, type ComponentPropsWithRef, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
-export interface CheckboxProps extends Omit<ComponentPropsWithRef<'input'>, 'type'> {
+export interface PropsCaixaSelecao extends Omit<ComponentPropsWithRef<'input'>, 'type'> {
   label?: ReactNode;
   description?: ReactNode;
 }
 
 /** Checkbox nativo estilizado (compatível com register()). */
-export function Checkbox({ label, description, className, id, ...rest }: CheckboxProps) {
-  const auto = useId();
-  const inputId = id ?? auto;
+export function CaixaSelecao({ label, description, className, id, ...rest }: PropsCaixaSelecao) {
+  const idAuto = useId();
+  const idCampo = id ?? idAuto;
   return (
-    <label htmlFor={inputId} className={cn('group inline-flex cursor-pointer items-start gap-3 select-none', rest.disabled && 'cursor-not-allowed opacity-55', className)}>
+    <label htmlFor={idCampo} className={cn('group inline-flex cursor-pointer items-start gap-3 select-none', rest.disabled && 'cursor-not-allowed opacity-55', className)}>
       <span className="relative mt-0.5 inline-flex size-5 shrink-0">
         <input
-          id={inputId}
+          id={idCampo}
           type="checkbox"
           className="peer absolute inset-0 size-5 cursor-pointer appearance-none rounded-md border border-line-strong bg-bg-deep/60 transition-colors checked:border-transparent checked:bg-fg hover:border-[rgb(236_239_234/0.3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-invalid:border-danger"
           {...rest}
@@ -32,7 +32,7 @@ export function Checkbox({ label, description, className, id, ...rest }: Checkbo
   );
 }
 
-export interface SwitchProps {
+export interface PropsInterruptor {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: ReactNode;
@@ -44,15 +44,15 @@ export interface SwitchProps {
 }
 
 /** Interruptor acessível (role="switch"). Controlado: use com <Controller>. */
-export function Switch({ checked, onChange, label, description, disabled, id, className, size = 'md' }: SwitchProps) {
-  const auto = useId();
-  const sid = id ?? auto;
-  const track = size === 'sm' ? 'h-5 w-9' : 'h-6 w-11';
-  const knob = size === 'sm' ? 'size-4 data-[on=true]:translate-x-4' : 'size-5 data-[on=true]:translate-x-5';
+export function Interruptor({ checked, onChange, label, description, disabled, id, className, size = 'md' }: PropsInterruptor) {
+  const idAuto = useId();
+  const idInterruptor = id ?? idAuto;
+  const trilho = size === 'sm' ? 'h-5 w-9' : 'h-6 w-11';
+  const botaoDeslizante = size === 'sm' ? 'size-4 data-[on=true]:translate-x-4' : 'size-5 data-[on=true]:translate-x-5';
   return (
     <div className={cn('inline-flex items-start gap-3', className)}>
       <button
-        id={sid}
+        id={idInterruptor}
         type="button"
         role="switch"
         aria-checked={checked}
@@ -60,15 +60,15 @@ export function Switch({ checked, onChange, label, description, disabled, id, cl
         onClick={() => onChange(!checked)}
         className={cn(
           'relative inline-flex shrink-0 items-center rounded-full border p-0.5 transition-colors duration-200',
-          track,
+          trilho,
           checked ? 'border-transparent bg-brand-500' : 'border-line-strong bg-surface-3',
           disabled && 'cursor-not-allowed opacity-50',
         )}
       >
-        <span data-on={checked} className={cn('rounded-full bg-white shadow-sm transition-transform duration-200 ease-[var(--ease-out-expo)]', knob)} />
+        <span data-on={checked} className={cn('rounded-full bg-white shadow-sm transition-transform duration-200 ease-[var(--ease-out-expo)]', botaoDeslizante)} />
       </button>
       {(label || description) && (
-        <label htmlFor={sid} className="cursor-pointer text-sm">
+        <label htmlFor={idInterruptor} className="cursor-pointer text-sm">
           {label && <span className="block font-medium text-fg">{label}</span>}
           {description && <span className="block text-muted">{description}</span>}
         </label>

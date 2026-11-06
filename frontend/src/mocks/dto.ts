@@ -4,24 +4,24 @@ import type {
   PointTransaction, Redemption, Route, SmartBin, UserMe, UserRef,
 } from '@/api/types';
 import type {
-  ChallengeRec, CollectionPointRec, CollectionRequestRec, DisposalRec, HouseholdRec, MockDb, RedemptionRec, RouteRec,
-  SmartBinRec, TxRec, UserRec,
+  RegistroDesafio, RegistroEcoponto, RegistroSolicitacaoColeta, RegistroDescarte, RegistroResidencia, BancoSimulado, RegistroResgate, RegistroRota,
+  RegistroLixeira, RegistroTransacao, RegistroUsuario,
 } from './db';
-import { binStatus } from './logic/bins';
-import { haversineKm } from './logic/geo';
-import { challengeProgress, levelFor } from './logic/points';
-import { priority } from './logic/priority';
-import { activeWarnings, adminLockInfo } from './logic/security';
-import { round } from './logic/random';
+import { statusLixeira } from './logic/bins';
+import { distanciaHaversineKm } from './logic/geo';
+import { progressoDesafio, nivelPara } from './logic/points';
+import { prioridade } from './logic/priority';
+import { avisosAtivos, infoBloqueioAdmin } from './logic/security';
+import { arredondar } from './logic/random';
 
-export function userRef(u: UserRec | undefined | null, withEmail = true): UserRef | null {
+export function refUsuario(u: RegistroUsuario | undefined | null, comEmail = true): UserRef | null {
   if (!u) return null;
-  return withEmail ? { id: u.id, name: u.name, email: u.email } : { id: u.id, name: u.name };
+  return comEmail ? { id: u.id, name: u.name, email: u.email } : { id: u.id, name: u.name };
 }
 
-export function toUserMe(d: MockDb, u: UserRec): UserMe {
+export function paraUsuarioLogado(d: BancoSimulado, u: RegistroUsuario): UserMe {
   const h = d.households.find((x) => x.id === u.householdId);
-  const org = d.organizations.find((o) => o.id === u.organizationId);
+  const organizacao = d.organizations.find((o) => o.id === u.organizationId);
   return {
     id: u.id,
     name: u.name,
@@ -29,36 +29,36 @@ export function toUserMe(d: MockDb, u: UserRec): UserMe {
     role: u.role,
     points: u.points,
     totalEarned: u.totalEarned,
-    level: levelFor(u.totalEarned),
-    securityWarnings: activeWarnings(u),
+    level: nivelPara(u.totalEarned),
+    securityWarnings: avisosAtivos(u),
     household: h ? { id: h.id, name: h.name, neighborhood: h.neighborhood } : null,
-    organization: org ? { ...org } : null,
+    organization: organizacao ? { ...organizacao } : null,
     createdAt: u.createdAt,
   };
 }
 
-function categoryRef(c: Category): CategoryRef {
+function refCategoria(c: Category): CategoryRef {
   return { id: c.id, code: c.code, name: c.name, color: c.color, icon: c.icon };
 }
 
-function photoUrlFor(d: MockDb, photoId: string | null): string | null {
-  if (!photoId) return null;
-  const p = d.photos.find((x) => x.id === photoId);
+function urlFotoDe(d: BancoSimulado, idFoto: string | null): string | null {
+  if (!idFoto) return null;
+  const p = d.photos.find((x) => x.id === idFoto);
   // <img> não passa pelo fetch interceptado: devolvemos a própria imagem como data: URL
   return p?.dataUrl ?? null;
 }
 
-export function toDisposal(d: MockDb, x: DisposalRec, admin = false): Disposal {
+export function paraDescarte(d: BancoSimulado, x: RegistroDescarte, ehAdmin = false): Disposal {
   const cat = d.categories.find((c) => c.id === x.categoryId)!;
   const cp = d.collectionPoints.find((p) => p.id === x.collectionPointId);
   const dto: Disposal = {
     id: x.id,
-    category: categoryRef(cat),
+    category: refCategoria(cat),
     quantityKg: x.quantityKg,
     status: x.status,
     pointsAwarded: x.pointsAwarded,
     estimatedPoints: Math.max(x.quantityKg > 0 ? 1 : 0, Math.round(x.quantityKg * cat.pointsPerKg)),
-    photoUrl: photoUrlFor(d, x.photoId),
+    photoUrl: urlFotoDe(d, x.photoId),
     latitude: x.latitude,
     longitude: x.longitude,
     collectionPoint: cp ? { id: cp.id, name: cp.name } : null,
@@ -70,43 +70,43 @@ export function toDisposal(d: MockDb, x: DisposalRec, admin = false): Disposal {
     // sem IA no servidor no modo demonstração: a sugestão é sempre um palpite do navegador (não verificado)
     ai: x.aiSource || x.aiSuggestedCode ? { suggestedCode: x.aiSuggestedCode, confidence: x.aiConfidence, source: x.aiSource, verified: false } : null,
   };
-  if (admin) {
+  if (ehAdmin) {
     const u = d.users.find((k) => k.id === x.userId);
-    dto.user = userRef(u) ?? { id: x.userId, name: '(removido)' };
+    dto.user = refUsuario(u) ?? { id: x.userId, name: '(removido)' };
     dto.fraud = { score: x.fraudScore, flags: [...x.fraudFlags] };
   }
   return dto;
 }
 
-export function toTransaction(t: TxRec): PointTransaction {
+export function paraTransacao(t: RegistroTransacao): PointTransaction {
   return { id: t.id, type: t.type, amount: t.amount, balanceAfter: t.balanceAfter, description: t.description, createdAt: t.createdAt };
 }
 
-export function toChallenge(d: MockDb, c: ChallengeRec, userId: string | null): Challenge {
-  const completed = !!userId && d.completions.some((k) => k.userId === userId && k.challengeId === c.id);
+export function paraDesafio(d: BancoSimulado, c: RegistroDesafio, idUsuario: string | null): Challenge {
+  const concluido = !!idUsuario && d.completions.some((k) => k.userId === idUsuario && k.challengeId === c.id);
   return {
     id: c.id, title: c.title, description: c.description, categoryCode: c.categoryCode, metric: c.metric, target: c.target,
-    progress: userId ? challengeProgress(d, userId, c) : 0,
-    bonusPoints: c.bonusPoints, startsAt: c.startsAt, endsAt: c.endsAt, active: c.active, completed,
+    progress: idUsuario ? progressoDesafio(d, idUsuario, c) : 0,
+    bonusPoints: c.bonusPoints, startsAt: c.startsAt, endsAt: c.endsAt, active: c.active, completed: concluido,
   };
 }
 
-export function toRedemption(d: MockDb, r: RedemptionRec): Redemption {
-  const reward = d.rewards.find((x) => x.id === r.rewardId);
+export function paraResgate(d: BancoSimulado, r: RegistroResgate): Redemption {
+  const recompensa = d.rewards.find((x) => x.id === r.rewardId);
   return {
     id: r.id,
-    reward: { id: r.rewardId, name: reward?.name ?? 'Recompensa', icon: reward?.icon ?? 'gift' },
+    reward: { id: r.rewardId, name: recompensa?.name ?? 'Recompensa', icon: recompensa?.icon ?? 'gift' },
     cost: r.cost, code: r.code, status: r.status, createdAt: r.createdAt,
   };
 }
 
-export function toCollectionPoint(p: CollectionPointRec, from: GeoPoint | null): CollectionPoint {
-  return { ...p, categories: [...p.categories], distanceKm: from ? round(haversineKm(from, p), 2) : null };
+export function paraEcoponto(p: RegistroEcoponto, origem: GeoPoint | null): CollectionPoint {
+  return { ...p, categories: [...p.categories], distanceKm: origem ? arredondar(distanciaHaversineKm(origem, p), 2) : null };
 }
 
-export function toCollectionRequest(d: MockDb, r: CollectionRequestRec): CollectionRequest {
-  const bin = d.bins.find((b) => b.id === r.smartBinId);
-  const open = r.status === 'REQUESTED' || r.status === 'SCHEDULED' || r.status === 'IN_ROUTE';
+export function paraSolicitacaoColeta(d: BancoSimulado, r: RegistroSolicitacaoColeta): CollectionRequest {
+  const lixeira = d.bins.find((b) => b.id === r.smartBinId);
+  const aberta = r.status === 'REQUESTED' || r.status === 'SCHEDULED' || r.status === 'IN_ROUTE';
   return {
     id: r.id,
     address: r.address,
@@ -116,24 +116,24 @@ export function toCollectionRequest(d: MockDb, r: CollectionRequestRec): Collect
     estimatedKg: r.estimatedKg,
     status: r.status,
     source: r.source,
-    priority: open ? priority(r.estimatedKg, r.createdAt, r.categoryCodes, bin ? Math.round(bin.fillLevel) : null, r.preferredDate) : 0,
+    priority: aberta ? prioridade(r.estimatedKg, r.createdAt, r.categoryCodes, lixeira ? Math.round(lixeira.fillLevel) : null, r.preferredDate) : 0,
     preferredDate: r.preferredDate,
     scheduledFor: r.scheduledFor,
     routeId: r.routeId,
     notes: r.notes,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
-    requester: userRef(d.users.find((u) => u.id === r.requesterId)),
-    smartBin: bin ? { id: bin.id, name: bin.name } : null,
+    requester: refUsuario(d.users.find((u) => u.id === r.requesterId)),
+    smartBin: lixeira ? { id: lixeira.id, name: lixeira.name } : null,
   };
 }
 
-export function toRoute(d: MockDb, r: RouteRec): Route {
+export function paraRota(d: BancoSimulado, r: RegistroRota): Route {
   return {
     id: r.id,
     name: r.name,
     status: r.status,
-    collector: userRef(d.users.find((u) => u.id === r.collectorId)),
+    collector: refUsuario(d.users.find((u) => u.id === r.collectorId)),
     plannedDate: r.plannedDate,
     totalDistanceKm: r.totalDistanceKm,
     naiveDistanceKm: r.naiveDistanceKm,
@@ -145,19 +145,19 @@ export function toRoute(d: MockDb, r: RouteRec): Route {
   };
 }
 
-export function toHousehold(d: MockDb, h: HouseholdRec): Household {
-  const members = d.users.filter((u) => u.householdId === h.id);
-  const ids = new Set(members.map((m) => m.id));
-  const catById = new Map(d.categories.map((c) => [c.id, c]));
-  const monthStart = Date.now() - 30 * 24 * 3600_000;
+export function paraResidencia(d: BancoSimulado, h: RegistroResidencia): Household {
+  const membros = d.users.filter((u) => u.householdId === h.id);
+  const ids = new Set(membros.map((m) => m.id));
+  const categoriaPorId = new Map(d.categories.map((c) => [c.id, c]));
+  const inicioMes = Date.now() - 30 * 24 * 3600_000;
   let totalKg = 0;
-  let monthKg = 0;
+  let kgMes = 0;
   let co2 = 0;
   for (const x of d.disposals) {
     if (x.status !== 'APPROVED' || !ids.has(x.userId)) continue;
     totalKg += x.quantityKg;
-    if (Date.parse(x.disposedAt) >= monthStart) monthKg += x.quantityKg;
-    co2 += x.quantityKg * (catById.get(x.categoryId)?.co2FactorKg ?? 0);
+    if (Date.parse(x.disposedAt) >= inicioMes) kgMes += x.quantityKg;
+    co2 += x.quantityKg * (categoriaPorId.get(x.categoryId)?.co2FactorKg ?? 0);
   }
   return {
     id: h.id,
@@ -165,47 +165,47 @@ export function toHousehold(d: MockDb, h: HouseholdRec): Household {
     neighborhood: h.neighborhood,
     city: h.city,
     inviteCode: h.inviteCode,
-    members: members
+    members: membros
       .map((m) => ({ id: m.id, name: m.name, points: m.points, isOwner: m.id === h.ownerId }))
       .sort((a, b) => Number(b.isOwner) - Number(a.isOwner) || b.points - a.points),
     stats: {
-      totalKg: round(totalKg),
-      monthKg: round(monthKg),
-      points: members.reduce((s, m) => s + m.points, 0),
-      co2AvoidedKg: round(co2),
+      totalKg: arredondar(totalKg),
+      monthKg: arredondar(kgMes),
+      points: membros.reduce((s, m) => s + m.points, 0),
+      co2AvoidedKg: arredondar(co2),
     },
   };
 }
 
-export function toSmartBin(d: MockDb, b: SmartBinRec, includeHousehold = false): SmartBin {
+export function paraLixeira(d: BancoSimulado, b: RegistroLixeira, incluirResidencia = false): SmartBin {
   const cat = d.categories.find((c) => c.id === b.categoryId)!;
   const dto: SmartBin = {
     id: b.id,
     name: b.name,
-    category: categoryRef(cat),
+    category: refCategoria(cat),
     capacityLiters: b.capacityLiters,
     fillLevel: Math.round(b.fillLevel),
     batteryLevel: Math.round(b.batteryLevel),
-    status: binStatus(b),
+    status: statusLixeira(b),
     autoRequestThreshold: b.autoRequestThreshold,
     lastReadingAt: b.lastReadingAt,
     history: b.readings.slice(-24).map((r) => ({ fillLevel: r.fillLevel, at: r.at })),
   };
-  if (includeHousehold) {
+  if (incluirResidencia) {
     const h = d.households.find((x) => x.id === b.householdId);
     if (h) dto.household = { id: h.id, name: h.name, neighborhood: h.neighborhood };
   }
   return dto;
 }
 
-export function toAdminUser(d: MockDb, u: UserRec): AdminUser {
+export function paraUsuarioAdmin(d: BancoSimulado, u: RegistroUsuario): AdminUser {
   return {
     id: u.id,
     name: u.name,
     email: u.email,
     role: u.role,
     enabled: u.enabled,
-    ...adminLockInfo(u),
+    ...infoBloqueioAdmin(u),
     points: u.points,
     totalEarned: u.totalEarned,
     household: d.households.find((h) => h.id === u.householdId)?.name ?? null,
@@ -215,12 +215,12 @@ export function toAdminUser(d: MockDb, u: UserRec): AdminUser {
 }
 
 /** Paginação `?page&size` → Page<T>. */
-export function paginate<T>(items: T[], page: number, size: number) {
+export function paginar<T>(itens: T[], pagina: number, tamanho: number) {
   return {
-    content: items.slice(page * size, page * size + size),
-    page,
-    size,
-    totalElements: items.length,
-    totalPages: Math.ceil(items.length / size),
+    content: itens.slice(pagina * tamanho, pagina * tamanho + tamanho),
+    page: pagina,
+    size: tamanho,
+    totalElements: itens.length,
+    totalPages: Math.ceil(itens.length / tamanho),
   };
 }

@@ -6,21 +6,21 @@
  *         morador@ecotechzero.com.br / Recicla@2050 (moradores fictícios: Recicla@2050).
  * Console: `__mockReset()` recria os dados.
  */
-import { mountBanner } from './banner';
-import { db, resetDb } from './db';
-import { registerAllRoutes } from './handlers';
-import { installInterceptor } from './server';
-import { clearSession } from './session';
+import { montarSelo } from './banner';
+import { banco, resetarBanco } from './db';
+import { registrarTodasAsRotas } from './handlers';
+import { instalarInterceptador } from './server';
+import { limparSessao } from './session';
 
-function reset() {
-  resetDb();
-  clearSession();
+function resetar() {
+  resetarBanco();
+  limparSessao();
   location.reload();
 }
 
-registerAllRoutes();
-installInterceptor();
-db(); // semeia/carrega já no boot
-(window as Window & { __mockReset?: () => void }).__mockReset = reset;
-mountBanner(reset);
+registrarTodasAsRotas();
+instalarInterceptador();
+banco(); // semeia/carrega já no boot
+(window as Window & { __mockReset?: () => void }).__mockReset = resetar;
+montarSelo(resetar);
 console.info('%c[Lixo Zero 2050] Modo demonstração ativo — API simulada no navegador.', 'color:#84cc16;font-weight:600');

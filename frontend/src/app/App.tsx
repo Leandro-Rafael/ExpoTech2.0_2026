@@ -2,18 +2,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';
 import { RouterProvider } from 'react-router';
 import { Toaster } from 'sonner';
-import { ApiError } from '@/api/client';
-import { AuthProvider } from '@/auth/AuthProvider';
-import { router } from './router';
+import { ErroApi } from '@/api/client';
+import { ProvedorAuth } from '@/auth/AuthProvider';
+import { roteador } from './router';
 
-const queryClient = new QueryClient({
+const clienteConsultas = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
       refetchOnWindowFocus: false,
       // Não insiste em erros de cliente (4xx) nem em 429; tenta 1x em rede/5xx.
       retry: (count, error) => {
-        if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
+        if (error instanceof ErroApi && error.status >= 400 && error.status < 500) return false;
         return count < 1;
       },
     },
@@ -23,11 +23,11 @@ const queryClient = new QueryClient({
 
 export function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+    <QueryClientProvider client={clienteConsultas}>
+      <ProvedorAuth>
         {/* reducedMotion="user": motion respeita prefers-reduced-motion automaticamente */}
         <MotionConfig reducedMotion="user">
-          <RouterProvider router={router} />
+          <RouterProvider router={roteador} />
         </MotionConfig>
         <Toaster
           theme="dark"
@@ -43,7 +43,7 @@ export function App() {
             },
           }}
         />
-      </AuthProvider>
+      </ProvedorAuth>
     </QueryClientProvider>
   );
 }

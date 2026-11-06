@@ -2,31 +2,31 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { isRouteErrorResponse, useRouteError } from 'react-router';
 import { Bug, RefreshCw } from 'lucide-react';
-import { Button, ButtonLink, EmptyState } from '@/components/ui';
+import { Botao, LinkBotao, EstadoVazio } from '@/components/ui';
 
-interface Props { children: ReactNode; resetKey?: unknown; fallback?: ReactNode }
-interface State { error: Error | null }
+interface PropsLimiteErro { children: ReactNode; chaveReinicio?: unknown; fallback?: ReactNode }
+interface EstadoLimiteErro { erro: Error | null }
 
-function isChunkError(e: unknown) {
+function ehErroDeVersao(e: unknown) {
   return e instanceof Error && /dynamically imported module|Importing a module script failed|Failed to fetch dynamically/i.test(e.message);
 }
 
-function CrashScreen({ error, onReset }: { error: unknown; onReset?: () => void }) {
-  const chunk = isChunkError(error);
+function TelaFalha({ erro, aoReiniciar }: { erro: unknown; aoReiniciar?: () => void }) {
+  const novaVersao = ehErroDeVersao(erro);
   return (
-    <EmptyState
+    <EstadoVazio
       tone="danger"
       icon={Bug}
-      title={chunk ? 'Nova versão disponível' : 'Algo saiu do lugar'}
-      description={chunk
+      title={novaVersao ? 'Nova versão disponível' : 'Algo saiu do lugar'}
+      description={novaVersao
         ? 'O aplicativo foi atualizado. Recarregue a página para continuar.'
         : 'Um erro inesperado aconteceu nesta tela. Você pode tentar de novo ou voltar ao início.'}
-      action={
+      acao={
         <>
-          <Button variant="secondary" leftIcon={RefreshCw} onClick={() => (chunk ? window.location.reload() : onReset ? onReset() : window.location.reload())}>
-            {chunk ? 'Recarregar' : 'Tentar novamente'}
-          </Button>
-          <ButtonLink to="/app" variant="ghost">Ir para o início</ButtonLink>
+          <Botao variant="secondary" iconeEsquerda={RefreshCw} onClick={() => (novaVersao ? window.location.reload() : aoReiniciar ? aoReiniciar() : window.location.reload())}>
+            {novaVersao ? 'Recarregar' : 'Tentar novamente'}
+          </Botao>
+          <LinkBotao to="/app" variant="ghost">Ir para o início</LinkBotao>
         </>
       }
     />
@@ -34,26 +34,26 @@ function CrashScreen({ error, onReset }: { error: unknown; onReset?: () => void 
 }
 
 /** Captura erros de renderização de uma árvore (reseta quando `resetKey` muda, ex.: rota). */
-export class ErrorBoundary extends Component<Props, State> {
-  state: State = { error: null };
-  static getDerivedStateFromError(error: Error): State { return { error }; }
+export class LimiteDeErro extends Component<PropsLimiteErro, EstadoLimiteErro> {
+  state: EstadoLimiteErro = { erro: null };
+  static getDerivedStateFromError(error: Error): EstadoLimiteErro { return { erro: error }; }
   componentDidCatch(error: Error, info: ErrorInfo) {
     if (import.meta.env.DEV) console.error('[ErrorBoundary]', error, info.componentStack);
   }
-  componentDidUpdate(prev: Props) {
-    if (this.state.error && prev.resetKey !== this.props.resetKey) this.setState({ error: null });
+  componentDidUpdate(prev: PropsLimiteErro) {
+    if (this.state.erro && prev.chaveReinicio !== this.props.chaveReinicio) this.setState({ erro: null });
   }
   render() {
-    if (this.state.error) return this.props.fallback ?? <CrashScreen error={this.state.error} onReset={() => this.setState({ error: null })} />;
+    if (this.state.erro) return this.props.fallback ?? <TelaFalha erro={this.state.erro} aoReiniciar={() => this.setState({ erro: null })} />;
     return this.props.children;
   }
 }
 
 /** errorElement das rotas (erros de roteamento/carregamento). */
-export function RouteErrorPage() {
-  const error = useRouteError();
-  if (isRouteErrorResponse(error) && error.status === 404) {
-    return <div className="container-app py-20"><EmptyState title="Página não encontrada" description="O endereço acessado não existe." action={<ButtonLink to="/">Voltar ao início</ButtonLink>} /></div>;
+export function PaginaErroRota() {
+  const erro = useRouteError();
+  if (isRouteErrorResponse(erro) && erro.status === 404) {
+    return <div className="container-app py-20"><EstadoVazio title="Página não encontrada" description="O endereço acessado não existe." acao={<LinkBotao to="/">Voltar ao início</LinkBotao>} /></div>;
   }
-  return <div className="container-app py-20"><CrashScreen error={error} /></div>;
+  return <div className="container-app py-20"><TelaFalha erro={erro} /></div>;
 }

@@ -12,15 +12,15 @@
  * Prefira os módulos de endpoint (auth.ts, disposals.ts...) e os hooks de queries.ts.
  */
 import type { ApiProblem } from './types';
-import { errorCodeMessage } from '@/lib/labels';
+import { mensagemCodigoErro } from '@/lib/labels';
 
-const API_BASE = '/api';
+const BASE_API = '/api';
 
-type QueryValue = string | number | boolean | null | undefined;
-type QueryParams = Record<string, QueryValue | QueryValue[]>;
+type ValorConsulta = string | number | boolean | null | undefined;
+type ParametrosConsulta = Record<string, ValorConsulta | ValorConsulta[]>;
 
-export interface RequestOptions {
-  query?: QueryParams;
+export interface OpcoesRequisicao {
+  query?: ParametrosConsulta;
   headers?: Record<string, string>;
   signal?: AbortSignal;
   /** Envia o header Idempotency-Key (use `newIdempotencyKey()` uma vez por ação do usuário). */
@@ -31,19 +31,19 @@ export interface RequestOptions {
   silent401?: boolean;
 }
 
-export interface FieldError { field: string; message: string }
+export interface ErroDeCampo { field: string; message: string }
 
 /** Erro de API normalizado. Sempre é o que `throw` dos helpers deste módulo lança. */
-export class ApiError extends Error {
+export class ErroApi extends Error {
   readonly status: number;
   readonly code: string;
   readonly title: string;
   readonly detail: string | undefined;
-  readonly fieldErrors: FieldError[];
+  readonly fieldErrors: ErroDeCampo[];
   /** Segundos até poder tentar de novo (429). */
   readonly retryAfter: number | null;
 
-  constructor(init: { status: number; code: string; title: string; detail?: string; fieldErrors?: FieldError[]; retryAfter?: number | null }) {
+  constructor(init: { status: number; code: string; title: string; detail?: string; fieldErrors?: ErroDeCampo[]; retryAfter?: number | null }) {
     super(init.detail || init.title);
     this.name = 'ApiError';
     this.status = init.status;
@@ -54,85 +54,85 @@ export class ApiError extends Error {
     this.retryAfter = init.retryAfter ?? null;
   }
 
-  get isNetwork() { return this.status === 0; }
-  get isValidation() { return this.code === 'VALIDATION_ERROR' || this.fieldErrors.length > 0; }
-  get isUnauthorized() { return this.status === 401; }
-  get isForbidden() { return this.status === 403; }
-  get isNotFound() { return this.status === 404; }
-  get isRateLimited() { return this.status === 429; }
+  get ehErroDeRede() { return this.status === 0; }
+  get ehValidacao() { return this.code === 'VALIDATION_ERROR' || this.fieldErrors.length > 0; }
+  get ehNaoAutorizado() { return this.status === 401; }
+  get ehProibido() { return this.status === 403; }
+  get ehNaoEncontrado() { return this.status === 404; }
+  get ehLimiteExcedido() { return this.status === 429; }
 
   /** Mapa field → mensagem. */
-  fieldMap(): Record<string, string> {
+  mapaDeCampos(): Record<string, string> {
     return Object.fromEntries(this.fieldErrors.map((e) => [e.field, e.message]));
   }
 }
 
 /** Mensagem amigável em PT para qualquer erro (ApiError ou não). Use em toasts/ErrorState. */
-export function errorMessage(err: unknown, fallback = 'Algo deu errado. Tente novamente.'): string {
-  if (err instanceof ApiError) {
-    if (err.code === 'RATE_LIMITED' || err.isRateLimited) return rateLimitMessage(err.retryAfter);
-    if (err.code === 'ACCOUNT_LOCKED') return err.detail ?? lockedMessage(err.retryAfter);
-    if (err.detail) return err.detail;
-    return errorCodeMessage[err.code] ?? err.title ?? fallback;
+export function mensagemDeErro(erro: unknown, padrao = 'Algo deu errado. Tente novamente.'): string {
+  if (erro instanceof ErroApi) {
+    if (erro.code === 'RATE_LIMITED' || erro.ehLimiteExcedido) return mensagemLimiteDeTentativas(erro.retryAfter);
+    if (erro.code === 'ACCOUNT_LOCKED') return erro.detail ?? mensagemBloqueio(erro.retryAfter);
+    if (erro.detail) return erro.detail;
+    return mensagemCodigoErro[erro.code] ?? erro.title ?? padrao;
   }
-  if (err instanceof Error && err.message) return err.message;
-  return fallback;
+  if (erro instanceof Error && erro.message) return erro.message;
+  return padrao;
 }
 
-function rateLimitMessage(seconds: number | null): string {
-  if (!seconds || seconds <= 0) return errorCodeMessage.RATE_LIMITED;
-  if (seconds < 60) return `Muitas tentativas. Tente novamente em ${seconds} s.`;
-  const min = Math.ceil(seconds / 60);
+function mensagemLimiteDeTentativas(segundos: number | null): string {
+  if (!segundos || segundos <= 0) return mensagemCodigoErro.RATE_LIMITED;
+  if (segundos < 60) return `Muitas tentativas. Tente novamente em ${segundos} s.`;
+  const min = Math.ceil(segundos / 60);
   return `Muitas tentativas. Tente novamente em ${min} min.`;
 }
 
 // ---------------------------------------------------------------- eventos
 
-type Listener = () => void;
-const logoutListeners = new Set<Listener>();
+type Ouvinte = () => void;
+const ouvintesLogout = new Set<Ouvinte>();
 
 /** Assina o evento "sessão expirou/terminou" (o AuthProvider limpa o usuário). */
-export function onUnauthorized(fn: Listener): () => void {
-  logoutListeners.add(fn);
-  return () => logoutListeners.delete(fn);
+export function aoNaoAutorizado(fn: Ouvinte): () => void {
+  ouvintesLogout.add(fn);
+  return () => ouvintesLogout.delete(fn);
 }
-function emitUnauthorized() { logoutListeners.forEach((fn) => fn()); }
+function emitirNaoAutorizado() { ouvintesLogout.forEach((fn) => fn()); }
 
-type LockedListener = (err: ApiError) => void;
-const lockedListeners = new Set<LockedListener>();
+type OuvinteBloqueio = (erro: ErroApi) => void;
+const ouvintesBloqueio = new Set<OuvinteBloqueio>();
 
 /** Assina respostas 423 ACCOUNT_LOCKED (o InspectionGuard mostra a tela de bloqueio dentro do app). */
-export function onAccountLocked(fn: LockedListener): () => void {
-  lockedListeners.add(fn);
-  return () => lockedListeners.delete(fn);
+export function aoBloquearConta(fn: OuvinteBloqueio): () => void {
+  ouvintesBloqueio.add(fn);
+  return () => ouvintesBloqueio.delete(fn);
 }
 
 // ---------------------------------------------------------------- CSRF
 
-function readCookie(name: string): string | null {
-  const match = document.cookie.split('; ').find((c) => c.startsWith(`${name}=`));
-  return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
+function lerCookie(nome: string): string | null {
+  const encontrado = document.cookie.split('; ').find((c) => c.startsWith(`${nome}=`));
+  return encontrado ? decodeURIComponent(encontrado.slice(nome.length + 1)) : null;
 }
 
-let csrfPromise: Promise<void> | null = null;
+let promessaCsrf: Promise<void> | null = null;
 
 /** Garante o cookie XSRF-TOKEN (GET /api/auth/csrf). Chamado no boot e antes de mutações se faltar. */
-export function ensureCsrf(force = false): Promise<void> {
-  if (!force && readCookie('XSRF-TOKEN')) return Promise.resolve();
-  if (!csrfPromise || force) {
-    csrfPromise = fetch(`${API_BASE}/auth/csrf`, { credentials: 'include', headers: { Accept: 'application/json' } })
+export function garantirCsrf(forcar = false): Promise<void> {
+  if (!forcar && lerCookie('XSRF-TOKEN')) return Promise.resolve();
+  if (!promessaCsrf || forcar) {
+    promessaCsrf = fetch(`${BASE_API}/auth/csrf`, { credentials: 'include', headers: { Accept: 'application/json' } })
       .then(() => undefined)
       .catch(() => undefined)
-      .finally(() => { csrfPromise = null; });
+      .finally(() => { promessaCsrf = null; });
   }
-  return csrfPromise;
+  return promessaCsrf;
 }
 
 // ---------------------------------------------------------------- refresh single-flight
 
-let refreshPromise: Promise<boolean> | null = null;
+let promessaRenovacao: Promise<boolean> | null = null;
 /** Momento (performance.now) da última renovação bem-sucedida. */
-let lastRefreshOkAt = -Infinity;
+let ultimaRenovacaoOkEm = -Infinity;
 
 /**
  * Renova a sessão (POST /auth/refresh) com UMA promessa compartilhada: o back-end detecta
@@ -140,45 +140,45 @@ let lastRefreshOkAt = -Infinity;
  * Requisições que receberam 401 mas foram ENVIADAS antes de uma renovação já concluída
  * apenas repetem (não renovam de novo) — ver `send()`.
  */
-function refreshSession(): Promise<boolean> {
-  if (!refreshPromise) {
-    refreshPromise = (async () => {
+function renovarSessao(): Promise<boolean> {
+  if (!promessaRenovacao) {
+    promessaRenovacao = (async () => {
       try {
-        await ensureCsrf();
-        const res = await fetch(`${API_BASE}/auth/refresh`, {
+        await garantirCsrf();
+        const res = await fetch(`${BASE_API}/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
-          headers: { Accept: 'application/json', ...csrfHeaders('POST') },
+          headers: { Accept: 'application/json', ...cabecalhosCsrf('POST') },
         });
-        if (res.ok) lastRefreshOkAt = performance.now();
+        if (res.ok) ultimaRenovacaoOkEm = performance.now();
         return res.ok;
       } catch {
         return false;
       } finally {
-        refreshPromise = null;
+        promessaRenovacao = null;
       }
     })();
   }
-  return refreshPromise;
+  return promessaRenovacao;
 }
 
 // ---------------------------------------------------------------- núcleo
 
-const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const METODOS_QUE_ALTERAM = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-function csrfHeaders(method: string): Record<string, string> {
-  if (!MUTATING.has(method)) return {};
-  const token = readCookie('XSRF-TOKEN');
+function cabecalhosCsrf(metodo: string): Record<string, string> {
+  if (!METODOS_QUE_ALTERAM.has(metodo)) return {};
+  const token = lerCookie('XSRF-TOKEN');
   return token ? { 'X-XSRF-TOKEN': token } : {};
 }
 
-function buildUrl(path: string, query?: QueryParams): string {
-  const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+function montarUrl(caminho: string, query?: ParametrosConsulta): string {
+  const url = caminho.startsWith('http') ? caminho : `${BASE_API}${caminho.startsWith('/') ? '' : '/'}${caminho}`;
   if (!query) return url;
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(query)) {
-    const values = Array.isArray(v) ? v : [v];
-    for (const item of values) {
+    const valores = Array.isArray(v) ? v : [v];
+    for (const item of valores) {
       if (item === undefined || item === null || item === '') continue;
       sp.append(k, String(item));
     }
@@ -187,51 +187,51 @@ function buildUrl(path: string, query?: QueryParams): string {
   return qs ? `${url}?${qs}` : url;
 }
 
-async function toApiError(res: Response): Promise<ApiError> {
-  let problem: Partial<ApiProblem> = {};
+async function paraErroApi(res: Response): Promise<ErroApi> {
+  let problema: Partial<ApiProblem> = {};
   const ct = res.headers.get('content-type') ?? '';
   if (ct.includes('json')) {
-    try { problem = await res.json(); } catch { /* corpo vazio */ }
+    try { problema = await res.json(); } catch { /* corpo vazio */ }
   }
-  const retryAfterRaw = res.headers.get('Retry-After');
-  let retryAfter: number | null = null;
-  if (retryAfterRaw) {
-    const n = Number(retryAfterRaw);
-    retryAfter = Number.isFinite(n) ? n : Math.max(0, Math.round((Date.parse(retryAfterRaw) - Date.now()) / 1000));
+  const esperaBruta = res.headers.get('Retry-After');
+  let esperaSegundos: number | null = null;
+  if (esperaBruta) {
+    const n = Number(esperaBruta);
+    esperaSegundos = Number.isFinite(n) ? n : Math.max(0, Math.round((Date.parse(esperaBruta) - Date.now()) / 1000));
   }
-  const code = problem.code ?? defaultCode(res.status);
-  const err = new ApiError({
+  const codigo = problema.code ?? codigoPadrao(res.status);
+  const erro = new ErroApi({
     status: res.status,
-    code,
-    title: problem.title ?? res.statusText ?? 'Erro',
-    detail: code === 'RATE_LIMITED' || res.status === 429
-      ? rateLimitMessage(retryAfter)
-      : code === 'ACCOUNT_LOCKED'
-        ? lockedDetail(problem.detail, retryAfter)
-        : problem.detail ?? errorCodeMessage[code],
-    fieldErrors: Array.isArray(problem.errors) ? problem.errors : [],
-    retryAfter,
+    code: codigo,
+    title: problema.title ?? res.statusText ?? 'Erro',
+    detail: codigo === 'RATE_LIMITED' || res.status === 429
+      ? mensagemLimiteDeTentativas(esperaSegundos)
+      : codigo === 'ACCOUNT_LOCKED'
+        ? detalheBloqueio(problema.detail, esperaSegundos)
+        : problema.detail ?? mensagemCodigoErro[codigo],
+    fieldErrors: Array.isArray(problema.errors) ? problema.errors : [],
+    retryAfter: esperaSegundos,
   });
   // 423: avisa o InspectionGuard para mostrar a tela de bloqueio.
-  if (code === 'ACCOUNT_LOCKED') lockedListeners.forEach((fn) => fn(err));
-  return err;
+  if (codigo === 'ACCOUNT_LOCKED') ouvintesBloqueio.forEach((fn) => fn(erro));
+  return erro;
 }
 
 /** Mantém o motivo enviado pelo servidor (senha ou inspeção) e acrescenta o tempo restante se faltar. */
-function lockedDetail(detail: string | undefined, seconds: number | null): string {
-  if (!detail) return lockedMessage(seconds);
-  if (/tente novamente/i.test(detail) || !seconds || seconds <= 0) return detail;
-  return `${detail} Tente novamente em ${Math.max(1, Math.ceil(seconds / 60))} min.`;
+function detalheBloqueio(detalhe: string | undefined, segundos: number | null): string {
+  if (!detalhe) return mensagemBloqueio(segundos);
+  if (/tente novamente/i.test(detalhe) || !segundos || segundos <= 0) return detalhe;
+  return `${detalhe} Tente novamente em ${Math.max(1, Math.ceil(segundos / 60))} min.`;
 }
 
-function lockedMessage(seconds: number | null): string {
-  if (!seconds || seconds <= 0) return errorCodeMessage.ACCOUNT_LOCKED;
-  const min = Math.max(1, Math.ceil(seconds / 60));
+function mensagemBloqueio(segundos: number | null): string {
+  if (!segundos || segundos <= 0) return mensagemCodigoErro.ACCOUNT_LOCKED;
+  const min = Math.max(1, Math.ceil(segundos / 60));
   return `Conta bloqueada temporariamente por excesso de tentativas. Tente novamente em ${min} min.`;
 }
 
 /** Só usado quando o corpo não traz `code`. Sempre trate erros pelo `code`. */
-function defaultCode(status: number): string {
+function codigoPadrao(status: number): string {
   switch (status) {
     case 400: return 'VALIDATION_ERROR';
     case 401: return 'UNAUTHORIZED';
@@ -246,59 +246,59 @@ function defaultCode(status: number): string {
   }
 }
 
-type Body = unknown;
+type Corpo = unknown;
 
 // Caminho de toda requisição. `retried` garante que ela se repete no máximo uma vez.
-async function send(method: string, path: string, body: Body | undefined, opts: RequestOptions, retried = false): Promise<Response> {
+async function enviar(metodo: string, caminho: string, body: Corpo | undefined, opcoes: OpcoesRequisicao, repetida = false): Promise<Response> {
   // 1. Se a requisição altera dados, garante o cookie CSRF antes.
-  if (MUTATING.has(method)) await ensureCsrf();
+  if (METODOS_QUE_ALTERAM.has(metodo)) await garantirCsrf();
 
   // 2. Monta cabeçalhos (com o token CSRF) e o corpo: FormData para arquivo, JSON para o resto.
-  const headers: Record<string, string> = { Accept: 'application/json', ...csrfHeaders(method), ...opts.headers };
-  let payload: BodyInit | undefined;
+  const headers: Record<string, string> = { Accept: 'application/json', ...cabecalhosCsrf(metodo), ...opcoes.headers };
+  let conteudo: BodyInit | undefined;
   if (body instanceof FormData) {
-    payload = body; // o navegador define o boundary
+    conteudo = body; // o navegador define o boundary
   } else if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
-    payload = JSON.stringify(body);
+    conteudo = JSON.stringify(body);
   }
-  if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
+  if (opcoes.idempotencyKey) headers['Idempotency-Key'] = opcoes.idempotencyKey;
 
   // 3. Envia com os cookies de sessão; falha de rede vira ApiError NETWORK_ERROR.
   let res: Response;
-  const sentAt = performance.now();
+  const enviadaEm = performance.now();
   try {
-    res = await fetch(buildUrl(path, opts.query), { method, headers, body: payload, credentials: 'include', signal: opts.signal });
+    res = await fetch(montarUrl(caminho, opcoes.query), { method: metodo, headers, body: conteudo, credentials: 'include', signal: opcoes.signal });
   } catch (e) {
     if ((e as Error)?.name === 'AbortError') throw e;
-    throw new ApiError({ status: 0, code: 'NETWORK_ERROR', title: 'Sem conexão', detail: errorCodeMessage.NETWORK_ERROR });
+    throw new ErroApi({ status: 0, code: 'NETWORK_ERROR', title: 'Sem conexão', detail: mensagemCodigoErro.NETWORK_ERROR });
   }
 
   // 4. 401: renova a sessão uma vez e repete; se não der, avisa o AuthProvider para deslogar.
-  if (res.status === 401 && !opts.skipRefresh && !retried) {
+  if (res.status === 401 && !opcoes.skipRefresh && !repetida) {
     // Enviada antes de uma renovação que já terminou? Só repete com o cookie novo.
-    if (sentAt < lastRefreshOkAt) return send(method, path, body, opts, true);
-    const ok = await refreshSession();
-    if (ok) return send(method, path, body, opts, true);
-    if (!opts.silent401) emitUnauthorized();
-  } else if (res.status === 401 && retried && !opts.silent401) {
-    emitUnauthorized();
+    if (enviadaEm < ultimaRenovacaoOkEm) return enviar(metodo, caminho, body, opcoes, true);
+    const renovou = await renovarSessao();
+    if (renovou) return enviar(metodo, caminho, body, opcoes, true);
+    if (!opcoes.silent401) emitirNaoAutorizado();
+  } else if (res.status === 401 && repetida && !opcoes.silent401) {
+    emitirNaoAutorizado();
   }
 
   // 5. 403 de CSRF vencido: pega um token novo e repete.
   // CSRF inválido/expirado: renova o cookie e tenta uma vez.
-  if (res.status === 403 && MUTATING.has(method) && !retried) {
-    const clone = res.clone();
-    let isCsrf = false;
-    try { const p = await clone.json(); isCsrf = /csrf/i.test(`${p?.detail ?? ''} ${p?.title ?? ''} ${p?.code ?? ''}`); } catch { /* */ }
-    if (isCsrf) { await ensureCsrf(true); return send(method, path, body, opts, true); }
+  if (res.status === 403 && METODOS_QUE_ALTERAM.has(metodo) && !repetida) {
+    const copia = res.clone();
+    let ehCsrf = false;
+    try { const p = await copia.json(); ehCsrf = /csrf/i.test(`${p?.detail ?? ''} ${p?.title ?? ''} ${p?.code ?? ''}`); } catch { /* */ }
+    if (ehCsrf) { await garantirCsrf(true); return enviar(metodo, caminho, body, opcoes, true); }
   }
   return res;
 }
 
-async function request<T>(method: string, path: string, body?: Body, opts: RequestOptions = {}): Promise<T> {
-  const res = await send(method, path, body, opts);
-  if (!res.ok) throw await toApiError(res);
+async function requisicao<T>(metodo: string, caminho: string, body?: Corpo, opcoes: OpcoesRequisicao = {}): Promise<T> {
+  const res = await enviar(metodo, caminho, body, opcoes);
+  if (!res.ok) throw await paraErroApi(res);
   if (res.status === 204 || res.status === 202 || res.headers.get('content-length') === '0') return undefined as T;
   const ct = res.headers.get('content-type') ?? '';
   if (ct.includes('json')) return (await res.json()) as T;
@@ -306,23 +306,23 @@ async function request<T>(method: string, path: string, body?: Body, opts: Reque
 }
 
 export const api = {
-  get: <T>(path: string, opts?: RequestOptions) => request<T>('GET', path, undefined, opts),
-  post: <T>(path: string, body?: Body, opts?: RequestOptions) => request<T>('POST', path, body, opts),
-  put: <T>(path: string, body?: Body, opts?: RequestOptions) => request<T>('PUT', path, body, opts),
-  patch: <T>(path: string, body?: Body, opts?: RequestOptions) => request<T>('PATCH', path, body, opts),
-  delete: <T = void>(path: string, opts?: RequestOptions) => request<T>('DELETE', path, undefined, opts),
+  get: <T>(caminho: string, opcoes?: OpcoesRequisicao) => requisicao<T>('GET', caminho, undefined, opcoes),
+  post: <T>(caminho: string, body?: Corpo, opcoes?: OpcoesRequisicao) => requisicao<T>('POST', caminho, body, opcoes),
+  put: <T>(caminho: string, body?: Corpo, opcoes?: OpcoesRequisicao) => requisicao<T>('PUT', caminho, body, opcoes),
+  patch: <T>(caminho: string, body?: Corpo, opcoes?: OpcoesRequisicao) => requisicao<T>('PATCH', caminho, body, opcoes),
+  delete: <T = void>(caminho: string, opcoes?: OpcoesRequisicao) => requisicao<T>('DELETE', caminho, undefined, opcoes),
 
   /** Upload multipart. `fields` vira FormData; File/Blob são anexados como arquivo. */
-  upload: <T>(path: string, fields: Record<string, string | Blob | File>, opts?: RequestOptions) => {
+  upload: <T>(caminho: string, campos: Record<string, string | Blob | File>, opcoes?: OpcoesRequisicao) => {
     const fd = new FormData();
-    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
-    return request<T>('POST', path, fd, opts);
+    for (const [k, v] of Object.entries(campos)) fd.append(k, v);
+    return requisicao<T>('POST', caminho, fd, opcoes);
   },
 
   /** Baixa um recurso binário (ex.: CSV) e retorna Blob + nome sugerido. */
-  async blob(path: string, opts: RequestOptions = {}): Promise<{ blob: Blob; filename: string | null }> {
-    const res = await send('GET', path, undefined, { ...opts, headers: { Accept: '*/*', ...opts.headers } });
-    if (!res.ok) throw await toApiError(res);
+  async blob(caminho: string, opcoes: OpcoesRequisicao = {}): Promise<{ blob: Blob; filename: string | null }> {
+    const res = await enviar('GET', caminho, undefined, { ...opcoes, headers: { Accept: '*/*', ...opcoes.headers } });
+    if (!res.ok) throw await paraErroApi(res);
     const cd = res.headers.get('content-disposition') ?? '';
     const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
     return { blob: await res.blob(), filename: m ? decodeURIComponent(m[1]) : null };
@@ -330,11 +330,11 @@ export const api = {
 };
 
 /** Dispara o download de um Blob no navegador. */
-export function saveBlob(blob: Blob, filename: string) {
+export function salvarArquivo(blob: Blob, nomeArquivo: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = filename;
+  a.download = nomeArquivo;
   a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
@@ -343,7 +343,7 @@ export function saveBlob(blob: Blob, filename: string) {
 }
 
 /** Gera uma chave de idempotência (UUID v4). Gere UMA por intenção do usuário, não por tentativa. */
-export function newIdempotencyKey(): string {
+export function novaChaveIdempotencia(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -352,6 +352,6 @@ export function newIdempotencyKey(): string {
 }
 
 /** URL absoluta de foto servida pela API (`/api/photos/{id}`) — já vem pronta no DTO; helper p/ montar por id. */
-export function photoUrl(id: string): string {
-  return `${API_BASE}/photos/${encodeURIComponent(id)}`;
+export function urlFoto(id: string): string {
+  return `${BASE_API}/photos/${encodeURIComponent(id)}`;
 }

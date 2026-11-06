@@ -1,31 +1,31 @@
 import { CloudOff, RefreshCw, ServerCrash, ShieldAlert } from 'lucide-react';
-import { ApiError, errorMessage } from '@/api/client';
-import { Button } from './Button';
-import { EmptyState } from './EmptyState';
+import { ErroApi, mensagemDeErro } from '@/api/client';
+import { Botao } from './Button';
+import { EstadoVazio } from './EmptyState';
 
-export interface ErrorStateProps {
-  error: unknown;
-  onRetry?: () => void;
+export interface PropsEstadoErro {
+  erro: unknown;
+  aoTentarDeNovo?: () => void;
   title?: string;
-  compact?: boolean;
+  compacto?: boolean;
   className?: string;
 }
 
 /** Erro de carregamento com mensagem PT e "Tentar novamente". `<ErrorState error={q.error} onRetry={q.refetch} />` */
-export function ErrorState({ error, onRetry, title, compact, className }: ErrorStateProps) {
-  const api = error instanceof ApiError ? error : null;
-  const offline = api?.isNetwork || (api && api.status >= 500 && api.status !== 503 && !api.detail);
-  const Icon = api?.isForbidden ? ShieldAlert : offline ? CloudOff : ServerCrash;
-  const heading = title ?? (api?.isForbidden ? 'Acesso negado' : offline ? 'Servidor indisponível' : 'Não foi possível carregar');
+export function EstadoErro({ erro, aoTentarDeNovo, title, compacto, className }: PropsEstadoErro) {
+  const api = erro instanceof ErroApi ? erro : null;
+  const semConexao = api?.ehErroDeRede || (api && api.status >= 500 && api.status !== 503 && !api.detail);
+  const Icone = api?.ehProibido ? ShieldAlert : semConexao ? CloudOff : ServerCrash;
+  const titulo = title ?? (api?.ehProibido ? 'Acesso negado' : semConexao ? 'Servidor indisponível' : 'Não foi possível carregar');
   return (
-    <EmptyState
-      compact={compact}
+    <EstadoVazio
+      compacto={compacto}
       className={className}
       tone="danger"
-      icon={Icon}
-      title={heading}
-      description={offline ? 'Não conseguimos falar com o servidor agora. Verifique sua conexão e tente de novo.' : errorMessage(error)}
-      action={onRetry && <Button variant="secondary" leftIcon={RefreshCw} onClick={() => onRetry()}>Tentar novamente</Button>}
+      icon={Icone}
+      title={titulo}
+      description={semConexao ? 'Não conseguimos falar com o servidor agora. Verifique sua conexão e tente de novo.' : mensagemDeErro(erro)}
+      acao={aoTentarDeNovo && <Botao variant="secondary" iconeEsquerda={RefreshCw} onClick={() => aoTentarDeNovo()}>Tentar novamente</Botao>}
     />
   );
 }

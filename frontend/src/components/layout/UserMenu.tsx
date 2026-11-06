@@ -2,83 +2,83 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronDown, LogOut, Settings2, Sparkles } from 'lucide-react';
-import { useAuth } from '@/auth/AuthProvider';
-import { Avatar, Badge, toast } from '@/components/ui';
-import { formatNumber } from '@/lib/format';
-import { role as roleLabels } from '@/lib/labels';
+import { useAutenticacao } from '@/auth/AuthProvider';
+import { Avatar, Etiqueta, toast } from '@/components/ui';
+import { formatarNumero } from '@/lib/format';
+import { perfil as roleLabels } from '@/lib/labels';
 import { cn } from '@/lib/cn';
 
 /** Chip com saldo de pontos e nível. */
-export function PointsChip({ className }: { className?: string }) {
-  const { user } = useAuth();
-  if (!user) return null;
+export function ChipPontos({ className }: { className?: string }) {
+  const { user: usuario } = useAutenticacao();
+  if (!usuario) return null;
   return (
     <div
       className={cn('flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-sm', className)}
-      title={`${formatNumber(user.points)} pontos disponíveis · nível ${user.level.name}`}
+      title={`${formatarNumero(usuario.points)} pontos disponíveis · nível ${usuario.level.name}`}
     >
       <Sparkles className="size-3.5 text-brand-300" aria-hidden />
-      <span className="font-mono text-[13px] font-medium text-fg tabular">{formatNumber(user.points)}</span>
+      <span className="font-mono text-[13px] font-medium text-fg tabular">{formatarNumero(usuario.points)}</span>
       <span className="font-mono text-[11px] text-subtle uppercase">pts</span>
       <span aria-hidden className="mx-0.5 h-4 w-px bg-line-strong" />
-      <span className="text-xs text-fg-soft">{user.level.name}</span>
+      <span className="text-xs text-fg-soft">{usuario.level.name}</span>
     </div>
   );
 }
 
-export function UserMenu() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+export function MenuUsuario() {
+  const { user: usuario, logout: sair } = useAutenticacao();
+  const navegar = useNavigate();
+  const [aberto, setAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const menuId = useId();
+  const idMenu = useId();
 
   useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setOpen(false); ref.current?.querySelector<HTMLButtonElement>('button')?.focus(); }
+    if (!aberto) return;
+    const aoPressionar = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setAberto(false); };
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setAberto(false); ref.current?.querySelector<HTMLButtonElement>('button')?.focus(); }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        const items = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
-        const i = items.indexOf(document.activeElement as HTMLElement);
-        items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+        const itens = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+        const i = itens.indexOf(document.activeElement as HTMLElement);
+        itens[(i + (e.key === 'ArrowDown' ? 1 : -1) + itens.length) % itens.length]?.focus();
       }
     };
-    document.addEventListener('pointerdown', onDown);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', aoPressionar);
+    document.addEventListener('keydown', aoTeclar);
     const t = setTimeout(() => ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus(), 20);
-    return () => { document.removeEventListener('pointerdown', onDown); document.removeEventListener('keydown', onKey); clearTimeout(t); };
-  }, [open]);
+    return () => { document.removeEventListener('pointerdown', aoPressionar); document.removeEventListener('keydown', aoTeclar); clearTimeout(t); };
+  }, [aberto]);
 
-  if (!user) return null;
+  if (!usuario) return null;
 
-  const go = (to: string) => { setOpen(false); navigate(to); };
-  const doLogout = async () => {
-    setOpen(false);
-    await logout();
+  const irPara = (destino: string) => { setAberto(false); navegar(destino); };
+  const sairDaConta = async () => {
+    setAberto(false);
+    await sair();
     toast.success('Você saiu da sua conta.');
-    navigate('/entrar', { replace: true });
+    navegar('/entrar', { replace: true });
   };
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setAberto((o) => !o)}
         aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={menuId}
+        aria-expanded={aberto}
+        aria-controls={idMenu}
         className="flex items-center gap-2 rounded-full p-0.5 pr-1.5 transition-colors hover:bg-white/5"
       >
-        <Avatar name={user.name} size="sm" />
+        <Avatar nome={usuario.name} size="sm" />
         <span className="sr-only">Menu do usuário</span>
-        <ChevronDown aria-hidden className={cn('hidden size-4 text-muted transition-transform sm:block', open && 'rotate-180')} />
+        <ChevronDown aria-hidden className={cn('hidden size-4 text-muted transition-transform sm:block', aberto && 'rotate-180')} />
       </button>
       <AnimatePresence>
-        {open && (
+        {aberto && (
           <motion.div
-            id={menuId}
+            id={idMenu}
             role="menu"
             aria-label="Conta"
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
@@ -88,18 +88,18 @@ export function UserMenu() {
             className="glass-strong absolute top-full right-0 z-50 mt-2 w-72 origin-top-right overflow-hidden rounded-2xl p-1.5"
           >
             <div className="flex items-center gap-3 px-3 pt-2.5 pb-3">
-              <Avatar name={user.name} size="md" />
+              <Avatar nome={usuario.name} size="md" />
               <div className="min-w-0">
-                <p className="truncate font-medium text-fg">{user.name}</p>
-                <p className="truncate text-xs text-muted">{user.email}</p>
-                <Badge tone={roleLabels[user.role].tone} className="mt-1.5">{roleLabels[user.role].label}</Badge>
+                <p className="truncate font-medium text-fg">{usuario.name}</p>
+                <p className="truncate text-xs text-muted">{usuario.email}</p>
+                <Etiqueta tone={roleLabels[usuario.role].tone} className="mt-1.5">{roleLabels[usuario.role].label}</Etiqueta>
               </div>
             </div>
             <div className="hairline mb-1" />
-            <button role="menuitem" type="button" onClick={() => go('/app/perfil')} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-fg-soft hover:bg-white/5 hover:text-fg focus-visible:bg-white/5">
+            <button role="menuitem" type="button" onClick={() => irPara('/app/perfil')} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-fg-soft hover:bg-white/5 hover:text-fg focus-visible:bg-white/5">
               <Settings2 className="size-4 text-muted" aria-hidden /> Meu perfil
             </button>
-            <button role="menuitem" type="button" onClick={doLogout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-danger hover:bg-danger/10 focus-visible:bg-danger/10">
+            <button role="menuitem" type="button" onClick={sairDaConta} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-danger hover:bg-danger/10 focus-visible:bg-danger/10">
               <LogOut className="size-4" aria-hidden /> Sair
             </button>
           </motion.div>

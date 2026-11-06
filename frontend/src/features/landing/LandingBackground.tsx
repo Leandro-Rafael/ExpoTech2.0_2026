@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useMovimentoReduzido } from '@/hooks/useReducedMotion';
 import { cn } from '@/lib/cn';
 
-const HeroScene = lazy(() => import('./HeroScene'));
+const CenaAbertura = lazy(() => import('./HeroScene'));
 
-function hasWebGL(): boolean {
+function temWebGL(): boolean {
   try {
     const c = document.createElement('canvas');
     return !!(c.getContext('webgl2') || c.getContext('webgl'));
@@ -14,7 +14,7 @@ function hasWebGL(): boolean {
 }
 
 /** Único brilho ambiente (estático), atrás do anel. Funciona como "bloom" barato. */
-function AmbientGlow() {
+function BrilhoAmbiente() {
   return (
     <div aria-hidden className="absolute inset-0 bg-[radial-gradient(42%_50%_at_74%_50%,rgb(16_185_129/0.13),transparent_70%)] max-sm:bg-[radial-gradient(80%_38%_at_50%_24%,rgb(16_185_129/0.15),transparent_70%)]" />
   );
@@ -25,7 +25,7 @@ function AmbientGlow() {
  * Usado na primeira pintura, com movimento reduzido e como fallback sem WebGL/GPU fraca:
  * o visual é o mesmo da cena animada.
  */
-function StaticBackdrop({ className }: { className?: string }) {
+function FundoEstatico({ className }: { className?: string }) {
   return (
     <picture aria-hidden className={cn('absolute inset-0', className)}>
       <source media="(max-width: 767px)" srcSet="/scene/ring-mobile.webp" type="image/webp" />
@@ -44,33 +44,33 @@ function StaticBackdrop({ className }: { className?: string }) {
  * Fundo fixo da landing. Pinta o estático imediatamente e, quando o navegador
  * fica ocioso, carrega a cena WebGL (chunk "three") e faz crossfade.
  */
-export function LandingBackground() {
-  const reduced = useReducedMotion();
-  const [mount, setMount] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [fading, setFading] = useState(false);
+export function FundoLanding() {
+  const reduzido = useMovimentoReduzido();
+  const [montar, setMontar] = useState(false);
+  const [pronta, setPronta] = useState(false);
+  const [falhou, setFalhou] = useState(false);
+  const [sumindo, setSumindo] = useState(false);
   // Falha/desempenho ruim: crossfade para o estático e só então desmonta a cena.
-  const handleFail = () => { setFading(true); window.setTimeout(() => setFailed(true), 1600); };
+  const tratarFalha = () => { setSumindo(true); window.setTimeout(() => setFalhou(true), 1600); };
 
   useEffect(() => {
-    if (reduced || !hasWebGL()) return;
+    if (reduzido || !temWebGL()) return;
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
     let id: number;
-    if (w.requestIdleCallback) id = w.requestIdleCallback(() => setMount(true), { timeout: 1200 });
-    else id = window.setTimeout(() => setMount(true), 300);
+    if (w.requestIdleCallback) id = w.requestIdleCallback(() => setMontar(true), { timeout: 1200 });
+    else id = window.setTimeout(() => setMontar(true), 300);
     return () => { if (w.cancelIdleCallback) w.cancelIdleCallback(id); else clearTimeout(id); };
-  }, [reduced]);
+  }, [reduzido]);
 
-  const showScene = mount && !failed && !reduced;
+  const mostrarCena = montar && !falhou && !reduzido;
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-0 bg-bg [contain:strict] [will-change:transform]">
-      <AmbientGlow />
-      <StaticBackdrop className={cn('transition-opacity duration-[1500ms]', ready && showScene && !fading ? 'opacity-0' : 'opacity-100')} />
-      {showScene && (
-        <div className={cn('absolute inset-0 transition-opacity duration-[1500ms]', ready && !fading ? 'opacity-100' : 'opacity-0')}>
+      <BrilhoAmbiente />
+      <FundoEstatico className={cn('transition-opacity duration-[1500ms]', pronta && mostrarCena && !sumindo ? 'opacity-0' : 'opacity-100')} />
+      {mostrarCena && (
+        <div className={cn('absolute inset-0 transition-opacity duration-[1500ms]', pronta && !sumindo ? 'opacity-100' : 'opacity-0')}>
           <Suspense fallback={null}>
-            <HeroScene onReady={() => setReady(true)} onFail={handleFail} />
+            <CenaAbertura onReady={() => setPronta(true)} onFail={tratarFalha} />
           </Suspense>
         </div>
       )}

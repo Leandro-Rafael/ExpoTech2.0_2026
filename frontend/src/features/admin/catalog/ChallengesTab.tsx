@@ -4,18 +4,18 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { FormNumber } from '../formControls';
 import { Pencil, Plus, Target } from 'lucide-react';
-import { applyServerErrors } from '@/api/forms';
-import { useAdminChallenges, useSaveChallenge } from '@/api/queries';
+import { aplicarErrosDoServidor } from '@/api/forms';
+import { useDesafiosAdmin, useSalvarDesafio } from '@/api/queries';
 import type { Challenge, ChallengeMetric } from '@/api/types';
-import { Badge, Button, EmptyState, Field, FormError, IconButton, Input, Modal, Select, Switch, Textarea, toast } from '@/components/ui';
-import { CategoryIcon } from '@/components/CategoryIcon';
+import { Etiqueta, Botao, EstadoVazio, Campo, ErroFormulario, BotaoIcone, CampoTexto, Modal, Selecao, Interruptor, AreaTexto, toast } from '@/components/ui';
+import { IconeCategoria } from '@/components/CategoryIcon';
 import { cn } from '@/lib/cn';
-import { formatDateShort, formatNumber, todayISODate } from '@/lib/format';
-import { CATEGORY_CODES, categoryFallback } from '@/lib/labels';
-import { AdminTable, type AdminColumn } from '../ui';
+import { formatarDataCurta, formatarNumero, dataHojeISO } from '@/lib/format';
+import { CODIGOS_CATEGORIA, categoriaPadrao } from '@/lib/labels';
+import { TabelaAdmin, type ColunaAdmin } from '../ui';
 
-function phase(c: Challenge): { label: string; tone: 'success' | 'info' | 'neutral' } {
-  const t = todayISODate();
+function fase(c: Challenge): { label: string; tone: 'success' | 'info' | 'neutral' } {
+  const t = dataHojeISO();
   if (!c.active) return { label: 'Inativo', tone: 'neutral' };
   if (t < c.startsAt) return { label: 'Agendado', tone: 'info' };
   if (t > c.endsAt) return { label: 'Encerrado', tone: 'neutral' };
@@ -23,103 +23,103 @@ function phase(c: Challenge): { label: string; tone: 'success' | 'info' | 'neutr
 }
 
 // Aba do catálogo: desafios com prazo que dão pontos bônus aos moradores.
-export function ChallengesTab() {
-  const q = useAdminChallenges();
-  const [editing, setEditing] = useState<Challenge | 'new' | null>(null);
-  const columns: AdminColumn<Challenge>[] = [
+export function AbaDesafios() {
+  const q = useDesafiosAdmin();
+  const [editando, setEditando] = useState<Challenge | 'new' | null>(null);
+  const colunas: ColunaAdmin<Challenge>[] = [
     {
-      key: 'title', header: 'Desafio', mobile: 'title', sort: (c) => c.title,
-      cell: (c) => (
+      key: 'title', cabecalho: 'Desafio', celular: 'title', ordenar: (c) => c.title,
+      celula: (c) => (
         <span className="flex items-center gap-3">
-          {c.categoryCode ? <CategoryIcon code={c.categoryCode} size="sm" /> : <span className="inline-flex size-8 items-center justify-center rounded-xl border border-line text-subtle"><Target className="size-4" aria-hidden /></span>}
+          {c.categoryCode ? <IconeCategoria codigo={c.categoryCode} size="sm" /> : <span className="inline-flex size-8 items-center justify-center rounded-xl border border-line text-subtle"><Target className="size-4" aria-hidden /></span>}
           <span className="min-w-0">
             <span className="block font-medium text-fg">{c.title}</span>
-            <span className="block text-xs text-muted">{c.categoryCode ? categoryFallback[c.categoryCode].name : 'Qualquer material'}</span>
+            <span className="block text-xs text-muted">{c.categoryCode ? categoriaPadrao[c.categoryCode].name : 'Qualquer material'}</span>
           </span>
         </span>
       ),
     },
-    { key: 'phase', header: 'Situação', mobile: 'aside', sort: (c) => phase(c).label, cell: (c) => { const p = phase(c); return <Badge tone={p.tone} dot>{p.label}</Badge>; } },
-    { key: 'period', header: 'Período', sort: (c) => c.startsAt, cell: (c) => <span className="font-mono text-[12.5px] tabular">{formatDateShort(c.startsAt)} → {formatDateShort(c.endsAt)}</span> },
-    { key: 'target', header: 'Meta', align: 'right', sort: (c) => c.target, cell: (c) => <span className="font-mono tabular">{formatNumber(c.target, 1)} {c.metric === 'KG' ? 'kg' : 'descartes'}</span> },
-    { key: 'bonus', header: 'Bônus', align: 'right', sort: (c) => c.bonusPoints, cell: (c) => <span className="font-mono tabular">+{formatNumber(c.bonusPoints)} pts</span> },
-    { key: 'act', header: <span className="sr-only">Ações</span>, align: 'right', mobile: 'row', cell: (c) => <IconButton icon={Pencil} size="sm" label={`Editar ${c.title}`} onClick={() => setEditing(c)} /> },
+    { key: 'phase', cabecalho: 'Situação', celular: 'aside', ordenar: (c) => fase(c).label, celula: (c) => { const p = fase(c); return <Etiqueta tone={p.tone} ponto>{p.label}</Etiqueta>; } },
+    { key: 'period', cabecalho: 'Período', ordenar: (c) => c.startsAt, celula: (c) => <span className="font-mono text-[12.5px] tabular">{formatarDataCurta(c.startsAt)} → {formatarDataCurta(c.endsAt)}</span> },
+    { key: 'target', cabecalho: 'Meta', alinhamento: 'right', ordenar: (c) => c.target, celula: (c) => <span className="font-mono tabular">{formatarNumero(c.target, 1)} {c.metric === 'KG' ? 'kg' : 'descartes'}</span> },
+    { key: 'bonus', cabecalho: 'Bônus', alinhamento: 'right', ordenar: (c) => c.bonusPoints, celula: (c) => <span className="font-mono tabular">+{formatarNumero(c.bonusPoints)} pts</span> },
+    { key: 'act', cabecalho: <span className="sr-only">Ações</span>, alinhamento: 'right', celular: 'row', celula: (c) => <BotaoIcone icon={Pencil} size="sm" label={`Editar ${c.title}`} onClick={() => setEditando(c)} /> },
   ];
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-[13.5px] text-muted">Metas com prazo que dão pontos-bônus a quem completar.</p>
-        <Button size="sm" variant="secondary" leftIcon={Plus} onClick={() => setEditing('new')}>Novo desafio</Button>
+        <Botao size="sm" variant="secondary" iconeEsquerda={Plus} onClick={() => setEditando('new')}>Novo desafio</Botao>
       </div>
-      <AdminTable caption="Desafios" columns={columns} rows={q.data} rowKey={(c) => c.id} loading={q.isPending} error={q.error} onRetry={q.refetch}
-        rowClassName={(c) => cn(!c.active && 'opacity-60')}
-        empty={<EmptyState compact icon={Target} title="Nenhum desafio" description="Crie um desafio para engajar os moradores." />} />
-      {editing && <ChallengeForm key={editing === 'new' ? 'new' : editing.id} challenge={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      <TabelaAdmin legenda="Desafios" colunas={colunas} linhas={q.data} chaveLinha={(c) => c.id} carregando={q.isPending} erro={q.error} aoTentarDeNovo={q.refetch}
+        classeLinha={(c) => cn(!c.active && 'opacity-60')}
+        vazio={<EstadoVazio compacto icon={Target} title="Nenhum desafio" description="Crie um desafio para engajar os moradores." />} />
+      {editando && <FormDesafio key={editando === 'new' ? 'new' : editando.id} desafio={editando === 'new' ? null : editando} onClose={() => setEditando(null)} />}
     </>
   );
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const schema = z.object({
+const DATA = /^\d{4}-\d{2}-\d{2}$/;
+const esquema = z.object({
   title: z.string().trim().min(3, 'Mínimo de 3 caracteres').max(100, 'Máximo de 100 caracteres'),
   description: z.string().trim().max(500, 'Máximo de 500 caracteres'),
   categoryCode: z.string(),
   metric: z.enum(['KG', 'COUNT']),
   target: z.number({ invalid_type_error: 'Informe a meta', required_error: 'Informe a meta' }).min(0.1, 'Mínimo de 0,1').max(100_000),
   bonusPoints: z.number({ invalid_type_error: 'Informe o bônus', required_error: 'Informe o bônus' }).int('Use um número inteiro').min(0).max(100_000),
-  startsAt: z.string().regex(DATE, 'Escolha a data de início'),
-  endsAt: z.string().regex(DATE, 'Escolha a data de fim'),
+  startsAt: z.string().regex(DATA, 'Escolha a data de início'),
+  endsAt: z.string().regex(DATA, 'Escolha a data de fim'),
   active: z.boolean(),
 }).superRefine((v, ctx) => {
-  if (DATE.test(v.startsAt) && DATE.test(v.endsAt) && v.endsAt < v.startsAt) ctx.addIssue({ code: 'custom', path: ['endsAt'], message: 'O fim deve ser depois do início' });
+  if (DATA.test(v.startsAt) && DATA.test(v.endsAt) && v.endsAt < v.startsAt) ctx.addIssue({ code: 'custom', path: ['endsAt'], message: 'O fim deve ser depois do início' });
   if (v.metric === 'COUNT' && !Number.isInteger(v.target)) ctx.addIssue({ code: 'custom', path: ['target'], message: 'Para descartes, use um número inteiro' });
 });
-type Values = z.infer<typeof schema>;
+type Valores = z.infer<typeof esquema>;
 
-function ChallengeForm({ challenge, onClose }: { challenge: Challenge | null; onClose: () => void }) {
-  const save = useSaveChallenge();
-  const form = useForm<Values>({
-    resolver: zodResolver(schema),
-    defaultValues: challenge
-      ? { title: challenge.title, description: challenge.description, categoryCode: challenge.categoryCode ?? '', metric: challenge.metric, target: challenge.target, bonusPoints: challenge.bonusPoints, startsAt: challenge.startsAt, endsAt: challenge.endsAt, active: challenge.active }
-      : { title: '', description: '', categoryCode: '', metric: 'KG', target: undefined, bonusPoints: 100, startsAt: todayISODate(), endsAt: '', active: true },
+function FormDesafio({ desafio, onClose }: { desafio: Challenge | null; onClose: () => void }) {
+  const salvar = useSalvarDesafio();
+  const formulario = useForm<Valores>({
+    resolver: zodResolver(esquema),
+    defaultValues: desafio
+      ? { title: desafio.title, description: desafio.description, categoryCode: desafio.categoryCode ?? '', metric: desafio.metric, target: desafio.target, bonusPoints: desafio.bonusPoints, startsAt: desafio.startsAt, endsAt: desafio.endsAt, active: desafio.active }
+      : { title: '', description: '', categoryCode: '', metric: 'KG', target: undefined, bonusPoints: 100, startsAt: dataHojeISO(), endsAt: '', active: true },
   });
-  const { errors, isSubmitting } = form.formState;
-  const metric = form.watch('metric') as ChallengeMetric;
-  const submit = form.handleSubmit(async (v) => {
+  const { errors: erros, isSubmitting: enviando } = formulario.formState;
+  const metrica = formulario.watch('metric') as ChallengeMetric;
+  const enviar = formulario.handleSubmit(async (v) => {
     try {
-      const saved = await save.mutateAsync({
-        id: challenge?.id,
+      const salvo = await salvar.mutateAsync({
+        id: desafio?.id,
         body: { ...v, title: v.title.trim(), description: v.description.trim(), categoryCode: (v.categoryCode || null) as Challenge['categoryCode'], metric: v.metric },
       });
-      toast.success(challenge ? `“${saved.title}” atualizado.` : `“${saved.title}” criado.`);
+      toast.success(desafio ? `“${salvo.title}” atualizado.` : `“${salvo.title}” criado.`);
       onClose();
-    } catch (e) { applyServerErrors(e, form.setError); }
+    } catch (e) { aplicarErrosDoServidor(e, formulario.setError); }
   });
   return (
-    <Modal open onClose={onClose} size="lg" closeOnBackdrop={false} title={challenge ? 'Editar desafio' : 'Novo desafio'}
-      footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button type="submit" form="ch-form" loading={isSubmitting}>Salvar desafio</Button></>}>
-      <form id="ch-form" noValidate onSubmit={submit} className="space-y-4">
-        <FormError error={errors.root?.server} />
-        <Field label="Título" required error={errors.title}><Input {...form.register('title')} maxLength={100} placeholder="Mês do vidro" /></Field>
-        <Field label="Descrição" optional error={errors.description}><Textarea {...form.register('description')} maxLength={500} rows={2} /></Field>
+    <Modal open onClose={onClose} size="lg" fecharAoClicarFora={false} title={desafio ? 'Editar desafio' : 'Novo desafio'}
+      rodape={<><Botao variant="ghost" onClick={onClose}>Cancelar</Botao><Botao type="submit" form="ch-form" carregando={enviando}>Salvar desafio</Botao></>}>
+      <form id="ch-form" noValidate onSubmit={enviar} className="space-y-4">
+        <ErroFormulario erro={erros.root?.server} />
+        <Campo label="Título" required erro={erros.title}><CampoTexto {...formulario.register('title')} maxLength={100} placeholder="Mês do vidro" /></Campo>
+        <Campo label="Descrição" opcional erro={erros.description}><AreaTexto {...formulario.register('description')} maxLength={500} rows={2} /></Campo>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Material" error={errors.categoryCode}>
-            <Select {...form.register('categoryCode')} options={[{ value: '', label: 'Qualquer material' }, ...CATEGORY_CODES.map((c) => ({ value: c, label: categoryFallback[c].name }))]} />
-          </Field>
-          <Field label="Medida" required error={errors.metric}>
-            <Select {...form.register('metric')} options={[{ value: 'KG', label: 'Quilos reciclados' }, { value: 'COUNT', label: 'Número de descartes' }]} />
-          </Field>
-          <Field label="Meta" required error={errors.target}>
-            <FormNumber control={form.control} name="target" decimals={metric === 'KG' ? 1 : 0} min={0.1} max={100_000} unit={metric === 'KG' ? 'kg' : 'desc.'} />
-          </Field>
-          <Field label="Bônus" required error={errors.bonusPoints}>
-            <FormNumber control={form.control} name="bonusPoints" decimals={0} min={0} max={100_000} unit="pts" />
-          </Field>
-          <Field label="Início" required error={errors.startsAt}><Input type="date" {...form.register('startsAt')} className="[color-scheme:dark]" /></Field>
-          <Field label="Fim" required error={errors.endsAt}><Input type="date" {...form.register('endsAt')} min={form.watch('startsAt') || undefined} className="[color-scheme:dark]" /></Field>
+          <Campo label="Material" erro={erros.categoryCode}>
+            <Selecao {...formulario.register('categoryCode')} opcoes={[{ value: '', label: 'Qualquer material' }, ...CODIGOS_CATEGORIA.map((c) => ({ value: c, label: categoriaPadrao[c].name }))]} />
+          </Campo>
+          <Campo label="Medida" required erro={erros.metric}>
+            <Selecao {...formulario.register('metric')} opcoes={[{ value: 'KG', label: 'Quilos reciclados' }, { value: 'COUNT', label: 'Número de descartes' }]} />
+          </Campo>
+          <Campo label="Meta" required erro={erros.target}>
+            <FormNumber control={formulario.control} name="target" casasDecimais={metrica === 'KG' ? 1 : 0} min={0.1} max={100_000} unidade={metrica === 'KG' ? 'kg' : 'desc.'} />
+          </Campo>
+          <Campo label="Bônus" required erro={erros.bonusPoints}>
+            <FormNumber control={formulario.control} name="bonusPoints" casasDecimais={0} min={0} max={100_000} unidade="pts" />
+          </Campo>
+          <Campo label="Início" required erro={erros.startsAt}><CampoTexto type="date" {...formulario.register('startsAt')} className="[color-scheme:dark]" /></Campo>
+          <Campo label="Fim" required erro={erros.endsAt}><CampoTexto type="date" {...formulario.register('endsAt')} min={formulario.watch('startsAt') || undefined} className="[color-scheme:dark]" /></Campo>
         </div>
-        <Controller control={form.control} name="active" render={({ field }) => <Switch checked={field.value} onChange={field.onChange} label="Ativo" />} />
+        <Controller control={formulario.control} name="active" render={({ field }) => <Interruptor checked={field.value} onChange={field.onChange} label="Ativo" />} />
       </form>
     </Modal>
   );

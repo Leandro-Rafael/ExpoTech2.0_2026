@@ -1,11 +1,11 @@
-import { useMediaQuery } from './useMediaQuery';
+import { useConsultaMidia } from './useMediaQuery';
 
 /** true quando o usuário pediu menos movimento no sistema operacional. */
-export function useReducedMotion(): boolean {
-  return useMediaQuery('(prefers-reduced-motion: reduce)');
+export function useMovimentoReduzido(): boolean {
+  return useConsultaMidia('(prefers-reduced-motion: reduce)');
 }
 
 /** Versão síncrona fora de componentes (ex.: dentro de efeitos GSAP / three). */
-export function prefersReducedMotion(): boolean {
+export function prefereMenosMovimento(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }

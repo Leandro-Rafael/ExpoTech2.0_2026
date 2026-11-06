@@ -8,110 +8,110 @@ import {
   AlertTriangle, Bot, Check, ChevronDown, ImageOff, MapPin, Maximize2, ShieldAlert, ShieldCheck, Sparkles, X,
 } from 'lucide-react';
 import type { Category, CategoryCode, Disposal } from '@/api/types';
-import { Avatar, Button, Field, Modal, Select, StatusPill, Tooltip } from '@/components/ui';
-import { CategoryIcon } from '@/components/CategoryIcon';
+import { Avatar, Botao, Campo, Modal, Selecao, PilulaStatus, Dica } from '@/components/ui';
+import { IconeCategoria } from '@/components/CategoryIcon';
 import { cn } from '@/lib/cn';
-import { formatDateTime, formatKg, formatNumber, formatPercent, formatRelative } from '@/lib/format';
-import { aiSource, categoryFallback, disposalStatus } from '@/lib/labels';
-import { Detail, Kbd, Meter } from '../ui';
+import { formatarDataHora, formatarKg, formatarNumero, formatarPercentual, formatarRelativo } from '@/lib/format';
+import { origemIa, categoriaPadrao, statusDescarte } from '@/lib/labels';
+import { Detalhe, Tecla, Medidor } from '../ui';
 
 // Risco de fraude (0 a 100) é a soma dos sinais que o servidor encontrou (foto repetida, peso alto, muitos envios...).
 // A partir de 40 o descarte fica sinalizado como suspeito; a partir de 70 aparece em vermelho.
-const FLAG_THRESHOLD = 40;
+const LIMITE_SUSPEITA = 40;
 
-function fraudTone(score: number): 'danger' | 'warning' | 'neutral' {
-  if (score >= 70) return 'danger';
-  if (score >= FLAG_THRESHOLD) return 'warning';
+function tomDaFraude(pontuacao: number): 'danger' | 'warning' | 'neutral' {
+  if (pontuacao >= 70) return 'danger';
+  if (pontuacao >= LIMITE_SUSPEITA) return 'warning';
   return 'neutral';
 }
 
 // A IA sugeriu um material diferente do que o morador declarou: vale olhar a foto com mais cuidado.
-export function aiMismatch(d: Disposal): boolean {
+export function divergeDaIa(d: Disposal): boolean {
   return !!d.ai?.suggestedCode && d.ai.suggestedCode !== d.category.code;
 }
 
-function codeName(code: CategoryCode | null | undefined, categories?: Category[]): string {
-  if (!code) return '—';
-  return categories?.find((c) => c.code === code)?.name ?? categoryFallback[code].name;
+function nomeDoCodigo(codigo: CategoryCode | null | undefined, categorias?: Category[]): string {
+  if (!codigo) return '—';
+  return categorias?.find((c) => c.code === codigo)?.name ?? categoriaPadrao[codigo].name;
 }
 
 /** Pontuação de risco em mono com tom. */
-export function FraudScore({ score, className }: { score: number; className?: string }) {
-  const tone = fraudTone(score);
+export function PontuacaoFraude({ pontuacao, className }: { pontuacao: number; className?: string }) {
+  const tom = tomDaFraude(pontuacao);
   return (
     <span className={cn('inline-flex items-baseline gap-0.5 font-mono text-[13px] tabular',
-      tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-warning' : 'text-subtle', className)}>
-      {score}<span className="text-[10px] opacity-60">/100</span>
+      tom === 'danger' ? 'text-danger' : tom === 'warning' ? 'text-warning' : 'text-subtle', className)}>
+      {pontuacao}<span className="text-[10px] opacity-60">/100</span>
     </span>
   );
 }
 
-export interface ApproveCorrection { categoryId?: string; quantityKg?: number }
+export interface CorrecaoAprovacao { categoryId?: string; quantityKg?: number }
 
 interface Props {
-  disposal: Disposal;
-  categories: Category[] | undefined;
-  onApprove: (c: ApproveCorrection) => void;
-  onReject: () => void;
-  busy?: boolean;
+  descarte: Disposal;
+  categorias: Category[] | undefined;
+  aoAprovar: (c: CorrecaoAprovacao) => void;
+  aoRecusar: () => void;
+  ocupado?: boolean;
   /** Mostra as dicas de atalho (desktop). */
-  showShortcuts?: boolean;
+  mostrarAtalhos?: boolean;
   /** Ref para o botão de aprovar com correção (atalho A). */
-  approveRef?: (fn: (() => void) | null) => void;
+  refAprovar?: (fn: (() => void) | null) => void;
 }
 
 /** Painel de revisão de um descarte: foto grande, IA × declarado, risco, correção e ações. */
-export function DisposalReview({ disposal: d, categories, onApprove, onReject, busy, showShortcuts, approveRef }: Props) {
-  const [zoom, setZoom] = useState(false);
-  const [correcting, setCorrecting] = useState(false);
-  const pending = d.status === 'PENDING';
-  const mismatch = aiMismatch(d);
-  const score = d.fraud?.score ?? 0;
-  const tone = fraudTone(score);
-  const flags = d.fraud?.flags ?? [];
-  const activeCats = useMemo(() => (categories ?? []).filter((c) => c.active || c.id === d.category.id), [categories, d.category.id]);
+export function RevisaoDescarte({ descarte: d, categorias, aoAprovar, aoRecusar, ocupado, mostrarAtalhos, refAprovar }: Props) {
+  const [ampliada, setAmpliada] = useState(false);
+  const [corrigindo, setCorrigindo] = useState(false);
+  const pendente = d.status === 'PENDING';
+  const divergente = divergeDaIa(d);
+  const pontuacao = d.fraud?.score ?? 0;
+  const tom = tomDaFraude(pontuacao);
+  const sinais = d.fraud?.flags ?? [];
+  const categoriasAtivas = useMemo(() => (categorias ?? []).filter((c) => c.active || c.id === d.category.id), [categorias, d.category.id]);
 
-  const schema = useMemo(() => z.object({
+  const esquema = useMemo(() => z.object({
     categoryId: z.string().min(1, 'Escolha a categoria'),
     quantityKg: z.number({ invalid_type_error: 'Informe a quantidade', required_error: 'Informe a quantidade' }).min(0.01, 'Mínimo de 0,01 kg'),
   }).superRefine((v, ctx) => {
-    const cat = categories?.find((c) => c.id === v.categoryId);
-    if (cat && v.quantityKg > cat.maxKgPerDisposal) {
-      ctx.addIssue({ code: 'custom', path: ['quantityKg'], message: `Máximo de ${formatNumber(cat.maxKgPerDisposal, 2)} kg para ${cat.name}` });
+    const categoria = categorias?.find((c) => c.id === v.categoryId);
+    if (categoria && v.quantityKg > categoria.maxKgPerDisposal) {
+      ctx.addIssue({ code: 'custom', path: ['quantityKg'], message: `Máximo de ${formatarNumero(categoria.maxKgPerDisposal, 2)} kg para ${categoria.name}` });
     }
-  }), [categories]);
-  type Values = z.infer<typeof schema>;
-  const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { categoryId: d.category.id, quantityKg: d.quantityKg } });
+  }), [categorias]);
+  type Valores = z.infer<typeof esquema>;
+  const formulario = useForm<Valores>({ resolver: zodResolver(esquema), defaultValues: { categoryId: d.category.id, quantityKg: d.quantityKg } });
 
   useEffect(() => {
-    form.reset({ categoryId: d.category.id, quantityKg: d.quantityKg });
-    setCorrecting(false);
+    formulario.reset({ categoryId: d.category.id, quantityKg: d.quantityKg });
+    setCorrigindo(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d.id]);
 
-  const catId = form.watch('categoryId');
-  const kg = form.watch('quantityKg');
-  const chosen = categories?.find((c) => c.id === catId);
-  const corrected = catId !== d.category.id || (kg != null && Math.abs(kg - d.quantityKg) > 1e-9);
-  const previewPoints = chosen && kg ? Math.round(kg * chosen.pointsPerKg) : d.estimatedPoints;
+  const idCategoria = formulario.watch('categoryId');
+  const kg = formulario.watch('quantityKg');
+  const escolhida = categorias?.find((c) => c.id === idCategoria);
+  const corrigido = idCategoria !== d.category.id || (kg != null && Math.abs(kg - d.quantityKg) > 1e-9);
+  const pontosPrevistos = escolhida && kg ? Math.round(kg * escolhida.pointsPerKg) : d.estimatedPoints;
 
   // Aprovar: sem correção manda vazio; com correção manda só o que mudou (categoria e/ou peso),
   // e o servidor recalcula os pontos com esses valores.
-  const submitApprove = form.handleSubmit((v) => {
-    if (!corrected) return onApprove({});
-    onApprove({ categoryId: v.categoryId !== d.category.id ? v.categoryId : undefined, quantityKg: Math.abs(v.quantityKg - d.quantityKg) > 1e-9 ? v.quantityKg : undefined });
-  }, () => setCorrecting(true));
+  const enviarAprovacao = formulario.handleSubmit((v) => {
+    if (!corrigido) return aoAprovar({});
+    aoAprovar({ categoryId: v.categoryId !== d.category.id ? v.categoryId : undefined, quantityKg: Math.abs(v.quantityKg - d.quantityKg) > 1e-9 ? v.quantityKg : undefined });
+  }, () => setCorrigindo(true));
 
   useEffect(() => {
-    approveRef?.(pending ? () => void submitApprove() : null);
-    return () => approveRef?.(null);
+    refAprovar?.(pendente ? () => void enviarAprovacao() : null);
+    return () => refAprovar?.(null);
   });
 
-  const applyAiSuggestion = () => {
-    const target = categories?.find((c) => c.code === d.ai?.suggestedCode);
-    if (!target) return;
-    setCorrecting(true);
-    form.setValue('categoryId', target.id, { shouldDirty: true, shouldValidate: true });
+  const aplicarSugestaoIa = () => {
+    const alvo = categorias?.find((c) => c.code === d.ai?.suggestedCode);
+    if (!alvo) return;
+    setCorrigindo(true);
+    formulario.setValue('categoryId', alvo.id, { shouldDirty: true, shouldValidate: true });
   };
 
   return (
@@ -120,8 +120,8 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
         {/* Foto */}
         <div className="relative overflow-hidden rounded-xl border border-line bg-bg-deep">
           {d.photoUrl ? (
-            <button type="button" onClick={() => setZoom(true)} className="group block w-full" aria-label="Ampliar foto">
-              <img src={d.photoUrl} alt={`Foto enviada: ${d.category.name}, ${formatKg(d.quantityKg)}`} className="aspect-[4/3] w-full object-cover" />
+            <button type="button" onClick={() => setAmpliada(true)} className="group block w-full" aria-label="Ampliar foto">
+              <img src={d.photoUrl} alt={`Foto enviada: ${d.category.name}, ${formatarKg(d.quantityKg)}`} className="aspect-[4/3] w-full object-cover" />
               <span className="absolute right-2.5 bottom-2.5 inline-flex size-8 items-center justify-center rounded-lg bg-[#070a08]/75 text-fg-soft opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                 <Maximize2 className="size-4" aria-hidden />
               </span>
@@ -132,59 +132,59 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
               <p className="text-[13px]">Descarte sem foto</p>
             </div>
           )}
-          {!pending && <StatusPill map={disposalStatus} value={d.status} className="absolute top-2.5 left-2.5 bg-[#070a08]/85" />}
+          {!pendente && <PilulaStatus mapa={statusDescarte} value={d.status} className="absolute top-2.5 left-2.5 bg-[#070a08]/85" />}
         </div>
 
         {/* Identificação */}
         <div className="flex items-start gap-3">
-          <CategoryIcon icon={d.category.icon} color={d.category.color} code={d.category.code} size="md" />
+          <IconeCategoria icon={d.category.icon} cor={d.category.color} codigo={d.category.code} size="md" />
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-fg">{d.category.name} · <span className="font-mono tabular">{formatKg(d.quantityKg)}</span></p>
+            <p className="text-[15px] font-semibold text-fg">{d.category.name} · <span className="font-mono tabular">{formatarKg(d.quantityKg)}</span></p>
             <p className="mt-0.5 text-[13px] text-muted">
-              {formatDateTime(d.disposedAt)} · <span className="font-mono tabular">≈ {formatNumber(d.estimatedPoints)} pts</span>
+              {formatarDataHora(d.disposedAt)} · <span className="font-mono tabular">≈ {formatarNumero(d.estimatedPoints)} pts</span>
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 border-y border-line py-3">
-          <Avatar name={d.user?.name} size="sm" />
+          <Avatar nome={d.user?.name} size="sm" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13.5px] font-medium text-fg">{d.user?.name ?? 'Usuário'}</p>
             <p className="truncate text-xs text-muted">{d.user?.email}</p>
           </div>
-          <p className="text-xs text-subtle">enviado {formatRelative(d.createdAt)}</p>
+          <p className="text-xs text-subtle">enviado {formatarRelativo(d.createdAt)}</p>
         </div>
 
         {/* Classificação: declarado × IA */}
         <section aria-labelledby={`cls-${d.id}`}>
           <h4 id={`cls-${d.id}`} className="label-mono mb-2.5">Classificação</h4>
-          <div className={cn('grid grid-cols-2 overflow-hidden rounded-xl border', mismatch ? 'border-warning/35' : 'border-line')}>
+          <div className={cn('grid grid-cols-2 overflow-hidden rounded-xl border', divergente ? 'border-warning/35' : 'border-line')}>
             <div className="p-3.5">
               <p className="text-[11px] tracking-[0.06em] text-subtle uppercase">Declarado</p>
               <p className="mt-1.5 flex items-center gap-2 text-[14px] font-medium text-fg">
-                <CategoryIcon variant="plain" size="sm" icon={d.category.icon} color={d.category.color} code={d.category.code} />
+                <IconeCategoria variant="plain" size="sm" icon={d.category.icon} cor={d.category.color} codigo={d.category.code} />
                 {d.category.name}
               </p>
             </div>
-            <div className={cn('border-l p-3.5', mismatch ? 'border-warning/35 bg-warning/[0.06]' : 'border-line')}>
+            <div className={cn('border-l p-3.5', divergente ? 'border-warning/35 bg-warning/[0.06]' : 'border-line')}>
               <p className="flex items-center gap-1.5 text-[11px] tracking-[0.06em] text-subtle uppercase">
                 <Sparkles className="size-3" aria-hidden /> Sugestão da IA
               </p>
               {d.ai?.suggestedCode ? (
                 <>
-                  <p className={cn('mt-1.5 flex items-center gap-2 text-[14px] font-medium', mismatch ? 'text-warning' : 'text-fg')}>
-                    <CategoryIcon variant="plain" size="sm" code={d.ai.suggestedCode} />
-                    {codeName(d.ai.suggestedCode, categories)}
+                  <p className={cn('mt-1.5 flex items-center gap-2 text-[14px] font-medium', divergente ? 'text-warning' : 'text-fg')}>
+                    <IconeCategoria variant="plain" size="sm" codigo={d.ai.suggestedCode} />
+                    {nomeDoCodigo(d.ai.suggestedCode, categorias)}
                   </p>
                   <p className="mt-1 text-xs text-muted">
-                    <span className="font-mono tabular">{formatPercent(d.ai.confidence ?? 0)}</span> de confiança
-                    {d.ai.source && <> · {aiSource[d.ai.source].label}</>}
+                    <span className="font-mono tabular">{formatarPercentual(d.ai.confidence ?? 0)}</span> de confiança
+                    {d.ai.source && <> · {origemIa[d.ai.source].label}</>}
 
                   </p>
                 </>
               ) : <p className="mt-1.5 text-[13px] text-subtle">Sem sugestão</p>}
               {d.ai?.suggestedCode && (
-                <Tooltip content={d.ai.verified
+                <Dica conteudo={d.ai.verified
                   ? 'Classificada pela IA do servidor. Só a IA verificada conta para o bônus de +10% quando bate com a categoria declarada.'
                   : 'Palpite do modelo que roda no navegador do morador: serve de referência, mas não conta para o bônus de +10%.'}>
                   <span tabIndex={0} className={cn('mt-2 inline-flex items-center gap-1 rounded-md border px-1.5 py-px text-[11px]',
@@ -192,14 +192,14 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
                     {d.ai.verified ? <ShieldCheck className="size-3" aria-hidden /> : <Bot className="size-3" aria-hidden />}
                     {d.ai.verified ? 'IA verificada' : 'Palpite do navegador'}
                   </span>
-                </Tooltip>
+                </Dica>
               )}
             </div>
           </div>
-          {mismatch && pending && (
+          {divergente && pendente && (
             <div className="mt-2 flex items-center justify-between gap-3 text-[13px]">
               <p className="flex items-center gap-1.5 text-warning"><AlertTriangle className="size-3.5" aria-hidden /> Categoria declarada diverge da IA</p>
-              <Button variant="link" size="sm" onClick={applyAiSuggestion} className="text-[13px]">Usar sugestão</Button>
+              <Botao variant="link" size="sm" onClick={aplicarSugestaoIa} className="text-[13px]">Usar sugestão</Botao>
             </div>
           )}
         </section>
@@ -209,18 +209,18 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
           <div className="mb-2.5 flex items-center justify-between">
             <h4 id={`risk-${d.id}`} className="label-mono flex items-center gap-1.5">
               Risco de fraude
-              <Tooltip content="Soma de sinais do motor antifraude (0–100). A partir de 40 o descarte é sinalizado para revisão cuidadosa.">
+              <Dica conteudo="Soma de sinais do motor antifraude (0–100). A partir de 40 o descarte é sinalizado para revisão cuidadosa.">
                 <button type="button" className="inline-flex size-4 items-center justify-center rounded-full border border-line-strong text-[10px] text-muted" aria-label="Como a pontuação funciona">?</button>
-              </Tooltip>
+              </Dica>
             </h4>
-            <FraudScore score={score} className="text-[15px]" />
+            <PontuacaoFraude pontuacao={pontuacao} className="text-[15px]" />
           </div>
-          <Meter value={score / 100} tone={tone === 'neutral' ? 'brand' : tone} mark={FLAG_THRESHOLD / 100} label="Risco de fraude" />
-          {flags.length ? (
+          <Medidor value={pontuacao / 100} tone={tom === 'neutral' ? 'brand' : tom} marca={LIMITE_SUSPEITA / 100} label="Risco de fraude" />
+          {sinais.length ? (
             <ul className="mt-3 space-y-2">
-              {flags.map((f) => (
+              {sinais.map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-[13px] leading-snug text-fg-soft">
-                  <ShieldAlert className={cn('mt-0.5 size-3.5 shrink-0', tone === 'danger' ? 'text-danger' : 'text-warning')} aria-hidden />
+                  <ShieldAlert className={cn('mt-0.5 size-3.5 shrink-0', tom === 'danger' ? 'text-danger' : 'text-warning')} aria-hidden />
                   {f}
                 </li>
               ))}
@@ -232,36 +232,36 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
 
         {/* Contexto */}
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5">
-          <Detail label="Local">
+          <Detalhe label="Local">
             {d.collectionPoint ? d.collectionPoint.name : d.latitude != null ? (
               <span className="inline-flex items-center gap-1 font-mono text-[12.5px] tabular"><MapPin className="size-3 text-subtle" aria-hidden />{d.latitude.toFixed(4)}, {d.longitude?.toFixed(4)}</span>
             ) : 'Não informado'}
-          </Detail>
-          <Detail label="Origem"><span className="inline-flex items-center gap-1.5"><Bot className="size-3.5 text-subtle" aria-hidden />{d.ai?.source ? aiSource[d.ai.source].label : 'Manual'}</span></Detail>
-          {d.notes && <Detail label="Observação" className="col-span-2"><span className="whitespace-normal">{d.notes}</span></Detail>}
-          {d.status === 'REJECTED' && d.rejectionReason && <Detail label="Motivo da recusa" className="col-span-2"><span className="whitespace-normal">{d.rejectionReason}</span></Detail>}
-          {d.status === 'APPROVED' && <Detail label="Pontos creditados" mono>{formatNumber(d.pointsAwarded)} pts</Detail>}
-          {d.reviewedAt && <Detail label="Revisado">{formatDateTime(d.reviewedAt)}</Detail>}
+          </Detalhe>
+          <Detalhe label="Origem"><span className="inline-flex items-center gap-1.5"><Bot className="size-3.5 text-subtle" aria-hidden />{d.ai?.source ? origemIa[d.ai.source].label : 'Manual'}</span></Detalhe>
+          {d.notes && <Detalhe label="Observação" className="col-span-2"><span className="whitespace-normal">{d.notes}</span></Detalhe>}
+          {d.status === 'REJECTED' && d.rejectionReason && <Detalhe label="Motivo da recusa" className="col-span-2"><span className="whitespace-normal">{d.rejectionReason}</span></Detalhe>}
+          {d.status === 'APPROVED' && <Detalhe label="Pontos creditados" mono>{formatarNumero(d.pointsAwarded)} pts</Detalhe>}
+          {d.reviewedAt && <Detalhe label="Revisado">{formatarDataHora(d.reviewedAt)}</Detalhe>}
         </dl>
 
         {/* Correção */}
-        {pending && (
+        {pendente && (
           <section className="rounded-xl border border-line">
-            <button type="button" onClick={() => setCorrecting((c) => !c)} aria-expanded={correcting}
+            <button type="button" onClick={() => setCorrigindo((c) => !c)} aria-expanded={corrigindo}
               className="flex w-full items-center justify-between gap-3 px-3.5 py-3 text-left text-[13.5px] font-medium text-fg-soft hover:text-fg">
-              <span>Corrigir antes de aprovar {corrected && <span className="ml-1.5 font-mono text-xs text-warning">· alterado</span>}</span>
-              <ChevronDown className={cn('size-4 text-subtle transition-transform', correcting && 'rotate-180')} aria-hidden />
+              <span>Corrigir antes de aprovar {corrigido && <span className="ml-1.5 font-mono text-xs text-warning">· alterado</span>}</span>
+              <ChevronDown className={cn('size-4 text-subtle transition-transform', corrigindo && 'rotate-180')} aria-hidden />
             </button>
-            {correcting && (
-              <form noValidate onSubmit={(e) => { e.preventDefault(); void submitApprove(); }} className="grid grid-cols-1 gap-3 border-t border-line p-3.5 sm:grid-cols-2">
-                <Field label="Categoria" error={form.formState.errors.categoryId}>
-                  <Select inputSize="sm" {...form.register('categoryId')} options={activeCats.map((c) => ({ value: c.id, label: c.name }))} />
-                </Field>
-                <Field label="Quantidade" error={form.formState.errors.quantityKg} hint={chosen ? `Máx. ${formatNumber(chosen.maxKgPerDisposal, 2)} kg` : undefined}>
-                  <FormNumber control={form.control} name="quantityKg" inputSize="sm" unit="kg" decimals={3} min={0.01} max={chosen?.maxKgPerDisposal ?? 1000} />
-                </Field>
+            {corrigindo && (
+              <form noValidate onSubmit={(e) => { e.preventDefault(); void enviarAprovacao(); }} className="grid grid-cols-1 gap-3 border-t border-line p-3.5 sm:grid-cols-2">
+                <Campo label="Categoria" erro={formulario.formState.errors.categoryId}>
+                  <Selecao tamanhoCampo="sm" {...formulario.register('categoryId')} opcoes={categoriasAtivas.map((c) => ({ value: c.id, label: c.name }))} />
+                </Campo>
+                <Campo label="Quantidade" erro={formulario.formState.errors.quantityKg} dica={escolhida ? `Máx. ${formatarNumero(escolhida.maxKgPerDisposal, 2)} kg` : undefined}>
+                  <FormNumber control={formulario.control} name="quantityKg" tamanhoCampo="sm" unidade="kg" casasDecimais={3} min={0.01} max={escolhida?.maxKgPerDisposal ?? 1000} />
+                </Campo>
                 <p className="text-xs text-muted sm:col-span-2">
-                  Pontos com a correção: <span className="font-mono text-fg-soft tabular">≈ {formatNumber(previewPoints)} pts</span>
+                  Pontos com a correção: <span className="font-mono text-fg-soft tabular">≈ {formatarNumero(pontosPrevistos)} pts</span>
                 </p>
               </form>
             )}
@@ -269,18 +269,18 @@ export function DisposalReview({ disposal: d, categories, onApprove, onReject, b
         )}
       </div>
 
-      {pending && (
+      {pendente && (
         <footer className="flex items-center gap-2 border-t border-line bg-surface/80 p-4">
-          <Button variant="danger" leftIcon={X} onClick={onReject} disabled={busy} className="flex-1 sm:flex-none">
-            Recusar {showShortcuts && <Kbd className="ml-1 border-danger/30 bg-transparent text-danger">R</Kbd>}
-          </Button>
-          <Button variant="primary" leftIcon={Check} onClick={() => void submitApprove()} loading={busy} className="flex-1">
-            {corrected ? 'Aprovar com correção' : 'Aprovar'} {showShortcuts && <Kbd className="ml-1 border-black/20 bg-black/10 text-accent-ink shadow-none">A</Kbd>}
-          </Button>
+          <Botao variant="danger" iconeEsquerda={X} onClick={aoRecusar} disabled={ocupado} className="flex-1 sm:flex-none">
+            Recusar {mostrarAtalhos && <Tecla className="ml-1 border-danger/30 bg-transparent text-danger">R</Tecla>}
+          </Botao>
+          <Botao variant="primary" iconeEsquerda={Check} onClick={() => void enviarAprovacao()} carregando={ocupado} className="flex-1">
+            {corrigido ? 'Aprovar com correção' : 'Aprovar'} {mostrarAtalhos && <Tecla className="ml-1 border-black/20 bg-black/10 text-accent-ink shadow-none">A</Tecla>}
+          </Botao>
         </footer>
       )}
 
-      <Modal open={zoom} onClose={() => setZoom(false)} title={`${d.category.name} · ${formatKg(d.quantityKg)}`} description={d.user?.name} size="xl">
+      <Modal open={ampliada} onClose={() => setAmpliada(false)} title={`${d.category.name} · ${formatarKg(d.quantityKg)}`} description={d.user?.name} size="xl">
         {d.photoUrl && <img src={d.photoUrl} alt={`Foto enviada por ${d.user?.name ?? 'usuário'}`} className="max-h-[72dvh] w-full rounded-xl object-contain" />}
       </Modal>
     </article>

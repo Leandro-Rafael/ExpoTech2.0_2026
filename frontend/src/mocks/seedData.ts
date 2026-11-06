@@ -5,12 +5,12 @@
  */
 import type { CategoryCode, OrganizationType } from '@/api/types';
 
-export interface CategorySeed {
+export interface SementeCategoria {
   code: CategoryCode; name: string; description: string; guidance: string[]; pointsPerKg: number; co2FactorKg: number;
   recyclable: boolean; color: string; icon: string; maxKgPerDisposal: number;
 }
 
-export const CATEGORIES: CategorySeed[] = [
+export const CATEGORIAS: SementeCategoria[] = [
   {
     code: 'PLASTICO', name: 'Plástico', description: 'Garrafas PET, potes, frascos de limpeza, sacolas, tampas e embalagens plásticas em geral.',
     guidance: [
@@ -83,30 +83,30 @@ export const CATEGORIES: CategorySeed[] = [
   },
 ];
 
-const ALL_DRY: CategoryCode[] = ['PLASTICO', 'PAPEL', 'VIDRO', 'METAL'];
+const TODOS_SECOS: CategoryCode[] = ['PLASTICO', 'PAPEL', 'VIDRO', 'METAL'];
 
-export const COLLECTION_POINTS: { name: string; address: string; neighborhood: string; latitude: number; longitude: number; openingHours: string; categories: CategoryCode[] }[] = [
+export const ECOPONTOS: { name: string; address: string; neighborhood: string; latitude: number; longitude: number; openingHours: string; categories: CategoryCode[] }[] = [
   { name: 'PEV UniFECAF – Campus Taboão', address: 'Av. Vida Nova, 166', neighborhood: 'Jardim Maria Rosa', latitude: -23.6019, longitude: -46.7526, openingHours: 'Seg a Sex, 7h às 22h; Sáb, 8h às 13h', categories: ['PLASTICO', 'PAPEL', 'METAL', 'ELETRONICO'] },
-  { name: 'Ecoponto Jardim Maria Rosa', address: 'Rua Cesário Dau, 520', neighborhood: 'Jardim Maria Rosa', latitude: -23.6047, longitude: -46.7561, openingHours: 'Seg a Sáb, 8h às 17h', categories: [...ALL_DRY, 'ELETRONICO', 'REJEITO'] },
-  { name: 'Ecoponto Parque Pinheiros', address: 'Av. Aprígio Bezerra da Silva, 1200', neighborhood: 'Parque Pinheiros', latitude: -23.6128, longitude: -46.7689, openingHours: 'Seg a Sáb, 7h às 19h', categories: [...ALL_DRY, 'REJEITO'] },
-  { name: 'Ecoponto Centro de Taboão', address: 'Av. Dr. José Maciel, 300', neighborhood: 'Centro', latitude: -23.6229, longitude: -46.784, openingHours: 'Seg a Sáb, 8h às 18h; Dom, 8h às 12h', categories: [...ALL_DRY, 'ELETRONICO', 'REJEITO'] },
-  { name: 'Ecoponto Jardim Record', address: 'Estrada São Francisco, 2100', neighborhood: 'Jardim Record', latitude: -23.6178, longitude: -46.7804, openingHours: 'Seg a Sáb, 7h às 19h', categories: [...ALL_DRY] },
-  { name: 'Cooperativa Recicla Taboão', address: 'Rua das Palmeiras, 85', neighborhood: 'Vila Iasi', latitude: -23.6075, longitude: -46.7743, openingHours: 'Seg a Sex, 8h às 17h', categories: [...ALL_DRY] },
+  { name: 'Ecoponto Jardim Maria Rosa', address: 'Rua Cesário Dau, 520', neighborhood: 'Jardim Maria Rosa', latitude: -23.6047, longitude: -46.7561, openingHours: 'Seg a Sáb, 8h às 17h', categories: [...TODOS_SECOS, 'ELETRONICO', 'REJEITO'] },
+  { name: 'Ecoponto Parque Pinheiros', address: 'Av. Aprígio Bezerra da Silva, 1200', neighborhood: 'Parque Pinheiros', latitude: -23.6128, longitude: -46.7689, openingHours: 'Seg a Sáb, 7h às 19h', categories: [...TODOS_SECOS, 'REJEITO'] },
+  { name: 'Ecoponto Centro de Taboão', address: 'Av. Dr. José Maciel, 300', neighborhood: 'Centro', latitude: -23.6229, longitude: -46.784, openingHours: 'Seg a Sáb, 8h às 18h; Dom, 8h às 12h', categories: [...TODOS_SECOS, 'ELETRONICO', 'REJEITO'] },
+  { name: 'Ecoponto Jardim Record', address: 'Estrada São Francisco, 2100', neighborhood: 'Jardim Record', latitude: -23.6178, longitude: -46.7804, openingHours: 'Seg a Sáb, 7h às 19h', categories: [...TODOS_SECOS] },
+  { name: 'Cooperativa Recicla Taboão', address: 'Rua das Palmeiras, 85', neighborhood: 'Vila Iasi', latitude: -23.6075, longitude: -46.7743, openingHours: 'Seg a Sex, 8h às 17h', categories: [...TODOS_SECOS] },
   { name: 'Horta Comunitária Pirajuçara (compostagem)', address: 'Rua Ribeirão Pirajuçara, 40', neighborhood: 'Jardim Helena', latitude: -23.615, longitude: -46.7605, openingHours: 'Ter a Dom, 7h às 12h', categories: ['ORGANICO'] },
-  { name: 'Ecoponto Vila Sônia', address: 'Av. Prof. Francisco Morato, 4800', neighborhood: 'Vila Sônia', latitude: -23.593, longitude: -46.74, openingHours: 'Seg a Sáb, 6h às 22h; Dom, 6h às 18h', categories: [...ALL_DRY, 'ELETRONICO', 'REJEITO'] },
-  { name: 'Ecoponto Butantã', address: 'Rua Alvarenga, 1500', neighborhood: 'Butantã', latitude: -23.574, longitude: -46.718, openingHours: 'Seg a Sáb, 6h às 22h; Dom, 6h às 18h', categories: [...ALL_DRY, 'ELETRONICO', 'REJEITO'] },
-  { name: 'Ecoponto Campo Limpo', address: 'Estrada do Campo Limpo, 3000', neighborhood: 'Campo Limpo', latitude: -23.639, longitude: -46.761, openingHours: 'Seg a Sáb, 6h às 22h', categories: [...ALL_DRY, 'REJEITO'] },
+  { name: 'Ecoponto Vila Sônia', address: 'Av. Prof. Francisco Morato, 4800', neighborhood: 'Vila Sônia', latitude: -23.593, longitude: -46.74, openingHours: 'Seg a Sáb, 6h às 22h; Dom, 6h às 18h', categories: [...TODOS_SECOS, 'ELETRONICO', 'REJEITO'] },
+  { name: 'Ecoponto Butantã', address: 'Rua Alvarenga, 1500', neighborhood: 'Butantã', latitude: -23.574, longitude: -46.718, openingHours: 'Seg a Sáb, 6h às 22h; Dom, 6h às 18h', categories: [...TODOS_SECOS, 'ELETRONICO', 'REJEITO'] },
+  { name: 'Ecoponto Campo Limpo', address: 'Estrada do Campo Limpo, 3000', neighborhood: 'Campo Limpo', latitude: -23.639, longitude: -46.761, openingHours: 'Seg a Sáb, 6h às 22h', categories: [...TODOS_SECOS, 'REJEITO'] },
   { name: 'PEV Supermercado Parque Laguna', address: 'Av. Elias Yazbek, 900', neighborhood: 'Parque Laguna', latitude: -23.6205, longitude: -46.793, openingHours: 'Todos os dias, 7h às 22h', categories: ['PLASTICO', 'VIDRO', 'METAL', 'ELETRONICO'] },
   { name: 'Ponto de Eletrônicos – Shopping Taboão', address: 'Rod. Régis Bittencourt, 1835', neighborhood: 'Jardim Mituzi', latitude: -23.623, longitude: -46.771, openingHours: 'Todos os dias, 10h às 22h', categories: ['ELETRONICO'] },
-  { name: 'Ecoponto Jardim Mituzi', address: 'Rua José Milani, 210', neighborhood: 'Jardim Mituzi', latitude: -23.6305, longitude: -46.7765, openingHours: 'Seg a Sáb, 8h às 17h', categories: [...ALL_DRY, 'ORGANICO'] },
-  { name: 'Ecoponto Embu das Artes', address: 'Av. Rotary, 1000', neighborhood: 'Centro (Embu das Artes)', latitude: -23.644, longitude: -46.848, openingHours: 'Seg a Sáb, 7h às 17h', categories: [...ALL_DRY, 'REJEITO'] },
+  { name: 'Ecoponto Jardim Mituzi', address: 'Rua José Milani, 210', neighborhood: 'Jardim Mituzi', latitude: -23.6305, longitude: -46.7765, openingHours: 'Seg a Sáb, 8h às 17h', categories: [...TODOS_SECOS, 'ORGANICO'] },
+  { name: 'Ecoponto Embu das Artes', address: 'Av. Rotary, 1000', neighborhood: 'Centro (Embu das Artes)', latitude: -23.644, longitude: -46.848, openingHours: 'Seg a Sáb, 7h às 17h', categories: [...TODOS_SECOS, 'REJEITO'] },
   { name: 'Cooperativa Coopervida', address: 'Rua Clemente Rocha, 350', neighborhood: 'Jardim Umarizal', latitude: -23.629, longitude: -46.748, openingHours: 'Seg a Sex, 8h às 17h', categories: ['PLASTICO', 'PAPEL', 'METAL'] },
-  { name: 'Ecoponto Jardim Bonfiglioli', address: 'Rua Ananás, 120', neighborhood: 'Jardim Bonfiglioli', latitude: -23.586, longitude: -46.733, openingHours: 'Seg a Sáb, 6h às 22h', categories: [...ALL_DRY, 'ELETRONICO'] },
-  { name: 'PEV Condomínio Parque das Flores', address: 'Rua das Hortênsias, 300', neighborhood: 'Jardim Santa Rosa', latitude: -23.61, longitude: -46.747, openingHours: 'Todos os dias, 24h (portaria)', categories: [...ALL_DRY, 'ORGANICO'] },
+  { name: 'Ecoponto Jardim Bonfiglioli', address: 'Rua Ananás, 120', neighborhood: 'Jardim Bonfiglioli', latitude: -23.586, longitude: -46.733, openingHours: 'Seg a Sáb, 6h às 22h', categories: [...TODOS_SECOS, 'ELETRONICO'] },
+  { name: 'PEV Condomínio Parque das Flores', address: 'Rua das Hortênsias, 300', neighborhood: 'Jardim Santa Rosa', latitude: -23.61, longitude: -46.747, openingHours: 'Todos os dias, 24h (portaria)', categories: [...TODOS_SECOS, 'ORGANICO'] },
   { name: 'Compostagem Feira Livre Vila Iasi', address: 'Praça da Feira, s/n', neighborhood: 'Vila Iasi', latitude: -23.6055, longitude: -46.779, openingHours: 'Sáb e Dom, 7h às 13h', categories: ['ORGANICO'] },
 ];
 
-export const REWARDS = [
+export const RECOMPENSAS = [
   { name: 'Café na cantina', description: 'Um café coado grátis na cantina do campus.', costPoints: 120, stock: 100, icon: 'coffee', partner: 'Cantina UniFECAF' },
   { name: 'Muda de árvore nativa', description: 'Retire uma muda de ipê, pitanga ou aroeira para plantar.', costPoints: 150, stock: 80, icon: 'sprout', partner: 'Viveiro Municipal (ilustrativo)' },
   { name: '10% na feira orgânica', description: 'Cupom de 10% de desconto em compras na feira orgânica.', costPoints: 200, stock: 100, icon: 'shopping-basket', partner: 'Feira Orgânica Vila Iasi (ilustrativo)' },
@@ -118,7 +118,7 @@ export const REWARDS = [
   { name: 'Crédito de transporte', description: 'R$ 10,00 de crédito no cartão de transporte.', costPoints: 1000, stock: 0, icon: 'bus', partner: 'Parceiro de mobilidade (ilustrativo)' },
 ];
 
-export const ORGANIZATIONS: { key: string; name: string; type: OrganizationType }[] = [
+export const ORGANIZACOES: { key: string; name: string; type: OrganizationType }[] = [
   { key: 'CC4', name: 'Ciência da Computação – 4º semestre', type: 'TURMA' },
   { key: 'ADS2', name: 'Análise e Desenvolvimento de Sistemas – 2º semestre', type: 'TURMA' },
   { key: 'ES6', name: 'Engenharia de Software – 6º semestre', type: 'TURMA' },
@@ -128,14 +128,14 @@ export const ORGANIZATIONS: { key: string; name: string; type: OrganizationType 
 ];
 
 /** Senha de todos os moradores fictícios (além das 3 contas de demonstração). */
-export const RESIDENT_PASSWORD = 'Recicla@2050';
+export const SENHA_MORADOR = 'Recicla@2050';
 
-export interface HouseholdSeed {
+export interface SementeResidencia {
   key: string; name: string; neighborhood: string; address: string;
   members: { name: string; email: string; org: string | null; activity: number; joinedDaysAgo: number }[];
 }
 
-export const HOUSEHOLDS: HouseholdSeed[] = [
+export const RESIDENCIAS: SementeResidencia[] = [
   {
     key: 'MARIANA', name: 'Casa da Mariana', neighborhood: 'Jardim Maria Rosa', address: 'Rua Cesário Dau, 610 – Jardim Maria Rosa, Taboão da Serra',
     members: [
@@ -214,7 +214,7 @@ export const HOUSEHOLDS: HouseholdSeed[] = [
 ];
 
 /** Ruas usadas nas solicitações de coleta, por bairro. */
-export const STREETS: Record<string, string[]> = {
+export const RUAS: Record<string, string[]> = {
   'Jardim Maria Rosa': ['Rua Cesário Dau', 'Av. Vida Nova', 'Rua Vereador José Brazil', 'Rua Maria Rosa'],
   'Parque Pinheiros': ['Av. Aprígio Bezerra da Silva', 'Rua Itapecerica', 'Rua dos Pinheiros'],
   'Centro': ['Av. Dr. José Maciel', 'Rua Elizabeth', 'Rua Benedito Raymundo'],
@@ -227,7 +227,7 @@ export const STREETS: Record<string, string[]> = {
   'Jardim Bonfiglioli': ['Rua Ananás', 'Rua Bonfiglioli', 'Rua Caraíbas'],
 };
 
-export const REJECTION_REASONS = [
+export const MOTIVOS_RECUSA = [
   'A foto não mostra o material informado.',
   'Quantidade incompatível com a foto enviada.',
   'Material contaminado: deveria ser classificado como rejeito.',
@@ -235,7 +235,7 @@ export const REJECTION_REASONS = [
   'Foto ilegível; registre novamente com uma imagem nítida.',
 ];
 
-export const DISPOSAL_NOTES = [
+export const OBSERVACOES_DESCARTE = [
   'Garrafas lavadas e amassadas.', 'Caixas desmontadas.', 'Separado durante a faxina do fim de semana.',
   'Entregue no ecoponto perto de casa.', 'Potes de vidro da cozinha.', 'Latinhas da festa de aniversário.',
   'Carregadores e cabos antigos.', 'Restos de feira para a composteira.', null, null, null, null, null, null,

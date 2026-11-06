@@ -9,41 +9,41 @@ import {
 } from 'lucide-react';
 import type { Role } from '@/api/types';
 
-export interface NavItem {
+export interface ItemMenu {
   to: string;
   label: string;
   icon: LucideIcon;
   /** Correspondência exata (para rotas-índice como /app). */
   end?: boolean;
 }
-interface NavSection { id: string; label: string; items: NavItem[]; roles: Role[] }
+interface SecaoMenu { id: string; label: string; itens: ItemMenu[]; perfis: Role[] }
 
-const NAV: NavSection[] = [
+const MENU: SecaoMenu[] = [
   {
-    id: 'main', label: 'Principal', roles: ['USER'], items: [
+    id: 'main', label: 'Principal', perfis: ['USER'], itens: [
       { to: '/app', label: 'Início', icon: LayoutDashboard, end: true },
       { to: '/app/descartar', label: 'Registrar descarte', icon: ScanLine },
       { to: '/app/descartes', label: 'Meus descartes', icon: Recycle },
     ],
   },
   {
-    id: 'home', label: 'Smart Home', roles: ['USER'], items: [
+    id: 'home', label: 'Smart Home', perfis: ['USER'], itens: [
       { to: '/app/casa', label: 'Minha casa', icon: Home },
       { to: '/app/mapa', label: 'Mapa de ecopontos', icon: MapPinned },
     ],
   },
   {
-    id: 'community', label: 'Comunidade', roles: ['USER'], items: [
+    id: 'community', label: 'Comunidade', perfis: ['USER'], itens: [
       { to: '/app/recompensas', label: 'Recompensas', icon: Gift },
     ],
   },
   {
-    id: 'collector', label: 'Coletor', roles: ['COLLECTOR'], items: [
+    id: 'collector', label: 'Coletor', perfis: ['COLLECTOR'], itens: [
       { to: '/app/coletor', label: 'Minhas rotas', icon: Truck },
     ],
   },
   {
-    id: 'admin', label: 'Administração', roles: ['ADMIN'], items: [
+    id: 'admin', label: 'Administração', perfis: ['ADMIN'], itens: [
       { to: '/app/admin', label: 'Visão geral', icon: ShieldCheck, end: true },
       { to: '/app/admin/descartes', label: 'Moderação', icon: BadgeCheck },
       { to: '/app/admin/coletas', label: 'Coletas', icon: Route },
@@ -52,10 +52,10 @@ const NAV: NavSection[] = [
   },
 ];
 
-export const PROFILE_ITEM: NavItem = { to: '/app/perfil', label: 'Meu perfil', icon: Settings2 };
+export const ITEM_PERFIL: ItemMenu = { to: '/app/perfil', label: 'Meu perfil', icon: Settings2 };
 
 /** Itens fixos da barra inferior (celular). O botão central "Registrar" é só do morador. */
-export const MOBILE_TABS: Record<Role, NavItem[]> = {
+export const ABAS_CELULAR: Record<Role, ItemMenu[]> = {
   USER: [
     { to: '/app', label: 'Início', icon: LayoutDashboard, end: true },
     { to: '/app/descartes', label: 'Descartes', icon: ClipboardList },
@@ -63,7 +63,7 @@ export const MOBILE_TABS: Record<Role, NavItem[]> = {
   ],
   COLLECTOR: [
     { to: '/app/coletor', label: 'Rotas', icon: Truck },
-    { to: PROFILE_ITEM.to, label: 'Perfil', icon: PROFILE_ITEM.icon },
+    { to: ITEM_PERFIL.to, label: 'Perfil', icon: ITEM_PERFIL.icon },
   ],
   ADMIN: [
     { to: '/app/admin', label: 'Visão geral', icon: ShieldCheck, end: true },
@@ -72,14 +72,14 @@ export const MOBILE_TABS: Record<Role, NavItem[]> = {
   ],
 };
 
-export function sectionsForRole(role: Role | undefined): NavSection[] {
-  return NAV.filter((s) => role && s.roles.includes(role));
+export function secoesDoPerfil(perfil: Role | undefined): SecaoMenu[] {
+  return MENU.filter((s) => perfil && s.perfis.includes(perfil));
 }
 
 /** Título da página atual (para a top bar). */
-export function titleForPath(pathname: string): string | null {
-  const matches = [...NAV.flatMap((s) => s.items), PROFILE_ITEM]
-    .filter((i) => pathname === i.to || (!i.end && pathname.startsWith(i.to + '/')))
+export function tituloDaRota(caminho: string): string | null {
+  const correspondencias = [...MENU.flatMap((s) => s.itens), ITEM_PERFIL]
+    .filter((i) => caminho === i.to || (!i.end && caminho.startsWith(i.to + '/')))
     .sort((a, b) => b.to.length - a.to.length);
-  return matches[0]?.label ?? null;
+  return correspondencias[0]?.label ?? null;
 }

@@ -1,16 +1,16 @@
 import { cloneElement, isValidElement, useEffect, useId, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
-export interface TooltipProps {
-  content: ReactNode;
-  side?: 'top' | 'bottom' | 'left' | 'right';
+export interface PropsDica {
+  conteudo: ReactNode;
+  lado?: 'top' | 'bottom' | 'left' | 'right';
   /** Um único elemento focável (botão, link...). */
   children: ReactElement;
   className?: string;
-  delay?: number;
+  atraso?: number;
 }
 
-const pos = {
+const posicoes = {
   top: 'bottom-full left-1/2 mb-2 -translate-x-1/2',
   bottom: 'top-full left-1/2 mt-2 -translate-x-1/2',
   left: 'right-full top-1/2 mr-2 -translate-y-1/2',
@@ -18,67 +18,67 @@ const pos = {
 };
 
 /** Distância mínima do balão até a borda da janela. */
-const EDGE = 8;
+const MARGEM_BORDA = 8;
 /** Igual ao duration-150 da transição: depois disso o balão sai do DOM. */
-const FADE_MS = 150;
+const SUMIR_MS = 150;
 
 /**
  * Dica no hover e no foco do teclado (aria-describedby). Esc oculta.
  * O balão só existe no DOM enquanto visível (fechado ele alargaria a página
  * com rolagem horizontal) e é empurrado para dentro da janela perto das bordas.
  */
-export function Tooltip({ content, side = 'top', children, className, delay = 250 }: TooltipProps) {
+export function Dica({ conteudo, lado = 'top', children, className, atraso = 250 }: PropsDica) {
   const id = useId();
   const ref = useRef<HTMLSpanElement>(null);
   const timer = useRef<number | undefined>(undefined);
-  const [mounted, setMounted] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [shift, setShift] = useState(0);
+  const [montado, setMontado] = useState(false);
+  const [aberto, setAberto] = useState(false);
+  const [deslocamento, setDeslocamento] = useState(0);
 
-  const show = () => { clearTimeout(timer.current); timer.current = window.setTimeout(() => setMounted(true), mounted ? 0 : delay); };
-  const hide = () => { clearTimeout(timer.current); setOpen(false); timer.current = window.setTimeout(() => setMounted(false), FADE_MS); };
+  const mostrar = () => { clearTimeout(timer.current); timer.current = window.setTimeout(() => setMontado(true), montado ? 0 : atraso); };
+  const esconder = () => { clearTimeout(timer.current); setAberto(false); timer.current = window.setTimeout(() => setMontado(false), SUMIR_MS); };
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
   // Ao montar: mede, corrige a posição horizontal e só então dispara o fade de entrada.
   useLayoutEffect(() => {
-    if (!mounted) { setShift(0); return; }
+    if (!montado) { setDeslocamento(0); return; }
     const r = ref.current?.getBoundingClientRect();
     const w = document.documentElement.clientWidth;
-    if (r) setShift(r.right > w - EDGE ? w - EDGE - r.right : r.left < EDGE ? EDGE - r.left : 0);
-    const raf = requestAnimationFrame(() => setOpen(true));
+    if (r) setDeslocamento(r.right > w - MARGEM_BORDA ? w - MARGEM_BORDA - r.right : r.left < MARGEM_BORDA ? MARGEM_BORDA - r.left : 0);
+    const raf = requestAnimationFrame(() => setAberto(true));
     return () => cancelAnimationFrame(raf);
-  }, [mounted]);
+  }, [montado]);
 
-  const child = isValidElement(children)
-    ? cloneElement(children as ReactElement<Record<string, unknown>>, { 'aria-describedby': open ? id : undefined })
+  const filho = isValidElement(children)
+    ? cloneElement(children as ReactElement<Record<string, unknown>>, { 'aria-describedby': aberto ? id : undefined })
     : children;
 
   return (
     <span
       className="relative inline-flex"
-      onPointerEnter={show}
-      onPointerLeave={hide}
-      onFocus={show}
-      onBlur={hide}
-      onKeyDown={(e) => e.key === 'Escape' && hide()}
+      onPointerEnter={mostrar}
+      onPointerLeave={esconder}
+      onFocus={mostrar}
+      onBlur={esconder}
+      onKeyDown={(e) => e.key === 'Escape' && esconder()}
     >
-      {child}
-      {mounted && (
+      {filho}
+      {montado && (
         <span
           ref={ref}
           role="tooltip"
           id={id}
-          style={shift ? (side === 'left' ? { marginRight: -shift } : { marginLeft: shift }) : undefined}
+          style={deslocamento ? (lado === 'left' ? { marginRight: -deslocamento } : { marginLeft: deslocamento }) : undefined}
           className={cn(
             'pointer-events-none absolute z-[90] w-max max-w-64 rounded-lg border border-line-strong bg-elevated px-2.5 py-1.5 text-xs leading-snug text-fg-soft shadow-pop',
             'transition-[opacity,transform] duration-150',
-            open ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
-            pos[side], className,
+            aberto ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
+            posicoes[lado], className,
           )}
-          aria-hidden={!open}
+          aria-hidden={!aberto}
         >
-          {content}
+          {conteudo}
         </span>
       )}
     </span>

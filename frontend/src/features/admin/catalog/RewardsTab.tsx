@@ -3,26 +3,26 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Gift, Pencil, Plus } from 'lucide-react';
-import { applyServerErrors } from '@/api/forms';
-import { useAdminRewards, useSaveReward } from '@/api/queries';
+import { aplicarErrosDoServidor } from '@/api/forms';
+import { useRecompensasAdmin, useSalvarRecompensa } from '@/api/queries';
 import type { Reward } from '@/api/types';
-import { Badge, Button, EmptyState, Field, FormError, IconButton, Input, Modal, Switch, Textarea, toast } from '@/components/ui';
-import { iconByName } from '@/components/icons';
+import { Etiqueta, Botao, EstadoVazio, Campo, ErroFormulario, BotaoIcone, CampoTexto, Modal, Interruptor, AreaTexto, toast } from '@/components/ui';
+import { iconePorNome } from '@/components/icons';
 import { cn } from '@/lib/cn';
-import { formatNumber } from '@/lib/format';
-import { AdminTable, type AdminColumn } from '../ui';
-import { IconPicker, FormNumber } from '../formControls';
+import { formatarNumero } from '@/lib/format';
+import { TabelaAdmin, type ColunaAdmin } from '../ui';
+import { SeletorIcone, FormNumber } from '../formControls';
 
 // Aba do catálogo: recompensas que os moradores trocam por pontos (custo, estoque, parceiro).
-export function RewardsTab() {
-  const q = useAdminRewards();
-  const [editing, setEditing] = useState<Reward | 'new' | null>(null);
+export function AbaRecompensas() {
+  const q = useRecompensasAdmin();
+  const [editando, setEditando] = useState<Reward | 'new' | null>(null);
 
-  const columns: AdminColumn<Reward>[] = [
+  const colunas: ColunaAdmin<Reward>[] = [
     {
-      key: 'name', header: 'Recompensa', mobile: 'title', sort: (r) => r.name,
-      cell: (r) => {
-        const Icon = iconByName(r.icon, Gift);
+      key: 'name', cabecalho: 'Recompensa', celular: 'title', ordenar: (r) => r.name,
+      celula: (r) => {
+        const Icon = iconePorNome(r.icon, Gift);
         return (
           <span className="flex items-center gap-3">
             <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-2 text-fg-soft"><Icon className="size-4" aria-hidden /></span>
@@ -34,30 +34,30 @@ export function RewardsTab() {
         );
       },
     },
-    { key: 'status', header: 'Situação', mobile: 'aside', sort: (r) => Number(r.active), cell: (r) => r.active ? <Badge tone="success" dot>Ativa</Badge> : <Badge dot>Inativa</Badge> },
-    { key: 'cost', header: 'Custo', align: 'right', sort: (r) => r.costPoints, cell: (r) => <span className="font-mono tabular">{formatNumber(r.costPoints)} pts</span> },
+    { key: 'status', cabecalho: 'Situação', celular: 'aside', ordenar: (r) => Number(r.active), celula: (r) => r.active ? <Etiqueta tone="success" ponto>Ativa</Etiqueta> : <Etiqueta ponto>Inativa</Etiqueta> },
+    { key: 'cost', cabecalho: 'Custo', alinhamento: 'right', ordenar: (r) => r.costPoints, celula: (r) => <span className="font-mono tabular">{formatarNumero(r.costPoints)} pts</span> },
     {
-      key: 'stock', header: 'Estoque', align: 'right', sort: (r) => r.stock,
-      cell: (r) => <span className={cn('font-mono tabular', r.stock === 0 ? 'text-danger' : r.stock < 10 ? 'text-warning' : '')}>{r.stock === 0 ? 'Esgotado' : formatNumber(r.stock)}</span>,
+      key: 'stock', cabecalho: 'Estoque', alinhamento: 'right', ordenar: (r) => r.stock,
+      celula: (r) => <span className={cn('font-mono tabular', r.stock === 0 ? 'text-danger' : r.stock < 10 ? 'text-warning' : '')}>{r.stock === 0 ? 'Esgotado' : formatarNumero(r.stock)}</span>,
     },
-    { key: 'act', header: <span className="sr-only">Ações</span>, align: 'right', mobile: 'row', cell: (r) => <IconButton icon={Pencil} size="sm" label={`Editar ${r.name}`} onClick={() => setEditing(r)} /> },
+    { key: 'act', cabecalho: <span className="sr-only">Ações</span>, alinhamento: 'right', celular: 'row', celula: (r) => <BotaoIcone icon={Pencil} size="sm" label={`Editar ${r.name}`} onClick={() => setEditando(r)} /> },
   ];
 
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-[13.5px] text-muted">Itens que os moradores trocam por pontos. Inativas não aparecem no catálogo.</p>
-        <Button size="sm" variant="secondary" leftIcon={Plus} onClick={() => setEditing('new')}>Nova recompensa</Button>
+        <Botao size="sm" variant="secondary" iconeEsquerda={Plus} onClick={() => setEditando('new')}>Nova recompensa</Botao>
       </div>
-      <AdminTable caption="Recompensas" columns={columns} rows={q.data} rowKey={(r) => r.id} loading={q.isPending} error={q.error} onRetry={q.refetch}
-        defaultSort={{ key: 'cost', dir: 'asc' }} rowClassName={(r) => cn(!r.active && 'opacity-60')}
-        empty={<EmptyState compact icon={Gift} title="Nenhuma recompensa" description="Cadastre a primeira recompensa do catálogo." />} />
-      {editing && <RewardForm key={editing === 'new' ? 'new' : editing.id} reward={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      <TabelaAdmin legenda="Recompensas" colunas={colunas} linhas={q.data} chaveLinha={(r) => r.id} carregando={q.isPending} erro={q.error} aoTentarDeNovo={q.refetch}
+        ordemPadrao={{ key: 'cost', direcao: 'asc' }} classeLinha={(r) => cn(!r.active && 'opacity-60')}
+        vazio={<EstadoVazio compacto icon={Gift} title="Nenhuma recompensa" description="Cadastre a primeira recompensa do catálogo." />} />
+      {editando && <FormRecompensa key={editando === 'new' ? 'new' : editando.id} recompensa={editando === 'new' ? null : editando} onClose={() => setEditando(null)} />}
     </>
   );
 }
 
-const schema = z.object({
+const esquema = z.object({
   name: z.string().trim().min(2, 'Mínimo de 2 caracteres').max(80, 'Máximo de 80 caracteres'),
   description: z.string().trim().max(500, 'Máximo de 500 caracteres'),
   costPoints: z.number({ invalid_type_error: 'Informe o custo', required_error: 'Informe o custo' }).int('Use um número inteiro').min(1, 'Mínimo de 1 ponto').max(1_000_000),
@@ -66,46 +66,46 @@ const schema = z.object({
   partner: z.string().trim().max(120, 'Máximo de 120 caracteres'),
   active: z.boolean(),
 });
-type Values = z.infer<typeof schema>;
+type Valores = z.infer<typeof esquema>;
 
-function RewardForm({ reward, onClose }: { reward: Reward | null; onClose: () => void }) {
-  const save = useSaveReward();
-  const form = useForm<Values>({
-    resolver: zodResolver(schema),
-    defaultValues: reward
-      ? { name: reward.name, description: reward.description, costPoints: reward.costPoints, stock: reward.stock, icon: reward.icon, partner: reward.partner ?? '', active: reward.active }
+function FormRecompensa({ recompensa, onClose }: { recompensa: Reward | null; onClose: () => void }) {
+  const salvar = useSalvarRecompensa();
+  const formulario = useForm<Valores>({
+    resolver: zodResolver(esquema),
+    defaultValues: recompensa
+      ? { name: recompensa.name, description: recompensa.description, costPoints: recompensa.costPoints, stock: recompensa.stock, icon: recompensa.icon, partner: recompensa.partner ?? '', active: recompensa.active }
       : { name: '', description: '', costPoints: undefined, stock: undefined, icon: 'gift', partner: '', active: true },
   });
-  const { errors, isSubmitting } = form.formState;
-  const submit = form.handleSubmit(async (v) => {
+  const { errors: erros, isSubmitting: enviando } = formulario.formState;
+  const enviar = formulario.handleSubmit(async (v) => {
     try {
-      const saved = await save.mutateAsync({ id: reward?.id, body: { ...v, name: v.name.trim(), description: v.description.trim(), partner: v.partner.trim() || null } });
-      toast.success(reward ? `“${saved.name}” atualizada.` : `“${saved.name}” criada.`);
+      const salva = await salvar.mutateAsync({ id: recompensa?.id, body: { ...v, name: v.name.trim(), description: v.description.trim(), partner: v.partner.trim() || null } });
+      toast.success(recompensa ? `“${salva.name}” atualizada.` : `“${salva.name}” criada.`);
       onClose();
-    } catch (e) { applyServerErrors(e, form.setError); }
+    } catch (e) { aplicarErrosDoServidor(e, formulario.setError); }
   });
   return (
-    <Modal open onClose={onClose} size="lg" closeOnBackdrop={false} title={reward ? 'Editar recompensa' : 'Nova recompensa'}
-      footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button type="submit" form="reward-form" loading={isSubmitting}>Salvar recompensa</Button></>}>
-      <form id="reward-form" noValidate onSubmit={submit} className="space-y-4">
-        <FormError error={errors.root?.server} />
+    <Modal open onClose={onClose} size="lg" fecharAoClicarFora={false} title={recompensa ? 'Editar recompensa' : 'Nova recompensa'}
+      rodape={<><Botao variant="ghost" onClick={onClose}>Cancelar</Botao><Botao type="submit" form="reward-form" carregando={enviando}>Salvar recompensa</Botao></>}>
+      <form id="reward-form" noValidate onSubmit={enviar} className="space-y-4">
+        <ErroFormulario erro={erros.root?.server} />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Nome" required error={errors.name}><Input {...form.register('name')} maxLength={80} /></Field>
-          <Field label="Parceiro" optional error={errors.partner}><Input {...form.register('partner')} maxLength={120} /></Field>
+          <Campo label="Nome" required erro={erros.name}><CampoTexto {...formulario.register('name')} maxLength={80} /></Campo>
+          <Campo label="Parceiro" opcional erro={erros.partner}><CampoTexto {...formulario.register('partner')} maxLength={120} /></Campo>
         </div>
-        <Field label="Descrição" optional error={errors.description}><Textarea {...form.register('description')} maxLength={500} rows={2} /></Field>
+        <Campo label="Descrição" opcional erro={erros.description}><AreaTexto {...formulario.register('description')} maxLength={500} rows={2} /></Campo>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Custo" required error={errors.costPoints}>
-            <FormNumber control={form.control} name="costPoints" decimals={0} min={1} max={1_000_000} unit="pts" />
-          </Field>
-          <Field label="Estoque" required error={errors.stock} hint="0 = esgotado">
-            <FormNumber control={form.control} name="stock" decimals={0} min={0} max={1_000_000} stepper />
-          </Field>
+          <Campo label="Custo" required erro={erros.costPoints}>
+            <FormNumber control={formulario.control} name="costPoints" casasDecimais={0} min={1} max={1_000_000} unidade="pts" />
+          </Campo>
+          <Campo label="Estoque" required erro={erros.stock} dica="0 = esgotado">
+            <FormNumber control={formulario.control} name="stock" casasDecimais={0} min={0} max={1_000_000} comBotoes />
+          </Campo>
         </div>
-        <Field label="Ícone" required error={errors.icon}>
-          {(a11y) => <Controller control={form.control} name="icon" render={({ field }) => <IconPicker {...a11y} value={field.value} onChange={field.onChange} />} />}
-        </Field>
-        <Controller control={form.control} name="active" render={({ field }) => <Switch checked={field.value} onChange={field.onChange} label="Ativa" description="Disponível para resgate no catálogo." />} />
+        <Campo label="Ícone" required erro={erros.icon}>
+          {(a11y) => <Controller control={formulario.control} name="icon" render={({ field }) => <SeletorIcone {...a11y} value={field.value} onChange={field.onChange} />} />}
+        </Campo>
+        <Controller control={formulario.control} name="active" render={({ field }) => <Interruptor checked={field.value} onChange={field.onChange} label="Ativa" description="Disponível para resgate no catálogo." />} />
       </form>
     </Modal>
   );

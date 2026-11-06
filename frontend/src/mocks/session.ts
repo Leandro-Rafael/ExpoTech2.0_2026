@@ -4,39 +4,39 @@
  * - Acesso expira em 15 min e o refresh (7 dias) é rotativo, como no back-end.
  * - CSRF: `GET /api/auth/csrf` grava o cookie legível XSRF-TOKEN; mutações exigem X-XSRF-TOKEN igual.
  */
-import type { MockDb, UserRec } from './db';
+import type { BancoSimulado, RegistroUsuario } from './db';
 
-const SESSION_KEY = 'lixozero2050.mock.session';
-const ACCESS_TTL_MS = 15 * 60_000;
-const REFRESH_TTL_MS = 7 * 24 * 3600_000;
-const CSRF_COOKIE = 'XSRF-TOKEN';
+const CHAVE_SESSAO = 'lixozero2050.mock.session';
+const VALIDADE_ACESSO_MS = 15 * 60_000;
+const VALIDADE_RENOVACAO_MS = 7 * 24 * 3600_000;
+const COOKIE_CSRF = 'XSRF-TOKEN';
 
-interface MockSession { sid: string; userId: string; epoch: number; accessExp: number; refreshExp: number }
+interface SessaoSimulada { sid: string; userId: string; epoch: number; accessExp: number; refreshExp: number }
 
-function read(): MockSession | null {
+function ler(): SessaoSimulada | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as MockSession) : null;
+    const bruto = sessionStorage.getItem(CHAVE_SESSAO);
+    return bruto ? (JSON.parse(bruto) as SessaoSimulada) : null;
   } catch {
     return null;
   }
 }
 
-function write(s: MockSession | null) {
+function gravar(s: SessaoSimulada | null) {
   try {
-    if (s) sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (s) sessionStorage.setItem(CHAVE_SESSAO, JSON.stringify(s));
+    else sessionStorage.removeItem(CHAVE_SESSAO);
   } catch { /* modo privado */ }
 }
 
-export function startSession(user: UserRec) {
-  const now = Date.now();
-  write({ sid: crypto.randomUUID(), userId: user.id, epoch: user.sessionEpoch, accessExp: now + ACCESS_TTL_MS, refreshExp: now + REFRESH_TTL_MS });
+export function iniciarSessao(usuario: RegistroUsuario) {
+  const agora = Date.now();
+  gravar({ sid: crypto.randomUUID(), userId: usuario.id, epoch: usuario.sessionEpoch, accessExp: agora + VALIDADE_ACESSO_MS, refreshExp: agora + VALIDADE_RENOVACAO_MS });
 }
 
-export function clearSession() { write(null); }
+export function limparSessao() { gravar(null); }
 
-function validUser(d: MockDb, s: MockSession | null): UserRec | null {
+function usuarioValido(d: BancoSimulado, s: SessaoSimulada | null): RegistroUsuario | null {
   if (!s) return null;
   const u = d.users.find((x) => x.id === s.userId);
   if (!u || !u.enabled || u.sessionEpoch !== s.epoch) return null;
@@ -44,41 +44,41 @@ function validUser(d: MockDb, s: MockSession | null): UserRec | null {
 }
 
 /** Id do usuário da sessão atual, mesmo revogada (usado para responder 423 durante o bloqueio por inspeção). */
-export function sessionUserId(): string | null {
-  return read()?.userId ?? null;
+export function idUsuarioDaSessao(): string | null {
+  return ler()?.userId ?? null;
 }
 
 /** Usuário do "access token" atual (null se ausente/expirado). */
-export function currentUser(d: MockDb): UserRec | null {
-  const s = read();
+export function usuarioAtual(d: BancoSimulado): RegistroUsuario | null {
+  const s = ler();
   if (!s || s.accessExp < Date.now()) return null;
-  return validUser(d, s);
+  return usuarioValido(d, s);
 }
 
 /** Rotaciona a sessão usando o "refresh token". */
-export function refreshSession(d: MockDb): UserRec | null {
-  const s = read();
-  if (!s || s.refreshExp < Date.now()) { clearSession(); return null; }
-  const u = validUser(d, s);
-  if (!u) { clearSession(); return null; }
-  startSession(u);
+export function renovarSessao(d: BancoSimulado): RegistroUsuario | null {
+  const s = ler();
+  if (!s || s.refreshExp < Date.now()) { limparSessao(); return null; }
+  const u = usuarioValido(d, s);
+  if (!u) { limparSessao(); return null; }
+  iniciarSessao(u);
   return u;
 }
 
 // ---------------------------------------------------------------- CSRF
 
-function readCsrfCookie(): string | null {
-  const m = document.cookie.split('; ').find((c) => c.startsWith(`${CSRF_COOKIE}=`));
-  return m ? decodeURIComponent(m.slice(CSRF_COOKIE.length + 1)) : null;
+function lerCookieCsrf(): string | null {
+  const m = document.cookie.split('; ').find((c) => c.startsWith(`${COOKIE_CSRF}=`));
+  return m ? decodeURIComponent(m.slice(COOKIE_CSRF.length + 1)) : null;
 }
 
-export function issueCsrfCookie() {
+export function emitirCookieCsrf() {
   const token = crypto.randomUUID();
-  document.cookie = `${CSRF_COOKIE}=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+  document.cookie = `${COOKIE_CSRF}=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
 }
 
-export function csrfValid(headers: Headers): boolean {
-  const cookie = readCsrfCookie();
-  const header = headers.get('X-XSRF-TOKEN');
-  return !!cookie && !!header && cookie === header;
+export function csrfValido(headers: Headers): boolean {
+  const cookie = lerCookieCsrf();
+  const cabecalho = headers.get('X-XSRF-TOKEN');
+  return !!cookie && !!cabecalho && cookie === cabecalho;
 }

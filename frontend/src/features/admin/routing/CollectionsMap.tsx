@@ -1,87 +1,87 @@
 import { useMemo } from 'react';
 import type { CollectionRequest, GeoPoint, RouteOptimization } from '@/api/types';
 import { DepotMarker, DotMarker, MapView, NumberedMarker, RoutePolyline, type LatLngTuple } from '@/components/map';
-import { formatKg } from '@/lib/format';
-import { naivePaths, priorityColor, routeColor, tuple } from './shared';
+import { formatarKg } from '@/lib/format';
+import { caminhosIngenuos, corDaPrioridade, corDaRota, paraCoordenada } from './shared';
 
 interface Props {
-  requests: CollectionRequest[];
-  selected: Set<string>;
-  hovered: string | null;
-  depot: GeoPoint;
-  capacityKg: number;
-  optimization: RouteOptimization | null;
-  showNaive: boolean;
-  focusedRoute: number | null;
-  pickingDepot: boolean;
-  onToggle: (r: CollectionRequest) => void;
-  onPickDepot: (p: GeoPoint) => void;
+  solicitacoes: CollectionRequest[];
+  selecionadas: Set<string>;
+  destacada: string | null;
+  central: GeoPoint;
+  capacidadeKg: number;
+  otimizacao: RouteOptimization | null;
+  mostrarIngenua: boolean;
+  rotaEmFoco: number | null;
+  escolhendoCentral: boolean;
+  aoAlternar: (r: CollectionRequest) => void;
+  aoEscolherCentral: (p: GeoPoint) => void;
   className?: string;
 }
 
 /** Mapa de planejamento: solicitações, central, rotas otimizadas e a rota ingênua (fantasma). */
-export function CollectionsMap({ requests, selected, hovered, depot, capacityKg, optimization, showNaive, focusedRoute, pickingDepot, onToggle, onPickDepot, className }: Props) {
-  const selectedReqs = useMemo(() => requests.filter((r) => selected.has(r.id)), [requests, selected]);
-  const naive = useMemo(() => (optimization && showNaive ? naivePaths(selectedReqs, optimization.depot, capacityKg) : []), [optimization, showNaive, selectedReqs, capacityKg]);
-  const inRoute = useMemo(() => new Set(optimization?.routes.flatMap((r) => r.stops.map((s) => s.requestId)) ?? []), [optimization]);
+export function MapaColetas({ solicitacoes, selecionadas, destacada, central, capacidadeKg, otimizacao, mostrarIngenua, rotaEmFoco, escolhendoCentral, aoAlternar, aoEscolherCentral, className }: Props) {
+  const solicitacoesSelecionadas = useMemo(() => solicitacoes.filter((r) => selecionadas.has(r.id)), [solicitacoes, selecionadas]);
+  const ingenuas = useMemo(() => (otimizacao && mostrarIngenua ? caminhosIngenuos(solicitacoesSelecionadas, otimizacao.depot, capacidadeKg) : []), [otimizacao, mostrarIngenua, solicitacoesSelecionadas, capacidadeKg]);
+  const naRota = useMemo(() => new Set(otimizacao?.routes.flatMap((r) => r.stops.map((s) => s.requestId)) ?? []), [otimizacao]);
 
-  const bounds = useMemo<LatLngTuple[]>(() => {
-    const base = optimization
-      ? [tuple(optimization.depot), ...optimization.routes.flatMap((r) => r.stops.map((s) => tuple(s)))]
-      : [tuple(depot), ...requests.map(tuple)];
-    return base;
-  }, [optimization, requests, depot]);
+  const limites = useMemo<LatLngTuple[]>(() => {
+    const pontos = otimizacao
+      ? [paraCoordenada(otimizacao.depot), ...otimizacao.routes.flatMap((r) => r.stops.map((s) => paraCoordenada(s)))]
+      : [paraCoordenada(central), ...solicitacoes.map(paraCoordenada)];
+    return pontos;
+  }, [otimizacao, solicitacoes, central]);
 
   return (
     <MapView
       className={className}
-      bounds={bounds}
-      fitPadding={56}
-      picking={pickingDepot}
-      onMapClick={pickingDepot ? onPickDepot : undefined}
+      bounds={limites}
+      margemEnquadramento={56}
+      modoEscolha={escolhendoCentral}
+      aoClicarMapa={escolhendoCentral ? aoEscolherCentral : undefined}
       ariaLabel="Mapa de solicitações de coleta e rotas"
     >
-      {naive.map((path, i) => <RoutePolyline key={`n${i}`} positions={path} variant="ghost" />)}
+      {ingenuas.map((caminho, i) => <RoutePolyline key={`n${i}`} positions={caminho} variant="ghost" />)}
 
-      {optimization?.routes.map((r, i) => (
-        <RoutePolyline key={`r${i}`} color={routeColor(i)} emphasis={focusedRoute === i}
-          muted={focusedRoute != null && focusedRoute !== i}
-          positions={[tuple(optimization.depot), ...r.stops.map((s) => tuple(s)), tuple(optimization.depot)]} />
+      {otimizacao?.routes.map((r, i) => (
+        <RoutePolyline key={`r${i}`} cor={corDaRota(i)} destaque={rotaEmFoco === i}
+          atenuada={rotaEmFoco != null && rotaEmFoco !== i}
+          positions={[paraCoordenada(otimizacao.depot), ...r.stops.map((s) => paraCoordenada(s)), paraCoordenada(otimizacao.depot)]} />
       ))}
 
-      {requests.filter((r) => !inRoute.has(r.id)).map((r) => {
-        const sel = selected.has(r.id);
-        const selectable = r.status === 'REQUESTED';
+      {solicitacoes.filter((r) => !naRota.has(r.id)).map((r) => {
+        const selecionada = selecionadas.has(r.id);
+        const selecionavel = r.status === 'REQUESTED';
         return (
           <DotMarker
             key={r.id}
-            position={tuple(r)}
-            color={priorityColor(r.priority)}
-            ring={r.source === 'SMART_BIN'}
-            selected={sel || hovered === r.id}
-            dimmed={!!optimization && !sel}
-            size={sel ? 14 : 12}
-            label={`${r.address}, prioridade ${r.priority}${sel ? ', selecionada' : ''}`}
-            tooltip={<span><b className="font-medium text-fg">{r.address}</b><br />{formatKg(r.estimatedKg)} · prioridade {r.priority}</span>}
-            onClick={selectable && !pickingDepot ? () => onToggle(r) : undefined}
+            position={paraCoordenada(r)}
+            cor={corDaPrioridade(r.priority)}
+            anel={r.source === 'SMART_BIN'}
+            selecionado={selecionada || destacada === r.id}
+            esmaecido={!!otimizacao && !selecionada}
+            size={selecionada ? 14 : 12}
+            label={`${r.address}, prioridade ${r.priority}${selecionada ? ', selecionada' : ''}`}
+            tooltip={<span><b className="font-medium text-fg">{r.address}</b><br />{formatarKg(r.estimatedKg)} · prioridade {r.priority}</span>}
+            onClick={selecionavel && !escolhendoCentral ? () => aoAlternar(r) : undefined}
           />
         );
       })}
 
-      {optimization?.routes.map((r, i) => r.stops.map((s) => (
+      {otimizacao?.routes.map((r, i) => r.stops.map((s) => (
         <NumberedMarker
           key={s.requestId}
-          position={tuple(s)}
+          position={paraCoordenada(s)}
           n={s.sequence}
-          color={routeColor(i)}
-          selected={hovered === s.requestId}
-          zIndexOffset={focusedRoute === i ? 500 : 0}
+          color={corDaRota(i)}
+          selecionado={destacada === s.requestId}
+          zIndexOffset={rotaEmFoco === i ? 500 : 0}
           label={`Viagem ${i + 1}, parada ${s.sequence}: ${s.address}`}
-          tooltip={<span><b className="font-medium text-fg">{i + 1}.{s.sequence} · {s.address}</b><br />{formatKg(s.estimatedKg)}</span>}
+          tooltip={<span><b className="font-medium text-fg">{i + 1}.{s.sequence} · {s.address}</b><br />{formatarKg(s.estimatedKg)}</span>}
         />
       )))}
 
-      <DepotMarker position={tuple(optimization?.depot ?? depot)} />
+      <DepotMarker position={paraCoordenada(otimizacao?.depot ?? central)} />
     </MapView>
   );
 }

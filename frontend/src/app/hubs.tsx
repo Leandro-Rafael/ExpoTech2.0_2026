@@ -1,68 +1,68 @@
 /** Telas que reúnem, em abas, conteúdos de um mesmo assunto. */
 // O router aponta /app/descartes, /app/recompensas e /app/admin/* para estes hubs; ?aba= escolhe a aba.
 import { lazy } from 'react';
-import { useAdminCollectionRequests, useAdminRoutes } from '@/api/queries';
-import { TabbedPage } from '@/components/layout/TabbedPage';
+import { useSolicitacoesColetaAdmin, useRotasAdmin } from '@/api/queries';
+import { PaginaComAbas } from '@/components/layout/TabbedPage';
 
-const Disposals = lazy(() => import('@/pages/app/DisposalsPage'));
-const Impact = lazy(() => import('@/pages/app/ImpactPage'));
-const Rewards = lazy(() => import('@/pages/app/RewardsPage'));
-const Progress = lazy(() => import('@/pages/app/AchievementsPage'));
+const Descartes = lazy(() => import('@/pages/app/DisposalsPage'));
+const Impacto = lazy(() => import('@/pages/app/ImpactPage'));
+const Recompensas = lazy(() => import('@/pages/app/RewardsPage'));
+const Progresso = lazy(() => import('@/pages/app/AchievementsPage'));
 const Ranking = lazy(() => import('@/pages/app/RankingPage'));
-const AdminOverview = lazy(() => import('@/pages/admin/AdminOverviewPage'));
-const AdminAudit = lazy(() => import('@/pages/admin/AdminAuditPage'));
-const AdminDisposals = lazy(() => import('@/pages/admin/AdminDisposalsPage'));
-const AdminUsers = lazy(() => import('@/pages/admin/AdminUsersPage'));
-const AdminCollections = lazy(() => import('@/pages/admin/AdminCollectionsPage'));
-const AdminCollectionPoints = lazy(() => import('@/pages/admin/AdminCollectionPointsPage'));
-const AdminBins = lazy(() => import('@/pages/admin/AdminBinsPage'));
+const AdminVisaoGeral = lazy(() => import('@/pages/admin/AdminOverviewPage'));
+const AdminAuditoria = lazy(() => import('@/pages/admin/AdminAuditPage'));
+const AdminDescartes = lazy(() => import('@/pages/admin/AdminDisposalsPage'));
+const AdminUsuarios = lazy(() => import('@/pages/admin/AdminUsersPage'));
+const AdminColetas = lazy(() => import('@/pages/admin/AdminCollectionsPage'));
+const AdminEcopontos = lazy(() => import('@/pages/admin/AdminCollectionPointsPage'));
+const AdminLixeiras = lazy(() => import('@/pages/admin/AdminBinsPage'));
 
 export function DisposalsHub() {
   return (
-    <TabbedPage idBase="hub-dsp" label="Seções de descartes" tabs={[
-      { value: 'historico', label: 'Histórico', element: <Disposals /> },
-      { value: 'impacto', label: 'Impacto e simulador', element: <Impact /> },
+    <PaginaComAbas idBase="hub-dsp" label="Seções de descartes" abas={[
+      { value: 'historico', label: 'Histórico', elemento: <Descartes /> },
+      { value: 'impacto', label: 'Impacto e simulador', elemento: <Impacto /> },
     ]} />
   );
 }
 
 export function RewardsHub() {
   return (
-    <TabbedPage idBase="hub-rw" label="Seções de recompensas" tabs={[
-      { value: 'recompensas', label: 'Recompensas', aliases: ['catalogo', 'resgates'], element: <Rewards /> },
-      { value: 'progresso', label: 'Meu progresso', aliases: ['conquistas', 'extrato'], element: <Progress /> },
-      { value: 'ranking', label: 'Ranking', element: <Ranking /> },
+    <PaginaComAbas idBase="hub-rw" label="Seções de recompensas" abas={[
+      { value: 'recompensas', label: 'Recompensas', apelidos: ['catalogo', 'resgates'], elemento: <Recompensas /> },
+      { value: 'progresso', label: 'Meu progresso', apelidos: ['conquistas', 'extrato'], elemento: <Progresso /> },
+      { value: 'ranking', label: 'Ranking', elemento: <Ranking /> },
     ]} />
   );
 }
 
 export function AdminOverviewHub() {
   return (
-    <TabbedPage idBase="hub-ov" label="Seções da visão geral" tabs={[
-      { value: 'painel', label: 'Painel', element: <AdminOverview /> },
-      { value: 'auditoria', label: 'Auditoria', element: <AdminAudit /> },
+    <PaginaComAbas idBase="hub-ov" label="Seções da visão geral" abas={[
+      { value: 'painel', label: 'Painel', elemento: <AdminVisaoGeral /> },
+      { value: 'auditoria', label: 'Auditoria', elemento: <AdminAuditoria /> },
     ]} />
   );
 }
 
 export function AdminModerationHub() {
   return (
-    <TabbedPage idBase="hub-mod" label="Seções de moderação" tabs={[
-      { value: 'descartes', label: 'Descartes', element: <AdminDisposals /> },
-      { value: 'usuarios', label: 'Usuários', element: <AdminUsers /> },
+    <PaginaComAbas idBase="hub-mod" label="Seções de moderação" abas={[
+      { value: 'descartes', label: 'Descartes', elemento: <AdminDescartes /> },
+      { value: 'usuarios', label: 'Usuários', elemento: <AdminUsuarios /> },
     ]} />
   );
 }
 
 export function AdminCollectionsHub() {
-  const requests = useAdminCollectionRequests();
-  const routes = useAdminRoutes();
+  const solicitacoes = useSolicitacoesColetaAdmin();
+  const rotas = useRotasAdmin();
   return (
-    <TabbedPage idBase="hub-col" label="Seções de coletas" tabs={[
-      { value: 'planejamento', label: 'Planejamento', count: requests.data?.filter((r) => r.status === 'REQUESTED').length, element: <AdminCollections tab="plan" /> },
-      { value: 'rotas', label: 'Rotas', count: routes.data?.length, element: <AdminCollections tab="routes" /> },
-      { value: 'ecopontos', label: 'Ecopontos', element: <AdminCollectionPoints /> },
-      { value: 'lixeiras', label: 'Lixeiras', element: <AdminBins /> },
+    <PaginaComAbas idBase="hub-col" label="Seções de coletas" abas={[
+      { value: 'planejamento', label: 'Planejamento', count: solicitacoes.data?.filter((r) => r.status === 'REQUESTED').length, elemento: <AdminColetas aba="plan" /> },
+      { value: 'rotas', label: 'Rotas', count: rotas.data?.length, elemento: <AdminColetas aba="routes" /> },
+      { value: 'ecopontos', label: 'Ecopontos', elemento: <AdminEcopontos /> },
+      { value: 'lixeiras', label: 'Lixeiras', elemento: <AdminLixeiras /> },
     ]} />
   );
 }

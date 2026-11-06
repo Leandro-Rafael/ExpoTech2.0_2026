@@ -7,12 +7,12 @@ import type {
   CollectionSource, DisposalStatus, GeoPoint, Organization, PointTransactionType, RedemptionStatus, Reward, Role,
   RouteStatus, RouteStop, UUID,
 } from '@/api/types';
-import { seedDatabase } from './seed';
+import { semearBanco } from './seed';
 
-const STORAGE_KEY = 'lixozero2050.mockdb';
-const SCHEMA_VERSION = 4;
+const CHAVE_ARMAZENAMENTO = 'lixozero2050.mockdb';
+const VERSAO_ESQUEMA = 4;
 
-export interface UserRec {
+export interface RegistroUsuario {
   id: UUID;
   name: string;
   email: string;
@@ -37,7 +37,7 @@ export interface UserRec {
   securityLastEventAt?: string | null;
 }
 
-export interface DisposalRec {
+export interface RegistroDescarte {
   id: UUID;
   userId: UUID;
   categoryId: UUID;
@@ -61,7 +61,7 @@ export interface DisposalRec {
   idempotencyKey: string | null;
 }
 
-export interface PhotoRec {
+export interface RegistroFoto {
   id: UUID;
   ownerId: UUID | null;
   /** data: URL (imagem reduzida) — servida em /api/photos/{id} e usada como `photoUrl`. */
@@ -74,7 +74,7 @@ export interface PhotoRec {
   createdAt: string;
 }
 
-export interface TxRec {
+export interface RegistroTransacao {
   id: UUID;
   userId: UUID;
   type: PointTransactionType;
@@ -85,9 +85,9 @@ export interface TxRec {
   disposalId: UUID | null;
 }
 
-interface UserBadgeRec { userId: UUID; code: string; awardedAt: string }
+interface RegistroMedalhaUsuario { userId: UUID; code: string; awardedAt: string }
 
-export interface ChallengeRec {
+export interface RegistroDesafio {
   id: UUID;
   title: string;
   description: string;
@@ -100,9 +100,9 @@ export interface ChallengeRec {
   active: boolean;
 }
 
-interface CompletionRec { userId: UUID; challengeId: UUID; at: string }
+interface RegistroConclusao { userId: UUID; challengeId: UUID; at: string }
 
-export interface RedemptionRec {
+export interface RegistroResgate {
   id: UUID;
   userId: UUID;
   rewardId: UUID;
@@ -112,9 +112,9 @@ export interface RedemptionRec {
   createdAt: string;
 }
 
-export type CollectionPointRec = Omit<CollectionPoint, 'distanceKm'>;
+export type RegistroEcoponto = Omit<CollectionPoint, 'distanceKm'>;
 
-export interface CollectionRequestRec {
+export interface RegistroSolicitacaoColeta {
   id: UUID;
   address: string;
   latitude: number;
@@ -133,9 +133,9 @@ export interface CollectionRequestRec {
   smartBinId: UUID | null;
 }
 
-interface RouteStopRec extends RouteStop { collectedKg: number | null }
+interface RegistroParadaRota extends RouteStop { collectedKg: number | null }
 
-export interface RouteRec {
+export interface RegistroRota {
   id: UUID;
   name: string;
   status: RouteStatus;
@@ -146,11 +146,11 @@ export interface RouteRec {
   estimatedMinutes: number;
   loadKg: number;
   depot: GeoPoint;
-  stops: RouteStopRec[];
+  stops: RegistroParadaRota[];
   createdAt: string;
 }
 
-export interface HouseholdRec {
+export interface RegistroResidencia {
   id: UUID;
   name: string;
   neighborhood: string;
@@ -163,9 +163,9 @@ export interface HouseholdRec {
   createdAt: string;
 }
 
-interface BinReadingRec { fillLevel: number; batteryLevel: number; at: string }
+interface RegistroLeituraLixeira { fillLevel: number; batteryLevel: number; at: string }
 
-export interface SmartBinRec {
+export interface RegistroLixeira {
   id: UUID;
   householdId: UUID;
   categoryId: UUID;
@@ -180,89 +180,89 @@ export interface SmartBinRec {
   lastReadingAt: string | null;
   /** Velocidade de enchimento simulada (% por hora). 0 = sem simulação (sensor desligado). */
   fillRatePerHour: number;
-  readings: BinReadingRec[];
+  readings: RegistroLeituraLixeira[];
   createdAt: string;
 }
 
-export interface GoalRec { id: UUID; year: number; title: string; targetRecyclingRate: number; targetKg: number }
+export interface RegistroMeta { id: UUID; year: number; title: string; targetRecyclingRate: number; targetKg: number }
 
-export interface MockDb {
+export interface BancoSimulado {
   version: number;
   seededAt: string;
-  users: UserRec[];
+  users: RegistroUsuario[];
   organizations: Organization[];
   categories: Category[];
-  disposals: DisposalRec[];
-  photos: PhotoRec[];
-  transactions: TxRec[];
-  userBadges: UserBadgeRec[];
-  challenges: ChallengeRec[];
-  completions: CompletionRec[];
+  disposals: RegistroDescarte[];
+  photos: RegistroFoto[];
+  transactions: RegistroTransacao[];
+  userBadges: RegistroMedalhaUsuario[];
+  challenges: RegistroDesafio[];
+  completions: RegistroConclusao[];
   rewards: Reward[];
-  redemptions: RedemptionRec[];
-  collectionPoints: CollectionPointRec[];
-  collectionRequests: CollectionRequestRec[];
-  routes: RouteRec[];
-  households: HouseholdRec[];
-  bins: SmartBinRec[];
-  goals: GoalRec[];
+  redemptions: RegistroResgate[];
+  collectionPoints: RegistroEcoponto[];
+  collectionRequests: RegistroSolicitacaoColeta[];
+  routes: RegistroRota[];
+  households: RegistroResidencia[];
+  bins: RegistroLixeira[];
+  goals: RegistroMeta[];
   audit: AuditEntry[];
   /** Idempotency-Key → id do descarte criado (por usuário). */
   idempotency: Record<string, UUID>;
 }
 
-let current: MockDb | null = null;
+let atual: BancoSimulado | null = null;
 
-function readStorage(): MockDb | null {
+function lerArmazenamento(): BancoSimulado | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as MockDb;
-    return parsed && parsed.version === SCHEMA_VERSION ? parsed : null;
+    const bruto = localStorage.getItem(CHAVE_ARMAZENAMENTO);
+    if (!bruto) return null;
+    const lido = JSON.parse(bruto) as BancoSimulado;
+    return lido && lido.version === VERSAO_ESQUEMA ? lido : null;
   } catch {
     return null;
   }
 }
 
 /** Banco atual (carrega do localStorage ou semeia na primeira vez). */
-export function db(): MockDb {
-  if (!current) {
-    current = readStorage();
-    if (!current) {
-      current = seedDatabase(SCHEMA_VERSION, new Date());
-      save();
+export function banco(): BancoSimulado {
+  if (!atual) {
+    atual = lerArmazenamento();
+    if (!atual) {
+      atual = semearBanco(VERSAO_ESQUEMA, new Date());
+      salvar();
     }
   }
-  return current;
+  return atual;
 }
 
-const MAX_AUDIT = 400;
-const MAX_PHOTOS_WITH_DATA = 25;
+const MAX_AUDITORIA = 400;
+const MAX_FOTOS_COM_DADOS = 25;
 
 /** Persiste no localStorage. Se a cota estourar, descarta imagens antigas e tenta de novo. */
-export function save() {
-  if (!current) return;
-  if (current.audit.length > MAX_AUDIT) current.audit.length = MAX_AUDIT;
-  for (let attempt = 0; attempt < 4; attempt++) {
+export function salvar() {
+  if (!atual) return;
+  if (atual.audit.length > MAX_AUDITORIA) atual.audit.length = MAX_AUDITORIA;
+  for (let tentativa = 0; tentativa < 4; tentativa++) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+      localStorage.setItem(CHAVE_ARMAZENAMENTO, JSON.stringify(atual));
       return;
     } catch {
-      const withData = current.photos.filter((p) => p.dataUrl && p.ownerId);
-      const keep = Math.max(0, Math.floor(Math.min(withData.length, MAX_PHOTOS_WITH_DATA) / 2 ** (attempt + 1)));
-      withData.slice(0, withData.length - keep).forEach((p) => { p.dataUrl = null; });
+      const comDados = atual.photos.filter((p) => p.dataUrl && p.ownerId);
+      const manter = Math.max(0, Math.floor(Math.min(comDados.length, MAX_FOTOS_COM_DADOS) / 2 ** (tentativa + 1)));
+      comDados.slice(0, comDados.length - manter).forEach((p) => { p.dataUrl = null; });
     }
   }
   console.warn('[modo demonstração] não foi possível salvar os dados no localStorage.');
 }
 
 /** Apaga o banco e semeia novamente. */
-export function resetDb() {
-  try { localStorage.removeItem(STORAGE_KEY); } catch { /* */ }
-  current = seedDatabase(SCHEMA_VERSION, new Date());
-  save();
+export function resetarBanco() {
+  try { localStorage.removeItem(CHAVE_ARMAZENAMENTO); } catch { /* */ }
+  atual = semearBanco(VERSAO_ESQUEMA, new Date());
+  salvar();
 }
 
-export function nowIso(): string {
+export function agoraIso(): string {
   return new Date().toISOString();
 }

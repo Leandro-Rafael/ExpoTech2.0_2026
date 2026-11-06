@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { prefersReducedMotion } from './useReducedMotion';
+import { prefereMenosMovimento } from './useReducedMotion';
 
 /**
  * Igual ao useCountUp, mas escreve direto no `textContent` do elemento (zero re-render
@@ -7,35 +7,35 @@ import { prefersReducedMotion } from './useReducedMotion';
  *   const ref = useCountUpText<HTMLSpanElement>(value, formatNumber, { start: inView });
  *   <span ref={ref} />   // sem filhos: o texto é controlado pelo hook
  */
-export function useCountUpText<T extends HTMLElement>(
-  target: number,
-  format: (v: number) => string,
+export function useContagemTexto<T extends HTMLElement>(
+  alvo: number,
+  formatar: (v: number) => string,
   { duration = 1600, start = true }: { duration?: number; start?: boolean } = {},
 ) {
   const ref = useRef<T | null>(null);
-  const from = useRef(0);
-  const fmt = useRef(format);
-  fmt.current = format;
+  const valorAnterior = useRef(0);
+  const formatoRef = useRef(formatar);
+  formatoRef.current = formatar;
   // Texto inicial antes da primeira pintura (sem layout shift).
   useLayoutEffect(() => {
-    if (ref.current && !ref.current.textContent) ref.current.textContent = fmt.current(from.current);
+    if (ref.current && !ref.current.textContent) ref.current.textContent = formatoRef.current(valorAnterior.current);
   });
   useEffect(() => {
-    const el = ref.current;
-    if (!el || !start) return;
-    if (prefersReducedMotion() || !Number.isFinite(target)) { el.textContent = fmt.current(target); from.current = target; return; }
-    const begin = performance.now();
-    const initial = from.current;
+    const elemento = ref.current;
+    if (!elemento || !start) return;
+    if (prefereMenosMovimento() || !Number.isFinite(alvo)) { elemento.textContent = formatoRef.current(alvo); valorAnterior.current = alvo; return; }
+    const comeco = performance.now();
+    const inicial = valorAnterior.current;
     let raf = 0;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - begin) / duration);
-      const v = initial + (target - initial) * (1 - Math.pow(1 - t, 4));
-      el.textContent = fmt.current(v);
-      if (t < 1) raf = requestAnimationFrame(tick);
-      else from.current = target;
+    const quadro = (agora: number) => {
+      const t = Math.min(1, (agora - comeco) / duration);
+      const v = inicial + (alvo - inicial) * (1 - Math.pow(1 - t, 4));
+      elemento.textContent = formatoRef.current(v);
+      if (t < 1) raf = requestAnimationFrame(quadro);
+      else valorAnterior.current = alvo;
     };
-    raf = requestAnimationFrame(tick);
+    raf = requestAnimationFrame(quadro);
     return () => cancelAnimationFrame(raf);
-  }, [target, duration, start]);
+  }, [alvo, duration, start]);
   return ref;
 }

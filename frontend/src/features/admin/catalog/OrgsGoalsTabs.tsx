@@ -4,58 +4,58 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { FormNumber } from '../formControls';
 import { Building2, Flag, Pencil, Plus } from 'lucide-react';
-import { applyServerErrors } from '@/api/forms';
-import { useAdminGoals, useAdminOrganizations, useCreateOrganization, useSaveGoal } from '@/api/queries';
+import { aplicarErrosDoServidor } from '@/api/forms';
+import { useMetasAdmin, useOrganizacoesAdmin, useCriarOrganizacao, useSalvarMeta } from '@/api/queries';
 import type { Goal, Organization, OrganizationType } from '@/api/types';
-import { Button, EmptyState, Field, FormError, IconButton, Input, Modal, Select, StatusPill, toast } from '@/components/ui';
-import { formatKg, formatPercent } from '@/lib/format';
-import { organizationType } from '@/lib/labels';
-import { AdminTable, Meter, type AdminColumn } from '../ui';
+import { Botao, EstadoVazio, Campo, ErroFormulario, BotaoIcone, CampoTexto, Modal, Selecao, PilulaStatus, toast } from '@/components/ui';
+import { formatarKg, formatarPercentual } from '@/lib/format';
+import { tipoOrganizacao } from '@/lib/labels';
+import { TabelaAdmin, Medidor, type ColunaAdmin } from '../ui';
 
 // ------------------------------------------------------------------ Organizações
 
-export function OrganizationsTab() {
-  const q = useAdminOrganizations();
-  const [open, setOpen] = useState(false);
-  const columns: AdminColumn<Organization>[] = [
-    { key: 'name', header: 'Organização', mobile: 'title', sort: (o) => o.name, cell: (o) => <span className="font-medium text-fg">{o.name}</span> },
-    { key: 'type', header: 'Tipo', mobile: 'aside', sort: (o) => o.type, cell: (o) => <StatusPill map={organizationType} value={o.type} /> },
+export function AbaOrganizacoes() {
+  const q = useOrganizacoesAdmin();
+  const [aberto, setAberto] = useState(false);
+  const colunas: ColunaAdmin<Organization>[] = [
+    { key: 'name', cabecalho: 'Organização', celular: 'title', ordenar: (o) => o.name, celula: (o) => <span className="font-medium text-fg">{o.name}</span> },
+    { key: 'type', cabecalho: 'Tipo', celular: 'aside', ordenar: (o) => o.type, celula: (o) => <PilulaStatus mapa={tipoOrganizacao} value={o.type} /> },
   ];
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-[13.5px] text-muted">Turmas, escolas, empresas e condomínios que competem no ranking.</p>
-        <Button size="sm" variant="secondary" leftIcon={Plus} onClick={() => setOpen(true)}>Nova organização</Button>
+        <Botao size="sm" variant="secondary" iconeEsquerda={Plus} onClick={() => setAberto(true)}>Nova organização</Botao>
       </div>
-      <AdminTable caption="Organizações" columns={columns} rows={q.data} rowKey={(o) => o.id} loading={q.isPending} error={q.error} onRetry={q.refetch}
-        defaultSort={{ key: 'name', dir: 'asc' }}
-        empty={<EmptyState compact icon={Building2} title="Nenhuma organização" />} />
-      {open && <OrgForm onClose={() => setOpen(false)} />}
+      <TabelaAdmin legenda="Organizações" colunas={colunas} linhas={q.data} chaveLinha={(o) => o.id} carregando={q.isPending} erro={q.error} aoTentarDeNovo={q.refetch}
+        ordemPadrao={{ key: 'name', direcao: 'asc' }}
+        vazio={<EstadoVazio compacto icon={Building2} title="Nenhuma organização" />} />
+      {aberto && <FormOrganizacao onClose={() => setAberto(false)} />}
     </>
   );
 }
 
-const orgSchema = z.object({
+const esquemaOrganizacao = z.object({
   name: z.string().trim().min(2, 'Mínimo de 2 caracteres').max(120, 'Máximo de 120 caracteres'),
   type: z.enum(['TURMA', 'EMPRESA', 'CONDOMINIO', 'ESCOLA']),
 });
 
-function OrgForm({ onClose }: { onClose: () => void }) {
-  const create = useCreateOrganization();
-  const form = useForm<z.infer<typeof orgSchema>>({ resolver: zodResolver(orgSchema), defaultValues: { name: '', type: 'TURMA' } });
-  const { errors, isSubmitting } = form.formState;
+function FormOrganizacao({ onClose }: { onClose: () => void }) {
+  const criar = useCriarOrganizacao();
+  const formulario = useForm<z.infer<typeof esquemaOrganizacao>>({ resolver: zodResolver(esquemaOrganizacao), defaultValues: { name: '', type: 'TURMA' } });
+  const { errors: erros, isSubmitting: enviando } = formulario.formState;
   return (
     <Modal open onClose={onClose} size="sm" title="Nova organização"
-      footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button type="submit" form="org-form" loading={isSubmitting}>Criar</Button></>}>
-      <form id="org-form" noValidate className="space-y-4" onSubmit={form.handleSubmit(async (v) => {
-        try { const o = await create.mutateAsync({ name: v.name.trim(), type: v.type }); toast.success(`“${o.name}” criada.`); onClose(); }
-        catch (e) { applyServerErrors(e, form.setError); }
+      rodape={<><Botao variant="ghost" onClick={onClose}>Cancelar</Botao><Botao type="submit" form="org-form" carregando={enviando}>Criar</Botao></>}>
+      <form id="org-form" noValidate className="space-y-4" onSubmit={formulario.handleSubmit(async (v) => {
+        try { const o = await criar.mutateAsync({ name: v.name.trim(), type: v.type }); toast.success(`“${o.name}” criada.`); onClose(); }
+        catch (e) { aplicarErrosDoServidor(e, formulario.setError); }
       })}>
-        <FormError error={errors.root?.server} />
-        <Field label="Nome" required error={errors.name}><Input {...form.register('name')} maxLength={120} placeholder="3º semestre — ADS" data-autofocus /></Field>
-        <Field label="Tipo" required error={errors.type}>
-          <Select {...form.register('type')} options={(Object.keys(organizationType) as OrganizationType[]).map((t) => ({ value: t, label: organizationType[t].label }))} />
-        </Field>
+        <ErroFormulario erro={erros.root?.server} />
+        <Campo label="Nome" required erro={erros.name}><CampoTexto {...formulario.register('name')} maxLength={120} placeholder="3º semestre — ADS" data-autofocus /></Campo>
+        <Campo label="Tipo" required erro={erros.type}>
+          <Selecao {...formulario.register('type')} opcoes={(Object.keys(tipoOrganizacao) as OrganizationType[]).map((t) => ({ value: t, label: tipoOrganizacao[t].label }))} />
+        </Campo>
       </form>
     </Modal>
   );
@@ -63,85 +63,85 @@ function OrgForm({ onClose }: { onClose: () => void }) {
 
 // ------------------------------------------------------------------ Metas
 
-export function GoalsTab() {
-  const q = useAdminGoals();
-  const [editing, setEditing] = useState<Goal | 'new' | null>(null);
-  const columns: AdminColumn<Goal>[] = [
-    { key: 'year', header: 'Ano', mobile: 'aside', sort: (g) => g.year, cell: (g) => <span className="font-mono text-fg tabular">{g.year}</span> },
-    { key: 'title', header: 'Meta', mobile: 'title', sort: (g) => g.title, cell: (g) => <span className="font-medium text-fg">{g.title}</span> },
+export function AbaMetas() {
+  const q = useMetasAdmin();
+  const [editando, setEditando] = useState<Goal | 'new' | null>(null);
+  const colunas: ColunaAdmin<Goal>[] = [
+    { key: 'year', cabecalho: 'Ano', celular: 'aside', ordenar: (g) => g.year, celula: (g) => <span className="font-mono text-fg tabular">{g.year}</span> },
+    { key: 'title', cabecalho: 'Meta', celular: 'title', ordenar: (g) => g.title, celula: (g) => <span className="font-medium text-fg">{g.title}</span> },
     {
-      key: 'rate', header: 'Taxa de reciclagem', sort: (g) => g.targetRecyclingRate,
-      cell: (g) => <span className="font-mono tabular"><span className="text-fg">{formatPercent(g.currentRate, 1)}</span> <span className="text-subtle">/ {formatPercent(g.targetRecyclingRate)}</span></span>,
+      key: 'rate', cabecalho: 'Taxa de reciclagem', ordenar: (g) => g.targetRecyclingRate,
+      celula: (g) => <span className="font-mono tabular"><span className="text-fg">{formatarPercentual(g.currentRate, 1)}</span> <span className="text-subtle">/ {formatarPercentual(g.targetRecyclingRate)}</span></span>,
     },
     {
-      key: 'kg', header: 'Volume', sort: (g) => g.targetKg,
-      cell: (g) => <span className="font-mono tabular"><span className="text-fg">{formatKg(g.currentKg)}</span> <span className="text-subtle">/ {formatKg(g.targetKg)}</span></span>,
+      key: 'kg', cabecalho: 'Volume', ordenar: (g) => g.targetKg,
+      celula: (g) => <span className="font-mono tabular"><span className="text-fg">{formatarKg(g.currentKg)}</span> <span className="text-subtle">/ {formatarKg(g.targetKg)}</span></span>,
     },
     {
-      key: 'progress', header: 'Progresso', sort: (g) => g.progress,
-      cell: (g) => (
+      key: 'progress', cabecalho: 'Progresso', ordenar: (g) => g.progress,
+      celula: (g) => (
         <span className="flex min-w-32 items-center gap-2.5">
-          <Meter value={g.progress} tone={g.progress >= 1 ? 'brand' : g.progress >= 0.5 ? 'brand' : 'warning'} label={`Progresso de ${g.title}`} />
-          <span className="shrink-0 font-mono text-[12px] text-muted tabular">{formatPercent(g.progress)}</span>
+          <Medidor value={g.progress} tone={g.progress >= 1 ? 'brand' : g.progress >= 0.5 ? 'brand' : 'warning'} label={`Progresso de ${g.title}`} />
+          <span className="shrink-0 font-mono text-[12px] text-muted tabular">{formatarPercentual(g.progress)}</span>
         </span>
       ),
     },
-    { key: 'act', header: <span className="sr-only">Ações</span>, align: 'right', mobile: 'row', cell: (g) => <IconButton icon={Pencil} size="sm" label={`Editar ${g.title}`} onClick={() => setEditing(g)} /> },
+    { key: 'act', cabecalho: <span className="sr-only">Ações</span>, alinhamento: 'right', celular: 'row', celula: (g) => <BotaoIcone icon={Pencil} size="sm" label={`Editar ${g.title}`} onClick={() => setEditando(g)} /> },
   ];
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-[13.5px] text-muted">Metas anuais da cidade até 2050, acompanhadas no painel de impacto.</p>
-        <Button size="sm" variant="secondary" leftIcon={Plus} onClick={() => setEditing('new')}>Nova meta</Button>
+        <Botao size="sm" variant="secondary" iconeEsquerda={Plus} onClick={() => setEditando('new')}>Nova meta</Botao>
       </div>
-      <AdminTable caption="Metas" columns={columns} rows={q.data} rowKey={(g) => g.id} loading={q.isPending} error={q.error} onRetry={q.refetch}
-        defaultSort={{ key: 'year', dir: 'asc' }}
-        empty={<EmptyState compact icon={Flag} title="Nenhuma meta" />} />
-      {editing && <GoalForm key={editing === 'new' ? 'new' : editing.id} goal={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      <TabelaAdmin legenda="Metas" colunas={colunas} linhas={q.data} chaveLinha={(g) => g.id} carregando={q.isPending} erro={q.error} aoTentarDeNovo={q.refetch}
+        ordemPadrao={{ key: 'year', direcao: 'asc' }}
+        vazio={<EstadoVazio compacto icon={Flag} title="Nenhuma meta" />} />
+      {editando && <FormMeta key={editando === 'new' ? 'new' : editando.id} meta={editando === 'new' ? null : editando} onClose={() => setEditando(null)} />}
     </>
   );
 }
 
-const goalSchema = z.object({
+const esquemaMeta = z.object({
   year: z.number({ invalid_type_error: 'Informe o ano', required_error: 'Informe o ano' }).int('Ano inteiro').min(2024, 'A partir de 2024').max(2100, 'Até 2100'),
   title: z.string().trim().min(3, 'Mínimo de 3 caracteres').max(120, 'Máximo de 120 caracteres'),
   ratePct: z.number({ invalid_type_error: 'Informe a taxa', required_error: 'Informe a taxa' }).min(0).max(100, 'Máximo de 100%'),
   targetKg: z.number({ invalid_type_error: 'Informe o volume', required_error: 'Informe o volume' }).min(0).max(1_000_000_000),
 });
 
-function GoalForm({ goal, onClose }: { goal: Goal | null; onClose: () => void }) {
-  const save = useSaveGoal();
-  const form = useForm<z.infer<typeof goalSchema>>({
-    resolver: zodResolver(goalSchema),
-    defaultValues: goal
-      ? { year: goal.year, title: goal.title, ratePct: Math.round(goal.targetRecyclingRate * 1000) / 10, targetKg: goal.targetKg }
+function FormMeta({ meta, onClose }: { meta: Goal | null; onClose: () => void }) {
+  const salvar = useSalvarMeta();
+  const formulario = useForm<z.infer<typeof esquemaMeta>>({
+    resolver: zodResolver(esquemaMeta),
+    defaultValues: meta
+      ? { year: meta.year, title: meta.title, ratePct: Math.round(meta.targetRecyclingRate * 1000) / 10, targetKg: meta.targetKg }
       : { year: new Date().getFullYear() + 1, title: '', ratePct: undefined, targetKg: undefined },
   });
-  const { errors, isSubmitting } = form.formState;
+  const { errors: erros, isSubmitting: enviando } = formulario.formState;
   return (
-    <Modal open onClose={onClose} size="md" closeOnBackdrop={false} title={goal ? 'Editar meta' : 'Nova meta'}
-      footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button type="submit" form="goal-form" loading={isSubmitting}>Salvar meta</Button></>}>
-      <form id="goal-form" noValidate className="space-y-4" onSubmit={form.handleSubmit(async (v) => {
+    <Modal open onClose={onClose} size="md" fecharAoClicarFora={false} title={meta ? 'Editar meta' : 'Nova meta'}
+      rodape={<><Botao variant="ghost" onClick={onClose}>Cancelar</Botao><Botao type="submit" form="goal-form" carregando={enviando}>Salvar meta</Botao></>}>
+      <form id="goal-form" noValidate className="space-y-4" onSubmit={formulario.handleSubmit(async (v) => {
         try {
-          const g = await save.mutateAsync({ id: goal?.id, body: { year: v.year, title: v.title.trim(), targetRecyclingRate: Math.round(v.ratePct * 10) / 1000, targetKg: v.targetKg } });
+          const g = await salvar.mutateAsync({ id: meta?.id, body: { year: v.year, title: v.title.trim(), targetRecyclingRate: Math.round(v.ratePct * 10) / 1000, targetKg: v.targetKg } });
           toast.success(`Meta ${g.year} salva.`);
           onClose();
-        } catch (e) { applyServerErrors(e, form.setError, { fieldMap: { targetRecyclingRate: 'ratePct' } }); }
+        } catch (e) { aplicarErrosDoServidor(e, formulario.setError, { fieldMap: { targetRecyclingRate: 'ratePct' } }); }
       })}>
-        <FormError error={errors.root?.server} />
+        <ErroFormulario erro={erros.root?.server} />
         <div className="grid grid-cols-[120px_1fr] gap-3">
-          <Field label="Ano" required error={errors.year}>
-            <FormNumber control={form.control} name="year" decimals={0} min={2024} max={2100} />
-          </Field>
-          <Field label="Título" required error={errors.title}><Input {...form.register('title')} maxLength={120} placeholder="Reciclar metade do lixo" /></Field>
+          <Campo label="Ano" required erro={erros.year}>
+            <FormNumber control={formulario.control} name="year" casasDecimais={0} min={2024} max={2100} />
+          </Campo>
+          <Campo label="Título" required erro={erros.title}><CampoTexto {...formulario.register('title')} maxLength={120} placeholder="Reciclar metade do lixo" /></Campo>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Taxa de reciclagem" required error={errors.ratePct}>
-            <FormNumber control={form.control} name="ratePct" decimals={1} min={0} max={100} unit="%" />
-          </Field>
-          <Field label="Volume reciclado" required error={errors.targetKg}>
-            <FormNumber control={form.control} name="targetKg" decimals={0} min={0} max={1_000_000_000} unit="kg" />
-          </Field>
+          <Campo label="Taxa de reciclagem" required erro={erros.ratePct}>
+            <FormNumber control={formulario.control} name="ratePct" casasDecimais={1} min={0} max={100} unidade="%" />
+          </Campo>
+          <Campo label="Volume reciclado" required erro={erros.targetKg}>
+            <FormNumber control={formulario.control} name="targetKg" casasDecimais={0} min={0} max={1_000_000_000} unidade="kg" />
+          </Campo>
         </div>
       </form>
     </Modal>

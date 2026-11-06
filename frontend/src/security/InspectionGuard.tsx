@@ -17,177 +17,177 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { Lock, ShieldAlert } from 'lucide-react';
-import { ApiError, onAccountLocked } from '@/api/client';
-import { securityApi } from '@/api/security';
+import { ErroApi, aoBloquearConta } from '@/api/client';
+import { apiSeguranca } from '@/api/security';
 import type { InspectionEventResult, InspectionTrigger } from '@/api/types';
-import { useAuth } from '@/auth/AuthProvider';
-import { Button, Modal, toast } from '@/components/ui';
-import { useFocusTrap, useScrollLock } from '@/components/ui/useFocusTrap';
-import { startDevtoolsDetector } from './devtoolsDetector';
-import { saveLockNotice } from './lockNotice';
-import { matchInspectionShortcut } from './shortcuts';
+import { useAutenticacao } from '@/auth/AuthProvider';
+import { Botao, Modal, toast } from '@/components/ui';
+import { usePrenderFoco, useTravarRolagem } from '@/components/ui/useFocusTrap';
+import { iniciarDetectorDevtools } from './devtoolsDetector';
+import { salvarAvisoBloqueio } from './lockNotice';
+import { atalhoDeInspecao } from './shortcuts';
 
-const MAX_WARNINGS = 3;
-const DEDUPE_MS = 5000;
-const RETRY_MS = 5000;
-const CONTEXT_TOAST_MS = 10_000;
-const AUTO_LOGOUT_MS = 5000;
-const DEFAULT_LOCK_S = 30 * 60;
+const MAX_AVISOS = 3;
+const JANELA_REPETICAO_MS = 5000;
+const REENVIO_MS = 5000;
+const AVISO_MENU_MS = 10_000;
+const SAIDA_AUTOMATICA_MS = 5000;
+const BLOQUEIO_PADRAO_S = 30 * 60;
 
-export function InspectionGuard() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [warning, setWarning] = useState<number | null>(null);
-  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+export function VigiaInspecao() {
+  const { user: usuario, logout: sair } = useAutenticacao();
+  const navegar = useNavigate();
+  const [aviso, setAviso] = useState<number | null>(null);
+  const [bloqueadoAte, setBloqueadoAte] = useState<number | null>(null);
 
-  const known = useRef(user?.securityWarnings ?? 0);
-  const lastLocalCount = useRef(-Infinity);
-  const lockedRef = useRef(false);
-  const retry = useRef<{ trigger: InspectionTrigger; timer: number; onOnline: () => void } | null>(null);
+  const avisosConhecidos = useRef(usuario?.securityWarnings ?? 0);
+  const ultimaContagemLocal = useRef(-Infinity);
+  const bloqueadoRef = useRef(false);
+  const reenvio = useRef<{ trigger: InspectionTrigger; timer: number; onOnline: () => void } | null>(null);
 
-  const lock = useCallback((until: number) => {
-    if (lockedRef.current) return;
-    lockedRef.current = true;
-    saveLockNotice(until); // mesmo que a sessão caia antes, a tela de login mostra o motivo
-    setWarning(null);
-    setLockedUntil(until);
+  const bloquear = useCallback((ate: number) => {
+    if (bloqueadoRef.current) return;
+    bloqueadoRef.current = true;
+    salvarAvisoBloqueio(ate); // mesmo que a sessão caia antes, a tela de login mostra o motivo
+    setAviso(null);
+    setBloqueadoAte(ate);
   }, []);
 
-  const applyResult = useCallback((r: InspectionEventResult) => {
-    known.current = r.warnings;
+  const aplicarResultado = useCallback((r: InspectionEventResult) => {
+    avisosConhecidos.current = r.warnings;
     if (r.locked) {
-      lock(r.lockedUntil ? Date.parse(r.lockedUntil) : Date.now() + DEFAULT_LOCK_S * 1000);
+      bloquear(r.lockedUntil ? Date.parse(r.lockedUntil) : Date.now() + BLOQUEIO_PADRAO_S * 1000);
     } else if (r.warnings > 0) {
-      setWarning(r.warnings);
+      setAviso(r.warnings);
     }
-  }, [lock]);
+  }, [bloquear]);
 
-  const clearRetry = useCallback(() => {
-    if (!retry.current) return;
-    window.clearTimeout(retry.current.timer);
-    window.removeEventListener('online', retry.current.onOnline);
-    retry.current = null;
+  const cancelarReenvio = useCallback(() => {
+    if (!reenvio.current) return;
+    window.clearTimeout(reenvio.current.timer);
+    window.removeEventListener('online', reenvio.current.onOnline);
+    reenvio.current = null;
   }, []);
 
   // Cada tentativa vai para o servidor, que conta os avisos e decide o bloqueio (o navegador só mostra o resultado).
-  const report = useCallback(async (trigger: InspectionTrigger, isRetry = false) => {
+  const informar = useCallback(async (gatilho: InspectionTrigger, ehReenvio = false) => {
     // 1. Se já está bloqueado, não manda mais nada.
-    if (lockedRef.current) return;
+    if (bloqueadoRef.current) return;
     try {
       // 2. Envia a tentativa e mostra "Aviso N de 3" ou a tela de bloqueio, conforme a resposta.
-      applyResult(await securityApi.reportInspection(trigger));
+      aplicarResultado(await apiSeguranca.reportarInspecao(gatilho));
     } catch (e) {
       // 3. 423 = a conta já estava bloqueada.
-      if (e instanceof ApiError && e.code === 'ACCOUNT_LOCKED') {
-        lock(Date.now() + (e.retryAfter ?? DEFAULT_LOCK_S) * 1000);
+      if (e instanceof ErroApi && e.code === 'ACCOUNT_LOCKED') {
+        bloquear(Date.now() + (e.retryAfter ?? BLOQUEIO_PADRAO_S) * 1000);
         return;
       }
-      if (isRetry) return;
+      if (ehReenvio) return;
       // 4. Sem resposta do servidor: avisa localmente e reenvia uma vez depois.
       // Falhou (sem rede?): avisa mesmo assim e tenta enviar UMA vez de novo.
-      const now = Date.now();
-      if (now - lastLocalCount.current > DEDUPE_MS) {
-        lastLocalCount.current = now;
-        known.current = Math.min(MAX_WARNINGS, known.current + 1);
+      const agora = Date.now();
+      if (agora - ultimaContagemLocal.current > JANELA_REPETICAO_MS) {
+        ultimaContagemLocal.current = agora;
+        avisosConhecidos.current = Math.min(MAX_AVISOS, avisosConhecidos.current + 1);
       }
-      setWarning(Math.max(1, known.current));
-      if (!retry.current) {
-        const run = () => { clearRetry(); void report(trigger, true); };
-        retry.current = { trigger, timer: window.setTimeout(run, RETRY_MS), onOnline: run };
-        window.addEventListener('online', run, { once: true });
+      setAviso(Math.max(1, avisosConhecidos.current));
+      if (!reenvio.current) {
+        const executar = () => { cancelarReenvio(); void informar(gatilho, true); };
+        reenvio.current = { trigger: gatilho, timer: window.setTimeout(executar, REENVIO_MS), onOnline: executar };
+        window.addEventListener('online', executar, { once: true });
       }
     }
-  }, [applyResult, lock, clearRetry]);
+  }, [aplicarResultado, bloquear, cancelarReenvio]);
 
   // Atalhos (fase de captura: antes de qualquer outro handler) e menu de contexto.
   useEffect(() => {
-    let lastContextToast = -Infinity;
-    const onKeyDown = (e: KeyboardEvent) => {
-      const trigger = matchInspectionShortcut(e);
-      if (!trigger) return;
+    let ultimoAvisoMenu = -Infinity;
+    const aoTeclar = (e: KeyboardEvent) => {
+      const gatilho = atalhoDeInspecao(e);
+      if (!gatilho) return;
       e.preventDefault();
       e.stopPropagation();
       if (e.repeat) return; // tecla segurada: um único evento
-      void report(trigger);
+      void informar(gatilho);
     };
-    const onContextMenu = (e: MouseEvent) => {
+    const aoAbrirMenu = (e: MouseEvent) => {
       e.preventDefault();
-      const now = Date.now();
-      if (now - lastContextToast > CONTEXT_TOAST_MS) {
-        lastContextToast = now;
+      const agora = Date.now();
+      if (agora - ultimoAvisoMenu > AVISO_MENU_MS) {
+        ultimoAvisoMenu = agora;
         toast.message('O menu de contexto está desativado nesta área.');
       }
     };
-    window.addEventListener('keydown', onKeyDown, { capture: true });
-    window.addEventListener('contextmenu', onContextMenu, { capture: true });
-    const stopDetector = startDevtoolsDetector(() => void report('DEVTOOLS_OPEN'));
-    const offLocked = onAccountLocked((err) => lock(Date.now() + (err.retryAfter ?? DEFAULT_LOCK_S) * 1000));
+    window.addEventListener('keydown', aoTeclar, { capture: true });
+    window.addEventListener('contextmenu', aoAbrirMenu, { capture: true });
+    const pararDetector = iniciarDetectorDevtools(() => void informar('DEVTOOLS_OPEN'));
+    const desligarBloqueio = aoBloquearConta((err) => bloquear(Date.now() + (err.retryAfter ?? BLOQUEIO_PADRAO_S) * 1000));
     return () => {
-      window.removeEventListener('keydown', onKeyDown, { capture: true });
-      window.removeEventListener('contextmenu', onContextMenu, { capture: true });
-      stopDetector();
-      offLocked();
-      clearRetry();
+      window.removeEventListener('keydown', aoTeclar, { capture: true });
+      window.removeEventListener('contextmenu', aoAbrirMenu, { capture: true });
+      pararDetector();
+      desligarBloqueio();
+      cancelarReenvio();
     };
-  }, [report, lock, clearRetry]);
+  }, [informar, bloquear, cancelarReenvio]);
 
-  const signOut = useCallback(async () => {
-    await logout(); // POST /auth/logout continua permitido durante o bloqueio
-    navigate('/entrar', { replace: true });
-  }, [logout, navigate]);
+  const sairDaConta = useCallback(async () => {
+    await sair(); // POST /auth/logout continua permitido durante o bloqueio
+    navegar('/entrar', { replace: true });
+  }, [sair, navegar]);
 
   return (
     <>
       <Modal
-        open={warning !== null && lockedUntil === null}
-        onClose={() => setWarning(null)}
+        open={aviso !== null && bloqueadoAte === null}
+        onClose={() => setAviso(null)}
         title="Não tente novamente"
         size="sm"
-        closeOnBackdrop={false}
-        hideClose
-        footer={<Button data-autofocus onClick={() => setWarning(null)}>Entendi</Button>}
+        fecharAoClicarFora={false}
+        esconderFechar
+        rodape={<Botao data-autofocus onClick={() => setAviso(null)}>Entendi</Botao>}
       >
         <div className="flex gap-3">
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
           <p className="text-sm leading-relaxed text-fg-soft">
             A inspeção do sistema não é permitida.{' '}
-            <strong className="font-semibold text-fg">Aviso {warning ?? 1} de {MAX_WARNINGS}</strong> — no {MAX_WARNINGS}º aviso
+            <strong className="font-semibold text-fg">Aviso {aviso ?? 1} de {MAX_AVISOS}</strong> — no {MAX_AVISOS}º aviso
             seu acesso será bloqueado por 30 minutos.
           </p>
         </div>
       </Modal>
-      {lockedUntil !== null && <LockScreen until={lockedUntil} onSignOut={signOut} />}
+      {bloqueadoAte !== null && <TelaBloqueio ate={bloqueadoAte} aoSair={sairDaConta} />}
     </>
   );
 }
 
-function formatClock(ms: number): string {
+function formatarRelogio(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function LockScreen({ until, onSignOut }: { until: number; onSignOut: () => Promise<void> }) {
+function TelaBloqueio({ ate, aoSair }: { ate: number; aoSair: () => Promise<void> }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [now, setNow] = useState(() => Date.now());
-  const [leaving, setLeaving] = useState(false);
-  const left = useRef(false);
-  useFocusTrap(ref, true);
-  useScrollLock(true);
+  const [agora, setAgora] = useState(() => Date.now());
+  const [saindo, setSaindo] = useState(false);
+  const jaSaiu = useRef(false);
+  usePrenderFoco(ref, true);
+  useTravarRolagem(true);
 
-  const leave = useCallback(() => {
-    if (left.current) return;
-    left.current = true;
-    setLeaving(true);
-    void onSignOut();
-  }, [onSignOut]);
+  const sairAgora = useCallback(() => {
+    if (jaSaiu.current) return;
+    jaSaiu.current = true;
+    setSaindo(true);
+    void aoSair();
+  }, [aoSair]);
 
   useEffect(() => {
-    const tick = window.setInterval(() => setNow(Date.now()), 1000);
-    const auto = window.setTimeout(leave, AUTO_LOGOUT_MS);
-    return () => { window.clearInterval(tick); window.clearTimeout(auto); };
-  }, [leave]);
+    const relogio = window.setInterval(() => setAgora(Date.now()), 1000);
+    const automatico = window.setTimeout(sairAgora, SAIDA_AUTOMATICA_MS);
+    return () => { window.clearInterval(relogio); window.clearTimeout(automatico); };
+  }, [sairAgora]);
 
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-bg p-4">
@@ -208,9 +208,9 @@ function LockScreen({ until, onSignOut }: { until: number; onSignOut: () => Prom
           Detectamos três tentativas de inspeção do sistema. Por segurança, sua sessão foi encerrada e o acesso
           ficará bloqueado até o fim do prazo.
         </p>
-        <p className="mt-6 font-mono text-4xl tabular-nums text-fg" aria-live="off">{formatClock(until - now)}</p>
+        <p className="mt-6 font-mono text-4xl tabular-nums text-fg" aria-live="off">{formatarRelogio(ate - agora)}</p>
         <p className="label-mono mt-1 text-subtle">tempo restante</p>
-        <Button variant="secondary" className="mt-7" fullWidth loading={leaving} onClick={leave}>Sair agora</Button>
+        <Botao variant="secondary" className="mt-7" larguraTotal carregando={saindo} onClick={sairAgora}>Sair agora</Botao>
       </div>
     </div>,
     document.body,

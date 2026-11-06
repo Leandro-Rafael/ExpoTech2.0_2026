@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
-const FOCUSABLE = [
+const SELETOR_FOCAVEIS = [
   'a[href]', 'area[href]', 'button:not([disabled])', 'input:not([disabled]):not([type="hidden"])',
   'select:not([disabled])', 'textarea:not([disabled])', 'iframe', '[tabindex]:not([tabindex="-1"])', '[contenteditable="true"]',
 ].join(',');
@@ -9,53 +9,53 @@ const FOCUSABLE = [
  * Prende o foco dentro de `ref` enquanto `active`; Esc chama `onEscape`;
  * ao desativar, devolve o foco ao elemento que estava focado antes.
  */
-export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean, opts: { onEscape?: () => void; initialFocus?: RefObject<HTMLElement | null> } = {}) {
-  const optsRef = useRef(opts);
-  optsRef.current = opts; // callbacks inline não reiniciam o efeito
+export function usePrenderFoco(ref: RefObject<HTMLElement | null>, ativo: boolean, opcoes: { onEscape?: () => void; focoInicial?: RefObject<HTMLElement | null> } = {}) {
+  const opcoesRef = useRef(opcoes);
+  opcoesRef.current = opcoes; // callbacks inline não reiniciam o efeito
   useEffect(() => {
-    if (!active) return;
-    const previous = document.activeElement as HTMLElement | null;
-    const root = ref.current;
-    const focusables = () => Array.from(root?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    if (!ativo) return;
+    const anterior = document.activeElement as HTMLElement | null;
+    const raiz = ref.current;
+    const listarFocaveis = () => Array.from(raiz?.querySelectorAll<HTMLElement>(SELETOR_FOCAVEIS) ?? []).filter((el) => el.offsetParent !== null || el === document.activeElement);
 
     const t = window.setTimeout(() => {
-      const target = optsRef.current.initialFocus?.current ?? root?.querySelector<HTMLElement>('[data-autofocus]') ?? focusables()[0] ?? root;
-      target?.focus({ preventScroll: true });
+      const alvo = opcoesRef.current.focoInicial?.current ?? raiz?.querySelector<HTMLElement>('[data-autofocus]') ?? listarFocaveis()[0] ?? raiz;
+      alvo?.focus({ preventScroll: true });
     }, 30);
 
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); optsRef.current.onEscape?.(); return; }
-      if (e.key !== 'Tab' || !root) return;
-      const items = focusables();
-      if (!items.length) { e.preventDefault(); return; }
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (e.shiftKey && (document.activeElement === first || !root.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); opcoesRef.current.onEscape?.(); return; }
+      if (e.key !== 'Tab' || !raiz) return;
+      const itens = listarFocaveis();
+      if (!itens.length) { e.preventDefault(); return; }
+      const primeiro = itens[0];
+      const ultimo = itens[itens.length - 1];
+      if (e.shiftKey && (document.activeElement === primeiro || !raiz.contains(document.activeElement))) { e.preventDefault(); ultimo.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
     };
-    document.addEventListener('keydown', onKey, true);
+    document.addEventListener('keydown', aoTeclar, true);
     return () => {
       window.clearTimeout(t);
-      document.removeEventListener('keydown', onKey, true);
-      previous?.focus?.({ preventScroll: true });
+      document.removeEventListener('keydown', aoTeclar, true);
+      anterior?.focus?.({ preventScroll: true });
     };
-  }, [active, ref]);
+  }, [ativo, ref]);
 }
 
 /** Trava o scroll do body enquanto `active` (com contador para overlays empilhados). */
-let locks = 0;
-export function useScrollLock(active: boolean) {
+let travas = 0;
+export function useTravarRolagem(ativo: boolean) {
   useEffect(() => {
-    if (!active) return;
-    locks++;
+    if (!ativo) return;
+    travas++;
     const html = document.documentElement;
-    const prev = html.style.overflow;
-    const sbw = window.innerWidth - html.clientWidth;
+    const anterior = html.style.overflow;
+    const larguraBarra = window.innerWidth - html.clientWidth;
     html.style.overflow = 'hidden';
-    if (sbw > 0) html.style.paddingRight = `${sbw}px`;
+    if (larguraBarra > 0) html.style.paddingRight = `${larguraBarra}px`;
     return () => {
-      locks--;
-      if (locks === 0) { html.style.overflow = prev; html.style.paddingRight = ''; }
+      travas--;
+      if (travas === 0) { html.style.overflow = anterior; html.style.paddingRight = ''; }
     };
-  }, [active]);
+  }, [ativo]);
 }

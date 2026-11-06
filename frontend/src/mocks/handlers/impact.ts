@@ -1,33 +1,33 @@
 /** Impacto ambiental (/api/public/stats, /api/impact/*) e rotas do coletor (/api/collector/*). */
 import type { ImpactSummary, PublicStats, Route, SimulationInput, SimulationResult } from '@/api/types';
-import { db, nowIso, type RouteRec, type UserRec } from '../db';
-import { toRoute } from '../dto';
-import { Validator, bodyObject, enumParam, fail, intParam, ok } from '../http';
-import { audit } from '../logic/audit';
-import { emptyBin } from '../logic/bins';
-import { localDate } from '../logic/dates';
-import { impactSummary, publicStats } from '../logic/impact';
-import { simulate } from '../logic/simulator';
-import { COLLECTOR, route } from '../server';
+import { banco, agoraIso, type RegistroRota, type RegistroUsuario } from '../db';
+import { paraRota } from '../dto';
+import { Validador, objetoDoCorpo, parametroEnum, falha, parametroInteiro, ok } from '../http';
+import { registrarAuditoria } from '../logic/audit';
+import { esvaziarLixeira } from '../logic/bins';
+import { dataLocal } from '../logic/dates';
+import { resumoImpacto, estatisticasPublicas } from '../logic/impact';
+import { simular } from '../logic/simulator';
+import { COLETOR, rota } from '../server';
 
-export function registerImpactRoutes() {
-  route('GET', '/public/stats', () => ok<PublicStats>(publicStats(db())), { access: 'public' });
+export function registrarRotasImpacto() {
+  rota('GET', '/public/stats', () => ok<PublicStats>(estatisticasPublicas(banco())), { access: 'public' });
 
-  route('GET', '/impact/summary', ({ me, query }) => {
-    const scope = enumParam(query, 'scope', ['ME', 'COMMUNITY'] as const) ?? 'ME';
-    const months = intParam(query, 'months', 12, 1, 36);
-    return ok<ImpactSummary>(impactSummary(db(), scope, me.id, months));
+  rota('GET', '/impact/summary', ({ me, query }) => {
+    const escopo = parametroEnum(query, 'scope', ['ME', 'COMMUNITY'] as const) ?? 'ME';
+    const meses = parametroInteiro(query, 'months', 12, 1, 36);
+    return ok<ImpactSummary>(resumoImpacto(banco(), escopo, me.id, meses));
   });
 
-  route('POST', '/impact/simulate', ({ body }) => {
-    const b = bodyObject(body);
-    const v = new Validator();
+  rota('POST', '/impact/simulate', ({ body }) => {
+    const b = objetoDoCorpo(body);
+    const v = new Validador();
     const n = (k: keyof SimulationInput, min: number, max: number, msg: string) => {
       const x = b[k];
       v.check(typeof x === 'number' && Number.isFinite(x) && x >= min && x <= max, k, msg);
       return x as number;
     };
-    const input: SimulationInput = {
+    const entrada: SimulationInput = {
       population: n('population', 1, 50_000_000, 'informe de 1 a 50.000.000 habitantes'),
       kgPerCapitaDay: n('kgPerCapitaDay', 0.1, 5, 'informe de 0,1 a 5 kg por habitante/dia'),
       currentRecyclingRate: n('currentRecyclingRate', 0, 1, 'informe uma taxa entre 0 e 1'),
@@ -35,76 +35,76 @@ export function registerImpactRoutes() {
       targetYear: n('targetYear', 2027, 2050, 'informe um ano entre 2027 e 2050'),
       annualGrowthRate: n('annualGrowthRate', -0.05, 0.1, 'informe entre -0,05 e 0,10'),
     };
-    if (!v.has('targetRecyclingRate') && !v.has('currentRecyclingRate') && input.targetRecyclingRate < input.currentRecyclingRate) {
+    if (!v.has('targetRecyclingRate') && !v.has('currentRecyclingRate') && entrada.targetRecyclingRate < entrada.currentRecyclingRate) {
       v.add('targetRecyclingRate', 'a meta deve ser maior ou igual à taxa atual');
     }
-    if (!v.has('targetYear') && !Number.isInteger(input.targetYear)) v.add('targetYear', 'informe um ano inteiro');
+    if (!v.has('targetYear') && !Number.isInteger(entrada.targetYear)) v.add('targetYear', 'informe um ano inteiro');
     v.throwIfAny();
-    const baseYear = Number(localDate(new Date()).slice(0, 4));
-    return ok<SimulationResult>(simulate(input, baseYear));
+    const anoBase = Number(dataLocal(new Date()).slice(0, 4));
+    return ok<SimulationResult>(simular(entrada, anoBase));
   });
 }
 
-function myRoute(me: UserRec, id: string): RouteRec {
-  const r = db().routes.find((x) => x.id === id);
-  if (!r || (me.role !== 'ADMIN' && r.collectorId !== me.id)) throw fail.notFound('Rota não encontrada.');
+function minhaRota(me: RegistroUsuario, id: string): RegistroRota {
+  const r = banco().routes.find((x) => x.id === id);
+  if (!r || (me.role !== 'ADMIN' && r.collectorId !== me.id)) throw falha.notFound('Rota não encontrada.');
   return r;
 }
 
-const STATUS_ORDER: Record<RouteRec['status'], number> = { IN_PROGRESS: 0, PLANNED: 1, DONE: 2 };
+const ORDEM_STATUS: Record<RegistroRota['status'], number> = { IN_PROGRESS: 0, PLANNED: 1, DONE: 2 };
 
-export function registerCollectorRoutes() {
-  route('GET', '/collector/routes', ({ me }) => {
-    const d = db();
+export function registrarRotasColetor() {
+  rota('GET', '/collector/routes', ({ me }) => {
+    const d = banco();
     return ok<Route[]>(d.routes
       .filter((r) => r.collectorId === me.id || (me.role === 'ADMIN' && r.collectorId === null))
-      .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+      .sort((a, b) => ORDEM_STATUS[a.status] - ORDEM_STATUS[b.status]
         || (a.status === 'DONE' ? b.plannedDate.localeCompare(a.plannedDate) : a.plannedDate.localeCompare(b.plannedDate)))
-      .map((r) => toRoute(d, r)));
-  }, { access: COLLECTOR });
+      .map((r) => paraRota(d, r)));
+  }, { access: COLETOR });
 
-  route('POST', '/collector/routes/:id/start', ({ me, params }) => {
-    const d = db();
-    const r = myRoute(me, params.id);
-    if (r.status === 'DONE') throw fail.business('Esta rota já foi concluída.');
+  rota('POST', '/collector/routes/:id/start', ({ me, params }) => {
+    const d = banco();
+    const r = minhaRota(me, params.id);
+    if (r.status === 'DONE') throw falha.business('Esta rota já foi concluída.');
     if (r.status === 'PLANNED') {
       r.status = 'IN_PROGRESS';
       if (!r.collectorId) r.collectorId = me.id;
-      const at = nowIso();
+      const quando = agoraIso();
       for (const s of r.stops) {
-        const req = d.collectionRequests.find((x) => x.id === s.requestId);
-        if (req && req.status !== 'CANCELLED' && req.status !== 'COLLECTED') { req.status = 'IN_ROUTE'; req.updatedAt = at; }
+        const solicitacao = d.collectionRequests.find((x) => x.id === s.requestId);
+        if (solicitacao && solicitacao.status !== 'CANCELLED' && solicitacao.status !== 'COLLECTED') { solicitacao.status = 'IN_ROUTE'; solicitacao.updatedAt = quando; }
       }
-      audit(d, me, 'ROUTE_STARTED', 'Route', r.id, r.name);
+      registrarAuditoria(d, me, 'ROUTE_STARTED', 'Route', r.id, r.name);
     }
-    return ok<Route>(toRoute(d, r));
-  }, { access: COLLECTOR });
+    return ok<Route>(paraRota(d, r));
+  }, { access: COLETOR });
 
-  route('POST', '/collector/routes/:routeId/stops/:stopId/complete', ({ me, params, body }) => {
-    const d = db();
-    const r = myRoute(me, params.routeId);
-    const stop = r.stops.find((s) => s.id === params.stopId);
-    if (!stop) throw fail.notFound('Parada não encontrada.');
-    if (r.status === 'PLANNED') throw fail.business('Inicie a rota antes de concluir paradas.');
-    if (r.status === 'DONE' || stop.status === 'DONE') return ok<Route>(toRoute(d, r));
-    const b = bodyObject(body);
+  rota('POST', '/collector/routes/:routeId/stops/:stopId/complete', ({ me, params, body }) => {
+    const d = banco();
+    const r = minhaRota(me, params.routeId);
+    const parada = r.stops.find((s) => s.id === params.stopId);
+    if (!parada) throw falha.notFound('Parada não encontrada.');
+    if (r.status === 'PLANNED') throw falha.business('Inicie a rota antes de concluir paradas.');
+    if (r.status === 'DONE' || parada.status === 'DONE') return ok<Route>(paraRota(d, r));
+    const b = objetoDoCorpo(body);
     const kg = b.collectedKg;
-    if (kg !== undefined && kg !== null && (typeof kg !== 'number' || kg < 0 || kg > 5000)) throw fail.field('collectedKg', 'informe de 0 a 5.000 kg');
-    const at = nowIso();
-    stop.status = 'DONE';
-    stop.completedAt = at;
-    stop.collectedKg = typeof kg === 'number' ? kg : stop.estimatedKg;
-    const req = d.collectionRequests.find((x) => x.id === stop.requestId);
-    if (req && req.status !== 'CANCELLED') {
-      req.status = 'COLLECTED';
-      req.updatedAt = at;
-      if (req.smartBinId) emptyBin(d, req.smartBinId, at);
+    if (kg !== undefined && kg !== null && (typeof kg !== 'number' || kg < 0 || kg > 5000)) throw falha.campo('collectedKg', 'informe de 0 a 5.000 kg');
+    const quando = agoraIso();
+    parada.status = 'DONE';
+    parada.completedAt = quando;
+    parada.collectedKg = typeof kg === 'number' ? kg : parada.estimatedKg;
+    const solicitacao = d.collectionRequests.find((x) => x.id === parada.requestId);
+    if (solicitacao && solicitacao.status !== 'CANCELLED') {
+      solicitacao.status = 'COLLECTED';
+      solicitacao.updatedAt = quando;
+      if (solicitacao.smartBinId) esvaziarLixeira(d, solicitacao.smartBinId, quando);
     }
-    audit(d, me, 'STOP_COMPLETED', 'Route', r.id, `${stop.address} — ${stop.collectedKg} kg`);
+    registrarAuditoria(d, me, 'STOP_COMPLETED', 'Route', r.id, `${parada.address} — ${parada.collectedKg} kg`);
     if (r.stops.every((s) => s.status === 'DONE')) {
       r.status = 'DONE';
-      audit(d, me, 'ROUTE_COMPLETED', 'Route', r.id, r.name);
+      registrarAuditoria(d, me, 'ROUTE_COMPLETED', 'Route', r.id, r.name);
     }
-    return ok<Route>(toRoute(d, r));
-  }, { access: COLLECTOR });
+    return ok<Route>(paraRota(d, r));
+  }, { access: COLETOR });
 }

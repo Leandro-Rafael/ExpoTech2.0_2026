@@ -7,107 +7,107 @@
  */
 import { createContext, use, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError, ensureCsrf, onUnauthorized } from '@/api/client';
-import { authApi, type LoginInput, type RegisterInput } from '@/api/auth';
+import { ErroApi, garantirCsrf, aoNaoAutorizado } from '@/api/client';
+import { apiAuth, type EntradaLogin, type EntradaCadastro } from '@/api/auth';
 import { qk } from '@/api/queries';
 import type { Role, UserMe } from '@/api/types';
 
-type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
+type SituacaoSessao = 'loading' | 'authenticated' | 'anonymous';
 
-interface AuthContextValue {
+interface ValorContextoAuth {
   user: UserMe | null;
-  status: AuthStatus;
-  login: (input: LoginInput) => Promise<UserMe>;
-  register: (input: RegisterInput) => Promise<UserMe>;
+  status: SituacaoSessao;
+  login: (input: EntradaLogin) => Promise<UserMe>;
+  register: (input: EntradaCadastro) => Promise<UserMe>;
   logout: () => Promise<void>;
   /** Recarrega /auth/me (ex.: após ganhar pontos). */
-  refresh: () => Promise<unknown>;
-  hasRole: (...roles: Role[]) => boolean;
+  recarregar: () => Promise<unknown>;
+  temPerfil: (...roles: Role[]) => boolean;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+const ContextoAuth = createContext<ValorContextoAuth | null>(null);
 
-async function fetchMe(): Promise<UserMe | null> {
+async function buscarSessao(): Promise<UserMe | null> {
   try {
-    return (await authApi.session()) ?? null;
+    return (await apiAuth.sessao()) ?? null;
   } catch (e) {
     // 401/403 = sem sessão; 0/5xx = back-end offline (proxy do Vite responde 500) → trata como anônimo.
-    if (e instanceof ApiError) return null;
+    if (e instanceof ErroApi) return null;
     throw e;
   }
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function ProvedorAuth({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
 
   // CSRF no boot (não bloqueia a renderização).
-  useEffect(() => { void ensureCsrf(); }, []);
+  useEffect(() => { void garantirCsrf(); }, []);
 
   // 1. Ao abrir o site, pergunta ao servidor quem está logado (GET /api/auth/session).
-  const meQuery = useQuery({
+  const consultaSessao = useQuery({
     queryKey: qk.me,
-    queryFn: fetchMe,
+    queryFn: buscarSessao,
     staleTime: 60_000,
     retry: false,
     refetchOnWindowFocus: true,
   });
 
-  const clearSession = useCallback(() => {
+  const limparSessao = useCallback(() => {
     qc.setQueryData(qk.me, null);
     // Remove dados privados do cache, mantendo dados públicos.
     qc.removeQueries({ predicate: (q) => !['public', 'categories', 'auth'].includes(String(q.queryKey[0])) });
   }, [qc]);
 
   // 2. Se a API avisar que a sessão acabou, limpa o usuário e os dados privados do cache.
-  useEffect(() => onUnauthorized(clearSession), [clearSession]);
+  useEffect(() => aoNaoAutorizado(limparSessao), [limparSessao]);
 
   // 3. Login e cadastro guardam o usuário devolvido e trocam o CSRF (o token muda após autenticar).
-  const login = useCallback(async (input: LoginInput) => {
-    const user = await authApi.login(input);
-    qc.setQueryData(qk.me, user);
-    await ensureCsrf(true); // token rotaciona após autenticação
-    return user;
+  const entrar = useCallback(async (dados: EntradaLogin) => {
+    const usuario = await apiAuth.login(dados);
+    qc.setQueryData(qk.me, usuario);
+    await garantirCsrf(true); // token rotaciona após autenticação
+    return usuario;
   }, [qc]);
 
-  const register = useCallback(async (input: RegisterInput) => {
-    const user = await authApi.register(input);
-    qc.setQueryData(qk.me, user);
-    await ensureCsrf(true);
-    return user;
+  const cadastrar = useCallback(async (dados: EntradaCadastro) => {
+    const usuario = await apiAuth.cadastrar(dados);
+    qc.setQueryData(qk.me, usuario);
+    await garantirCsrf(true);
+    return usuario;
   }, [qc]);
 
-  const logout = useCallback(async () => {
-    try { await authApi.logout(); } catch { /* sessão já expirada */ }
-    clearSession();
-    void ensureCsrf(true);
-  }, [clearSession]);
+  const sair = useCallback(async () => {
+    try { await apiAuth.logout(); } catch { /* sessão já expirada */ }
+    limparSessao();
+    void garantirCsrf(true);
+  }, [limparSessao]);
 
   // 4. Status que os guardas de rota usam: 'loading', 'authenticated' ou 'anonymous'.
-  const user = meQuery.data ?? null;
-  const status: AuthStatus = meQuery.isPending ? 'loading' : user ? 'authenticated' : 'anonymous';
+  const usuario = consultaSessao.data ?? null;
+  const status: SituacaoSessao = consultaSessao.isPending ? 'loading' : usuario ? 'authenticated' : 'anonymous';
 
-  const value = useMemo<AuthContextValue>(() => ({
-    user,
+  const valor = useMemo<ValorContextoAuth>(() => ({
+    user: usuario,
     status,
-    login,
-    register,
-    logout,
-    refresh: () => qc.invalidateQueries({ queryKey: qk.me }),
-    hasRole: (...roles) => !!user && roles.includes(user.role),
-  }), [user, status, login, register, logout, qc]);
+    login: entrar,
+    register: cadastrar,
+    logout: sair,
+    recarregar: () => qc.invalidateQueries({ queryKey: qk.me }),
+    temPerfil: (...roles) => !!usuario && roles.includes(usuario.role),
+  }), [usuario, status, entrar, cadastrar, sair, qc]);
 
-  return <AuthContext value={value}>{children}</AuthContext>;
+  return <ContextoAuth value={valor}>{children}</ContextoAuth>;
 }
 
-export function useAuth(): AuthContextValue {
-  const ctx = use(AuthContext);
+export function useAutenticacao(): ValorContextoAuth {
+  const ctx = use(ContextoAuth);
   if (!ctx) throw new Error('useAuth deve ser usado dentro de <AuthProvider>');
   return ctx;
 }
 
 /** Usuário garantido (use apenas dentro de rotas protegidas por <RequireAuth>). */
-export function useUser(): UserMe {
-  const { user } = useAuth();
-  if (!user) throw new Error('useUser chamado fora de rota autenticada');
-  return user;
+export function useUsuario(): UserMe {
+  const { user: usuario } = useAutenticacao();
+  if (!usuario) throw new Error('useUser chamado fora de rota autenticada');
+  return usuario;
 }

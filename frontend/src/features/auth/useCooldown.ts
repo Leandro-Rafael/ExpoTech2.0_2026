@@ -1,22 +1,22 @@
 import { useEffect, useState } from 'react';
 
 /** Contagem regressiva em segundos (ex.: Retry-After de um 429). */
-export function useCooldown() {
-  const [until, setUntil] = useState<number | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+export function useEspera() {
+  const [ate, setAte] = useState<number | null>(null);
+  const [agora, setAgora] = useState(() => Date.now());
   useEffect(() => {
-    if (!until) return;
+    if (!ate) return;
     const t = setInterval(() => {
       const n = Date.now();
-      setNow(n);
-      if (n >= until) { setUntil(null); clearInterval(t); }
+      setAgora(n);
+      if (n >= ate) { setAte(null); clearInterval(t); }
     }, 250);
     return () => clearInterval(t);
-  }, [until]);
-  const remaining = until ? Math.max(0, Math.ceil((until - now) / 1000)) : 0;
+  }, [ate]);
+  const restante = ate ? Math.max(0, Math.ceil((ate - agora) / 1000)) : 0;
   return {
-    remaining,
-    active: remaining > 0,
-    start: (seconds: number) => { setNow(Date.now()); setUntil(Date.now() + seconds * 1000); },
+    remaining: restante,
+    active: restante > 0,
+    start: (segundos: number) => { setAgora(Date.now()); setAte(Date.now() + segundos * 1000); },
   };
 }

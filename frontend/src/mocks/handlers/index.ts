@@ -1,30 +1,30 @@
 // Modo demo: junta as rotas falsas de cada assunto (auth, descartes, admin...) no roteador de mocks/server.ts.
-import { registerAdminRoutes } from './admin';
-import { registerAuthRoutes } from './auth';
-import { registerCollectionRoutes } from './collection';
-import { registerDisposalRoutes } from './disposals';
-import { registerGamificationRoutes } from './gamification';
-import { registerHouseholdRoutes } from './household';
-import { registerCollectorRoutes, registerImpactRoutes } from './impact';
-import { registerPhotoRoutes } from './photos';
-import { registerProfileRoutes } from './profile';
-import { registerSecurityRoutes } from './security';
+import { registrarRotasAdmin } from './admin';
+import { registrarRotasAuth } from './auth';
+import { registrarRotasColeta } from './collection';
+import { registrarRotasDescarte } from './disposals';
+import { registrarRotasGamificacao } from './gamification';
+import { registrarRotasResidencia } from './household';
+import { registrarRotasColetor, registrarRotasImpacto } from './impact';
+import { registrarRotasFoto } from './photos';
+import { registrarRotasPerfil } from './profile';
+import { registrarRotasSeguranca } from './security';
 
-let registered = false;
+let registrado = false;
 
 /** Registra todas as rotas do contrato (docs/API.md). */
-export function registerAllRoutes() {
-  if (registered) return;
-  registered = true;
-  registerAuthRoutes();
-  registerProfileRoutes();
-  registerPhotoRoutes();
-  registerDisposalRoutes();
-  registerGamificationRoutes();
-  registerCollectionRoutes();
-  registerHouseholdRoutes();
-  registerImpactRoutes();
-  registerCollectorRoutes();
-  registerAdminRoutes();
-  registerSecurityRoutes();
+export function registrarTodasAsRotas() {
+  if (registrado) return;
+  registrado = true;
+  registrarRotasAuth();
+  registrarRotasPerfil();
+  registrarRotasFoto();
+  registrarRotasDescarte();
+  registrarRotasGamificacao();
+  registrarRotasColeta();
+  registrarRotasResidencia();
+  registrarRotasImpacto();
+  registrarRotasColetor();
+  registrarRotasAdmin();
+  registrarRotasSeguranca();
 }

@@ -1,9 +1,9 @@
 import { cn } from '@/lib/cn';
 
-export interface SpinnerProps { size?: number; className?: string; label?: string }
+export interface PropsIconeCarregando { size?: number; className?: string; label?: string }
 
 /** Indicador de carregamento circular. `label` é lido por leitores de tela. */
-export function Spinner({ size = 18, className, label = 'Carregando' }: SpinnerProps) {
+export function IconeCarregando({ size = 18, className, label = 'Carregando' }: PropsIconeCarregando) {
   return (
     <span role="status" aria-label={label} className={cn('inline-flex shrink-0', className)}>
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="animate-spin" aria-hidden>

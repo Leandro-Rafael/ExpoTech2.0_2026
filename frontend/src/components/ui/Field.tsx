@@ -3,47 +3,47 @@ import type { FieldError } from 'react-hook-form';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
-export interface FieldProps {
+export interface PropsCampo {
   label?: ReactNode;
   /** Mensagem de erro — aceita string ou o `FieldError` do react-hook-form (`errors.email`). */
-  error?: string | FieldError | null;
-  hint?: ReactNode;
+  erro?: string | FieldError | null;
+  dica?: ReactNode;
   required?: boolean;
   /** Mostra "(opcional)" ao lado do rótulo. */
-  optional?: boolean;
+  opcional?: boolean;
   /** Conteúdo à direita do rótulo (ex.: link "Esqueci a senha"). */
-  labelAside?: ReactNode;
+  rotuloLateral?: ReactNode;
   id?: string;
   className?: string;
   /**
    * Um único controle. O Field injeta `id`, `aria-invalid`, `aria-describedby` e `aria-required`.
    * Para controles compostos, use a forma função: `{(a11y) => <X {...a11y} />}`.
    */
-  children: ReactElement | ((a11y: FieldA11yProps) => ReactNode);
+  children: ReactElement | ((a11y: PropsAcessibilidadeCampo) => ReactNode);
 }
 
-interface FieldA11yProps {
+interface PropsAcessibilidadeCampo {
   id: string;
   'aria-invalid'?: true;
   'aria-describedby'?: string;
   'aria-required'?: true;
 }
 
-const FieldContext = createContext<FieldA11yProps | null>(null);
+const ContextoCampo = createContext<PropsAcessibilidadeCampo | null>(null);
 
 /**
  * Usado pelos controles do kit (Input, NumberInput, Select, Textarea): dentro de um <Field>,
  * recebem automaticamente `id`, `aria-describedby`, `aria-invalid` e `aria-required` — mesmo
  * quando estão dentro de um <Controller> ou de um wrapper. Props explícitas têm prioridade.
  */
-export function useFieldA11y<P extends { id?: string; 'aria-describedby'?: string; 'aria-invalid'?: unknown; 'aria-required'?: unknown }>(props: P): P {
-  const ctx = useContext(FieldContext);
+export function useAcessibilidadeCampo<P extends { id?: string; 'aria-describedby'?: string; 'aria-invalid'?: unknown; 'aria-required'?: unknown }>(props: P): P {
+  const ctx = useContext(ContextoCampo);
   if (!ctx) return props;
-  const out: Record<string, unknown> = { ...props };
+  const saida: Record<string, unknown> = { ...props };
   for (const k of ['id', 'aria-describedby', 'aria-invalid', 'aria-required'] as const) {
-    if (out[k] == null && ctx[k] != null) out[k] = ctx[k];
+    if (saida[k] == null && ctx[k] != null) saida[k] = ctx[k];
   }
-  return out as P;
+  return saida as P;
 }
 
 /**
@@ -53,64 +53,64 @@ export function useFieldA11y<P extends { id?: string; 'aria-describedby'?: strin
  *     <Input type="email" {...register('email')} />
  *   </Field>
  */
-export function Field({ label, error, hint, required, optional, labelAside, id, className, children }: FieldProps) {
-  const auto = useId();
-  const controlId = id ?? `f${auto}`;
-  const message = typeof error === 'string' ? error : error?.message;
-  const hintId = hint ? `${controlId}-hint` : undefined;
-  const errorId = message ? `${controlId}-error` : undefined;
-  const describedBy = [errorId, hintId].filter(Boolean).join(' ') || undefined;
+export function Campo({ label, erro, dica, required, opcional, rotuloLateral, id, className, children }: PropsCampo) {
+  const idAuto = useId();
+  const idControle = id ?? `f${idAuto}`;
+  const mensagem = typeof erro === 'string' ? erro : erro?.message;
+  const idDica = dica ? `${idControle}-hint` : undefined;
+  const idErro = mensagem ? `${idControle}-error` : undefined;
+  const descritoPor = [idErro, idDica].filter(Boolean).join(' ') || undefined;
 
-  const a11y: FieldA11yProps = {
-    id: controlId,
-    ...(message ? { 'aria-invalid': true as const } : {}),
-    ...(describedBy ? { 'aria-describedby': describedBy } : {}),
+  const acessibilidade: PropsAcessibilidadeCampo = {
+    id: idControle,
+    ...(mensagem ? { 'aria-invalid': true as const } : {}),
+    ...(descritoPor ? { 'aria-describedby': descritoPor } : {}),
     ...(required ? { 'aria-required': true as const } : {}),
   };
 
   // Controles do kit leem o contexto; elementos nativos diretos (<input>, <select>...) recebem via clone.
   // Componentes como <Controller> não recebem clone (evita ids duplicados em wrappers).
-  const control = typeof children === 'function'
-    ? children(a11y)
+  const controle = typeof children === 'function'
+    ? children(acessibilidade)
     : isValidElement(children) && typeof children.type === 'string'
-      ? cloneElement(children as ReactElement<Record<string, unknown>>, a11y as unknown as Record<string, unknown>)
+      ? cloneElement(children as ReactElement<Record<string, unknown>>, acessibilidade as unknown as Record<string, unknown>)
       : children;
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      {(label || labelAside) && (
+      {(label || rotuloLateral) && (
         <div className="flex items-baseline justify-between gap-2">
           {label && (
-            <label htmlFor={controlId} className="text-[13px] font-medium text-fg-soft">
+            <label htmlFor={idControle} className="text-[13px] font-medium text-fg-soft">
               {label}
               {required && <span className="ml-0.5 text-subtle" aria-hidden>*</span>}
-              {optional && <span className="ml-1.5 font-normal text-subtle">(opcional)</span>}
+              {opcional && <span className="ml-1.5 font-normal text-subtle">(opcional)</span>}
             </label>
           )}
-          {labelAside && <div className="text-[13px]">{labelAside}</div>}
+          {rotuloLateral && <div className="text-[13px]">{rotuloLateral}</div>}
         </div>
       )}
-      <FieldContext.Provider value={a11y}>{control}</FieldContext.Provider>
-      {message ? (
-        <p id={errorId} role="alert" className="flex items-start gap-1.5 text-[13px] text-danger animate-fade-up">
+      <ContextoCampo.Provider value={acessibilidade}>{controle}</ContextoCampo.Provider>
+      {mensagem ? (
+        <p id={idErro} role="alert" className="flex items-start gap-1.5 text-[13px] text-danger animate-fade-up">
           <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden />
-          <span>{message}</span>
+          <span>{mensagem}</span>
         </p>
-      ) : hint ? (
-        <p id={hintId} className="text-[12.5px] text-muted">{hint}</p>
+      ) : dica ? (
+        <p id={idDica} className="text-[12.5px] text-muted">{dica}</p>
       ) : null}
     </div>
   );
 }
 
 /** Erro geral do formulário (ex.: `errors.root?.server`). */
-export function FormError({ error, className }: { error?: string | { message?: string } | null; className?: string }) {
-  const message = typeof error === 'string' ? error : error?.message;
-  if (!message) return null;
+export function ErroFormulario({ erro, className }: { erro?: string | { message?: string } | null; className?: string }) {
+  const mensagem = typeof erro === 'string' ? erro : erro?.message;
+  if (!mensagem) return null;
   return (
     <div role="alert" className={cn('flex items-start gap-2.5 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-3 text-sm text-danger animate-fade-up', className)}>
       <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-      <span>{message}</span>
+      <span>{mensagem}</span>
     </div>
   );
 }

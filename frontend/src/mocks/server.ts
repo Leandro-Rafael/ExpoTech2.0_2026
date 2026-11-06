@@ -3,135 +3,135 @@
  * Só trata requisições da mesma origem para `/api/...`; todo o resto segue para a rede normalmente.
  */
 import type { Role } from '@/api/types';
-import { db, save } from './db';
-import { HttpError, fail, type MockContext, type MockRequest, type MockResponse } from './http';
-import { tickBins } from './logic/bins';
-import { latencyMs } from './logic/random';
-import { inspectionLockRemaining } from './logic/security';
-import { csrfValid, currentUser, sessionUserId } from './session';
+import { banco, salvar } from './db';
+import { ErroHttp, falha, type ContextoSimulado, type RequisicaoSimulada, type RespostaSimulada } from './http';
+import { avancarLixeiras } from './logic/bins';
+import { latenciaMs } from './logic/random';
+import { restanteBloqueioInspecao } from './logic/security';
+import { csrfValido, usuarioAtual, idUsuarioDaSessao } from './session';
 
 /** `public` = sem login; `user` = qualquer usuário logado; demais = papéis permitidos. */
-type Access = 'public' | 'user' | Role[];
+type Acesso = 'public' | 'user' | Role[];
 
-interface RouteDef {
+interface DefinicaoRota {
   method: string;
   pattern: RegExp;
   keys: string[];
-  access: Access;
+  access: Acesso;
   csrf: boolean;
-  handler: (ctx: MockContext) => MockResponse | Promise<MockResponse>;
+  handler: (ctx: ContextoSimulado) => RespostaSimulada | Promise<RespostaSimulada>;
 }
 
-const routes: RouteDef[] = [];
-const LOCK_EXEMPT = new Set(['GET /api/auth/csrf', 'POST /api/auth/logout', 'POST /api/auth/register']);
-const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const rotas: DefinicaoRota[] = [];
+const ISENTAS_DE_BLOQUEIO = new Set(['GET /api/auth/csrf', 'POST /api/auth/logout', 'POST /api/auth/register']);
+const METODOS_QUE_ALTERAM = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-export interface RouteOptions { access?: Access; csrf?: boolean }
+export interface OpcoesRota { access?: Acesso; csrf?: boolean }
 
 /** Registra uma rota. `path` relativo a /api, com parâmetros `:id`. */
-export function route(
-  method: string,
-  path: string,
-  handler: (ctx: MockContext) => MockResponse | Promise<MockResponse>,
-  opts: RouteOptions = {},
+export function rota(
+  metodo: string,
+  caminho: string,
+  tratador: (ctx: ContextoSimulado) => RespostaSimulada | Promise<RespostaSimulada>,
+  opcoes: OpcoesRota = {},
 ) {
-  const keys: string[] = [];
-  const pattern = new RegExp(
-    `^/api${path.replace(/\/:([A-Za-z]+)/g, (_m, k: string) => { keys.push(k); return '/([^/]+)'; })}/?$`,
+  const chaves: string[] = [];
+  const padrao = new RegExp(
+    `^/api${caminho.replace(/\/:([A-Za-z]+)/g, (_m, k: string) => { chaves.push(k); return '/([^/]+)'; })}/?$`,
   );
-  routes.push({ method, pattern, keys, handler, access: opts.access ?? 'user', csrf: opts.csrf ?? true });
+  rotas.push({ method: metodo, pattern: padrao, keys: chaves, handler: tratador, access: opcoes.access ?? 'user', csrf: opcoes.csrf ?? true });
 }
 
 export const ADMIN: Role[] = ['ADMIN'];
-export const COLLECTOR: Role[] = ['COLLECTOR', 'ADMIN'];
+export const COLETOR: Role[] = ['COLLECTOR', 'ADMIN'];
 
-function problemResponse(err: HttpError): Response {
-  return new Response(JSON.stringify(err.toProblem()), {
-    status: err.status,
-    headers: { 'Content-Type': 'application/problem+json', ...err.headers },
+function respostaDeProblema(erro: ErroHttp): Response {
+  return new Response(JSON.stringify(erro.toProblem()), {
+    status: erro.status,
+    headers: { 'Content-Type': 'application/problem+json', ...erro.headers },
   });
 }
 
-function toResponse(r: MockResponse): Response {
+function paraResposta(r: RespostaSimulada): Response {
   if (r.status === 204 || r.status === 202) return new Response(null, { status: r.status, headers: r.headers });
   if (r.blob) return new Response(r.blob, { status: r.status, headers: { 'Content-Type': r.blob.type, ...r.headers } });
   return new Response(JSON.stringify(r.body ?? null), { status: r.status, headers: { 'Content-Type': 'application/json', ...r.headers } });
 }
 
-async function parseBody(req: Request): Promise<{ body: unknown; form: FormData | null }> {
+async function lerCorpo(req: Request): Promise<{ body: unknown; form: FormData | null }> {
   if (req.method === 'GET' || req.method === 'HEAD') return { body: undefined, form: null };
   const ct = req.headers.get('content-type') ?? '';
   if (ct.includes('multipart/form-data')) {
     const form = await req.formData();
     return { body: form, form };
   }
-  const text = await req.text();
-  if (!text) return { body: undefined, form: null };
+  const texto = await req.text();
+  if (!texto) return { body: undefined, form: null };
   if (ct.includes('json')) {
     try {
-      return { body: JSON.parse(text), form: null };
+      return { body: JSON.parse(texto), form: null };
     } catch {
-      throw new HttpError(400, 'VALIDATION_ERROR', 'Dados inválidos', 'JSON malformado.');
+      throw new ErroHttp(400, 'VALIDATION_ERROR', 'Dados inválidos', 'JSON malformado.');
     }
   }
-  return { body: text, form: null };
+  return { body: texto, form: null };
 }
 
 /** Despacha uma requisição para o handler correspondente. */
-async function handle(req: Request): Promise<Response> {
+async function tratar(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  const method = req.method.toUpperCase();
+  const metodo = req.method.toUpperCase();
   try {
     // 1. Acha a rota registrada pelos handlers (404/405 se não existir).
-    const candidates = routes.filter((r) => r.pattern.test(url.pathname));
-    if (!candidates.length) throw fail.notFound(`Rota ${url.pathname} não existe.`);
-    const def = candidates.find((r) => r.method === method);
-    if (!def) throw fail.methodNotAllowed();
+    const candidatas = rotas.filter((r) => r.pattern.test(url.pathname));
+    if (!candidatas.length) throw falha.notFound(`Rota ${url.pathname} não existe.`);
+    const padrao = candidatas.find((r) => r.method === metodo);
+    if (!padrao) throw falha.methodNotAllowed();
 
-    const d = db();
-    const binsChanged = tickBins(d);
-    const fingerprint = () => `${d.audit.length}:${d.userBadges.length}:${d.transactions.length}:${d.collectionRequests.length}`;
-    const before = fingerprint();
+    const d = banco();
+    const lixeirasMudaram = avancarLixeiras(d);
+    const marcaEstado = () => `${d.audit.length}:${d.userBadges.length}:${d.transactions.length}:${d.collectionRequests.length}`;
+    const antes = marcaEstado();
 
     // 2. Mesmas checagens do servidor real: CSRF, bloqueio por inspeção (423), login (401) e perfil (403).
-    if (MUTATING.has(method) && def.csrf && !csrfValid(req.headers)) throw fail.csrf();
+    if (METODOS_QUE_ALTERAM.has(metodo) && padrao.csrf && !csrfValido(req.headers)) throw falha.csrf();
 
-    const match = def.pattern.exec(url.pathname)!;
+    const encontrado = padrao.pattern.exec(url.pathname)!;
     const params: Record<string, string> = {};
-    def.keys.forEach((k, i) => { params[k] = decodeURIComponent(match[i + 1]); });
+    padrao.keys.forEach((k, i) => { params[k] = decodeURIComponent(encontrado[i + 1]); });
 
     // Bloqueio por inspeção: toda rota autenticada responde 423 (exceto csrf e logout, para sair limpo)
-    const sid = sessionUserId();
-    if (sid && !LOCK_EXEMPT.has(`${method} ${url.pathname}`)) {
-      const sessionUser = d.users.find((u) => u.id === sid);
-      const remaining = sessionUser ? inspectionLockRemaining(sessionUser) : 0;
-      if (remaining > 0 && url.pathname !== '/api/auth/login') throw fail.inspectionLocked(remaining / 1000);
+    const sid = idUsuarioDaSessao();
+    if (sid && !ISENTAS_DE_BLOQUEIO.has(`${metodo} ${url.pathname}`)) {
+      const usuarioDaSessao = d.users.find((u) => u.id === sid);
+      const restante = usuarioDaSessao ? restanteBloqueioInspecao(usuarioDaSessao) : 0;
+      if (restante > 0 && url.pathname !== '/api/auth/login') throw falha.inspectionLocked(restante / 1000);
     }
 
-    const me = currentUser(d);
-    if (def.access !== 'public') {
-      if (!me) throw fail.unauthorized();
-      if (Array.isArray(def.access) && !def.access.includes(me.role)) throw fail.forbidden();
+    const me = usuarioAtual(d);
+    if (padrao.access !== 'public') {
+      if (!me) throw falha.unauthorized();
+      if (Array.isArray(padrao.access) && !padrao.access.includes(me.role)) throw falha.forbidden();
     }
 
     // 3. Lê o corpo, executa o handler e salva o "banco" no localStorage se algo mudou.
-    const { body, form } = await parseBody(req);
-    const ctx: MockRequest = { method, path: url.pathname, params, query: url.searchParams, headers: req.headers, body, form };
-    const result = await def.handler({ ...ctx, me: me!, user: me });
-    if (MUTATING.has(method) || binsChanged || fingerprint() !== before) save();
-    return toResponse(result);
+    const { body, form } = await lerCorpo(req);
+    const ctx: RequisicaoSimulada = { method: metodo, path: url.pathname, params, query: url.searchParams, headers: req.headers, body, form };
+    const resultado = await padrao.handler({ ...ctx, me: me!, user: me });
+    if (METODOS_QUE_ALTERAM.has(metodo) || lixeirasMudaram || marcaEstado() !== antes) salvar();
+    return paraResposta(resultado);
   // 4. Erros viram a mesma resposta de erro (RFC 7807) que o back-end Java devolve.
   } catch (e) {
-    if (e instanceof HttpError) {
-      if (MUTATING.has(method)) save(); // ex.: contador de tentativas de login
-      return problemResponse(e);
+    if (e instanceof ErroHttp) {
+      if (METODOS_QUE_ALTERAM.has(metodo)) salvar(); // ex.: contador de tentativas de login
+      return respostaDeProblema(e);
     }
     console.error('[modo demonstração] erro no handler', e);
-    return problemResponse(new HttpError(500, 'INTERNAL_ERROR', 'Erro interno', 'Erro inesperado no servidor de demonstração.'));
+    return respostaDeProblema(new ErroHttp(500, 'INTERNAL_ERROR', 'Erro interno', 'Erro inesperado no servidor de demonstração.'));
   }
 }
 
-function wait(ms: number, signal: AbortSignal | null | undefined): Promise<void> {
+function esperar(ms: number, signal: AbortSignal | null | undefined): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) { reject(new DOMException('A operação foi abortada.', 'AbortError')); return; }
     const t = setTimeout(resolve, ms);
@@ -140,21 +140,21 @@ function wait(ms: number, signal: AbortSignal | null | undefined): Promise<void>
 }
 
 /** Substitui `window.fetch` (idempotente). */
-let installed = false;
-export function installInterceptor() {
-  if (installed) return;
-  installed = true;
-  const realFetch = window.fetch.bind(window);
+let instalado = false;
+export function instalarInterceptador() {
+  if (instalado) return;
+  instalado = true;
+  const fetchReal = window.fetch.bind(window);
 
-  window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const raw = input instanceof Request ? input.url : String(input);
-    const url = new URL(raw, location.href);
+  window.fetch = async (entrada: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const bruto = entrada instanceof Request ? entrada.url : String(entrada);
+    const url = new URL(bruto, location.href);
     // Só /api/ do próprio site é simulado; o resto (fontes, mapas) vai para a rede de verdade.
-    if (url.origin !== location.origin || !url.pathname.startsWith('/api/')) return realFetch(input, init);
+    if (url.origin !== location.origin || !url.pathname.startsWith('/api/')) return fetchReal(entrada, init);
 
-    const req = new Request(input, init);
-    await wait(latencyMs(), init?.signal ?? req.signal);
-    const res = await handle(req);
+    const req = new Request(entrada, init);
+    await esperar(latenciaMs(), init?.signal ?? req.signal);
+    const res = await tratar(req);
     if (import.meta.env.DEV) console.debug(`[mock] ${req.method} ${url.pathname}${url.search} → ${res.status}`);
     return res;
   };

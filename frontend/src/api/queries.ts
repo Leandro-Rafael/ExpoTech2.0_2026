@@ -12,18 +12,18 @@ import {
   keepPreviousData, useMutation, useQuery, useQueryClient,
   type QueryClient, type UseQueryOptions,
 } from '@tanstack/react-query';
-import { adminApi, type AdminDisposalsParams, type AdminUsersParams, type AuditQuery, type CreateRoutesInput, type OptimizeRoutesInput } from './admin';
-import { categoriesApi } from './catalog';
-import { collectionApi, type CollectionPointParams } from './collection';
-import { collectorApi } from './collector';
-import { disposalsApi, type DisposalListParams } from './disposals';
-import { gamificationApi } from './gamification';
-import { householdApi, type CreateBinInput, type CreateHouseholdInput } from './household';
-import { impactApi } from './impact';
-import { photosApi } from './photos';
-import { profileApi, type ChangePasswordInput, type UpdateProfileInput } from './profile';
-import { rewardsApi } from './rewards';
-import type { ApiError } from './client';
+import { apiAdmin, type FiltroDescartesAdmin, type FiltroUsuariosAdmin, type FiltroAuditoria, type EntradaCriarRotas, type EntradaOtimizarRotas } from './admin';
+import { apiCategorias } from './catalog';
+import { apiColeta, type FiltroEcopontos } from './collection';
+import { apiColetor } from './collector';
+import { apiDescartes, type FiltroDescartes } from './disposals';
+import { apiGamificacao } from './gamification';
+import { apiResidencia, type EntradaCriarLixeira, type EntradaCriarResidencia } from './household';
+import { apiImpacto } from './impact';
+import { apiFotos } from './photos';
+import { apiPerfil, type EntradaTrocarSenha, type EntradaAtualizarPerfil } from './profile';
+import { apiRecompensas } from './rewards';
+import type { ErroApi } from './client';
 import type {
   CategoryInput, ChallengeInput, CollectionPointInput, CollectionRequestStatus, CreateCollectionRequest,
   CreateDisposal, GoalInput, OrganizationType, RankingPeriod, RankingScope, RewardInput, Role,
@@ -35,10 +35,10 @@ import type {
 export const qk = {
   me: ['auth', 'me'] as const,
   organizations: ['organizations'] as const,
-  categories: (all = false) => ['categories', { all }] as const,
+  categories: (todos = false) => ['categories', { all: todos }] as const,
   disposals: {
     all: ['disposals'] as const,
-    list: (p: DisposalListParams) => ['disposals', 'list', p] as const,
+    list: (p: FiltroDescartes) => ['disposals', 'list', p] as const,
     detail: (id: UUID) => ['disposals', 'detail', id] as const,
   },
   points: {
@@ -46,21 +46,21 @@ export const qk = {
     transactions: (p: { page?: number; size?: number }) => ['points', 'transactions', p] as const,
   },
   gamification: ['gamification', 'summary'] as const,
-  ranking: (scope: RankingScope, period: RankingPeriod) => ['ranking', scope, period] as const,
+  ranking: (escopo: RankingScope, periodo: RankingPeriod) => ['ranking', escopo, periodo] as const,
   rewards: ['rewards'] as const,
   redemptions: ['redemptions'] as const,
-  collectionPoints: (p: CollectionPointParams) => ['collection-points', p] as const,
+  collectionPoints: (p: FiltroEcopontos) => ['collection-points', p] as const,
   collectionRequests: ['collection-requests', 'mine'] as const,
   household: ['household'] as const,
   bins: ['household', 'bins'] as const,
   publicStats: ['public', 'stats'] as const,
-  impact: (scope: 'ME' | 'COMMUNITY', months: number) => ['impact', scope, months] as const,
+  impact: (escopo: 'ME' | 'COMMUNITY', meses: number) => ['impact', escopo, meses] as const,
   collectorRoutes: ['collector', 'routes'] as const,
   admin: {
     all: ['admin'] as const,
     overview: ['admin', 'overview'] as const,
-    users: (p: AdminUsersParams) => ['admin', 'users', p] as const,
-    disposals: (p: AdminDisposalsParams) => ['admin', 'disposals', p] as const,
+    users: (p: FiltroUsuariosAdmin) => ['admin', 'users', p] as const,
+    disposals: (p: FiltroDescartesAdmin) => ['admin', 'disposals', p] as const,
     challenges: ['admin', 'challenges'] as const,
     /** Sob ['rewards'] para ser invalidada junto com a lista pública. */
     rewards: ['rewards', 'admin-all'] as const,
@@ -72,54 +72,54 @@ export const qk = {
     collectors: ['admin', 'collectors'] as const,
     routes: ['admin', 'routes'] as const,
     bins: ['admin', 'bins'] as const,
-    audit: (p: AuditQuery) => ['admin', 'audit', p] as const,
+    audit: (p: FiltroAuditoria) => ['admin', 'audit', p] as const,
   },
 };
 
-type QOpts<T> = Omit<UseQueryOptions<T, ApiError>, 'queryKey' | 'queryFn'>;
+type OpcoesConsulta<T> = Omit<UseQueryOptions<T, ErroApi>, 'queryKey' | 'queryFn'>;
 
 /** Recarrega o usuário (pontos/nível mudaram). */
-export function refreshMe(qc: QueryClient) {
+export function recarregarUsuario(qc: QueryClient) {
   return qc.invalidateQueries({ queryKey: qk.me });
 }
-function setMe(qc: QueryClient, user: UserMe | null) {
-  qc.setQueryData(qk.me, user);
+function definirUsuario(qc: QueryClient, usuario: UserMe | null) {
+  qc.setQueryData(qk.me, usuario);
 }
 
 // ------------------------------------------------------------------ catálogo / perfil
 
-export const useCategories = (opts: { all?: boolean } = {}, q?: QOpts<Awaited<ReturnType<typeof categoriesApi.list>>>) =>
-  useQuery({ queryKey: qk.categories(!!opts.all), queryFn: () => categoriesApi.list(opts), staleTime: 10 * 60_000, ...q });
+export const useCategorias = (opcoes: { all?: boolean } = {}, q?: OpcoesConsulta<Awaited<ReturnType<typeof apiCategorias.listar>>>) =>
+  useQuery({ queryKey: qk.categories(!!opcoes.all), queryFn: () => apiCategorias.listar(opcoes), staleTime: 10 * 60_000, ...q });
 
-export const useOrganizations = () =>
-  useQuery({ queryKey: qk.organizations, queryFn: profileApi.organizations, staleTime: 10 * 60_000 });
+export const useOrganizacoes = () =>
+  useQuery({ queryKey: qk.organizations, queryFn: apiPerfil.organizacoes, staleTime: 10 * 60_000 });
 
-export function useUpdateProfile() {
+export function useAtualizarPerfil() {
   const qc = useQueryClient();
-  return useMutation<UserMe, ApiError, UpdateProfileInput>({
-    mutationFn: profileApi.update,
-    onSuccess: (user) => setMe(qc, user),
+  return useMutation<UserMe, ErroApi, EntradaAtualizarPerfil>({
+    mutationFn: apiPerfil.atualizar,
+    onSuccess: (usuario) => definirUsuario(qc, usuario),
   });
 }
-export const useChangePassword = () =>
-  useMutation<void, ApiError, ChangePasswordInput>({ mutationFn: profileApi.changePassword });
+export const useTrocarSenha = () =>
+  useMutation<void, ErroApi, EntradaTrocarSenha>({ mutationFn: apiPerfil.trocarSenha });
 
 // ------------------------------------------------------------------ fotos / descartes
 
-export const useUploadPhoto = () =>
-  useMutation({ mutationFn: (file: File | Blob) => photosApi.upload(file) });
+export const useEnviarFoto = () =>
+  useMutation({ mutationFn: (arquivo: File | Blob) => apiFotos.enviar(arquivo) });
 
-export const useDisposals = (params: DisposalListParams = {}) =>
-  useQuery({ queryKey: qk.disposals.list(params), queryFn: () => disposalsApi.list(params), placeholderData: keepPreviousData });
+export const useDescartes = (params: FiltroDescartes = {}) =>
+  useQuery({ queryKey: qk.disposals.list(params), queryFn: () => apiDescartes.listar(params), placeholderData: keepPreviousData });
 
-export const useDisposal = (id: UUID | undefined) =>
-  useQuery({ queryKey: qk.disposals.detail(id ?? ''), queryFn: () => disposalsApi.get(id!), enabled: !!id });
+export const useDescarte = (id: UUID | undefined) =>
+  useQuery({ queryKey: qk.disposals.detail(id ?? ''), queryFn: () => apiDescartes.obter(id!), enabled: !!id });
 
-export function useCreateDisposal() {
+export function useCriarDescarte() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ body, idempotencyKey }: { body: CreateDisposal; idempotencyKey: string }) =>
-      disposalsApi.create(body, idempotencyKey),
+    mutationFn: ({ body, idempotencyKey: chaveIdempotencia }: { body: CreateDisposal; idempotencyKey: string }) =>
+      apiDescartes.criar(body, chaveIdempotencia),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.disposals.all });
       qc.invalidateQueries({ queryKey: qk.gamification });
@@ -130,103 +130,103 @@ export function useCreateDisposal() {
 
 // ------------------------------------------------------------------ gamificação
 
-export const usePointTransactions = (params: { page?: number; size?: number } = {}) =>
-  useQuery({ queryKey: qk.points.transactions(params), queryFn: () => gamificationApi.transactions(params), placeholderData: keepPreviousData });
+export const useExtratoPontos = (params: { page?: number; size?: number } = {}) =>
+  useQuery({ queryKey: qk.points.transactions(params), queryFn: () => apiGamificacao.transacoes(params), placeholderData: keepPreviousData });
 
-export const useGamificationSummary = () =>
-  useQuery({ queryKey: qk.gamification, queryFn: gamificationApi.summary });
+export const useResumoGamificacao = () =>
+  useQuery({ queryKey: qk.gamification, queryFn: apiGamificacao.resumo });
 
-export const useRanking = (scope: RankingScope = 'USER', period: RankingPeriod = 'MONTH') =>
-  useQuery({ queryKey: qk.ranking(scope, period), queryFn: () => gamificationApi.ranking({ scope, period }), placeholderData: keepPreviousData });
+export const useRanking = (escopo: RankingScope = 'USER', periodo: RankingPeriod = 'MONTH') =>
+  useQuery({ queryKey: qk.ranking(escopo, periodo), queryFn: () => apiGamificacao.ranking({ scope: escopo, period: periodo }), placeholderData: keepPreviousData });
 
 // ------------------------------------------------------------------ recompensas
 
-export const useRewards = () => useQuery({ queryKey: qk.rewards, queryFn: rewardsApi.list });
-export const useRedemptions = () => useQuery({ queryKey: qk.redemptions, queryFn: rewardsApi.redemptions });
+export const useRecompensas = () => useQuery({ queryKey: qk.rewards, queryFn: apiRecompensas.listar });
+export const useResgates = () => useQuery({ queryKey: qk.redemptions, queryFn: apiRecompensas.resgates });
 
-export function useRedeemReward() {
+export function useResgatarRecompensa() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (rewardId: UUID) => rewardsApi.redeem(rewardId),
+    mutationFn: (idRecompensa: UUID) => apiRecompensas.resgatar(idRecompensa),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.rewards });
       qc.invalidateQueries({ queryKey: qk.redemptions });
       qc.invalidateQueries({ queryKey: qk.points.all });
       qc.invalidateQueries({ queryKey: qk.gamification });
-      refreshMe(qc);
+      recarregarUsuario(qc);
     },
   });
 }
 
 // ------------------------------------------------------------------ ecopontos / coletas
 
-export const useCollectionPoints = (params: CollectionPointParams = {}) =>
-  useQuery({ queryKey: qk.collectionPoints(params), queryFn: () => collectionApi.points(params), placeholderData: keepPreviousData, staleTime: 5 * 60_000 });
+export const useEcopontos = (params: FiltroEcopontos = {}) =>
+  useQuery({ queryKey: qk.collectionPoints(params), queryFn: () => apiColeta.ecopontos(params), placeholderData: keepPreviousData, staleTime: 5 * 60_000 });
 
-export const useMyCollectionRequests = () =>
-  useQuery({ queryKey: qk.collectionRequests, queryFn: collectionApi.myRequests });
+export const useMinhasSolicitacoesColeta = () =>
+  useQuery({ queryKey: qk.collectionRequests, queryFn: apiColeta.minhasSolicitacoes });
 
-export function useCreateCollectionRequest() {
+export function useCriarSolicitacaoColeta() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateCollectionRequest) => collectionApi.createRequest(body),
+    mutationFn: (body: CreateCollectionRequest) => apiColeta.criarSolicitacao(body),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.collectionRequests }),
   });
 }
-export function useCancelCollectionRequest() {
+export function useCancelarSolicitacaoColeta() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: UUID) => collectionApi.cancelRequest(id),
+    mutationFn: (id: UUID) => apiColeta.cancelarSolicitacao(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.collectionRequests }),
   });
 }
 
 // ------------------------------------------------------------------ residência / lixeiras
 
-export const useHousehold = () => useQuery({ queryKey: qk.household, queryFn: householdApi.get });
+export const useResidencia = () => useQuery({ queryKey: qk.household, queryFn: apiResidencia.obter });
 /** Lixeiras da casa. Atualiza a cada `refetchInterval` ms (pausa com a aba oculta). */
-export const useHouseholdBins = (enabled = true, refetchInterval: number | false = 20_000) =>
-  useQuery({ queryKey: qk.bins, queryFn: householdApi.bins, enabled, refetchInterval, refetchIntervalInBackground: false });
+export const useLixeirasResidencia = (ativo = true, intervaloAtualizacao: number | false = 20_000) =>
+  useQuery({ queryKey: qk.bins, queryFn: apiResidencia.lixeiras, enabled: ativo, refetchInterval: intervaloAtualizacao, refetchIntervalInBackground: false });
 
-function useHouseholdMutation<TVars, TData>(fn: (v: TVars) => Promise<TData>) {
+function useMutacaoResidencia<TVars, TData>(fn: (v: TVars) => Promise<TData>) {
   const qc = useQueryClient();
-  return useMutation<TData, ApiError, TVars>({
+  return useMutation<TData, ErroApi, TVars>({
     mutationFn: fn,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.household });
-      refreshMe(qc);
+      recarregarUsuario(qc);
     },
   });
 }
-export const useCreateHousehold = () => useHouseholdMutation((b: CreateHouseholdInput) => householdApi.create(b));
-export const useJoinHousehold = () => useHouseholdMutation((code: string) => householdApi.join(code));
-export const useLeaveHousehold = () => useHouseholdMutation((_: void) => householdApi.leave());
-export const useCreateBin = () => useHouseholdMutation((b: CreateBinInput) => householdApi.createBin(b));
-export const useDeleteBin = () => useHouseholdMutation((id: UUID) => householdApi.deleteBin(id));
-export const useSendBinReading = () => {
+export const useCriarResidencia = () => useMutacaoResidencia((b: EntradaCriarResidencia) => apiResidencia.criar(b));
+export const useEntrarResidencia = () => useMutacaoResidencia((codigo: string) => apiResidencia.entrar(codigo));
+export const useSairResidencia = () => useMutacaoResidencia((_: void) => apiResidencia.sair());
+export const useCriarLixeira = () => useMutacaoResidencia((b: EntradaCriarLixeira) => apiResidencia.criarLixeira(b));
+export const useExcluirLixeira = () => useMutacaoResidencia((id: UUID) => apiResidencia.excluirLixeira(id));
+export const useEnviarLeituraLixeira = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { device: { deviceId: string; deviceKey: string }; reading: { fillLevel: number; batteryLevel: number } }) =>
-      householdApi.sendReading(v.device, v.reading),
+      apiResidencia.enviarLeitura(v.device, v.reading),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.bins }),
   });
 };
 
 // ------------------------------------------------------------------ impacto
 
-export const usePublicStats = () =>
-  useQuery({ queryKey: qk.publicStats, queryFn: impactApi.publicStats, staleTime: 5 * 60_000, retry: 0 });
+export const useEstatisticasPublicas = () =>
+  useQuery({ queryKey: qk.publicStats, queryFn: apiImpacto.estatisticasPublicas, staleTime: 5 * 60_000, retry: 0 });
 
-export const useImpactSummary = (scope: 'ME' | 'COMMUNITY' = 'ME', months = 12) =>
-  useQuery({ queryKey: qk.impact(scope, months), queryFn: () => impactApi.summary({ scope, months }), placeholderData: keepPreviousData });
+export const useResumoImpacto = (escopo: 'ME' | 'COMMUNITY' = 'ME', meses = 12) =>
+  useQuery({ queryKey: qk.impact(escopo, meses), queryFn: () => apiImpacto.resumo({ scope: escopo, months: meses }), placeholderData: keepPreviousData });
 
-export const useSimulate = () => useMutation({ mutationFn: (input: SimulationInput) => impactApi.simulate(input) });
+export const useSimular = () => useMutation({ mutationFn: (entrada: SimulationInput) => apiImpacto.simular(entrada) });
 
 // ------------------------------------------------------------------ coletor
 
-export const useCollectorRoutes = () => useQuery({ queryKey: qk.collectorRoutes, queryFn: collectorApi.routes });
+export const useRotasColetor = () => useQuery({ queryKey: qk.collectorRoutes, queryFn: apiColetor.rotas });
 
-function useCollectorMutation<TVars>(fn: (v: TVars) => ReturnType<typeof collectorApi.start>) {
+function useMutacaoColetor<TVars>(fn: (v: TVars) => ReturnType<typeof apiColetor.iniciar>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
@@ -236,79 +236,79 @@ function useCollectorMutation<TVars>(fn: (v: TVars) => ReturnType<typeof collect
     },
   });
 }
-export const useStartRoute = () => useCollectorMutation((id: UUID) => collectorApi.start(id));
-export const useCompleteStop = () =>
-  useCollectorMutation((v: { routeId: UUID; stopId: UUID; collectedKg?: number | null }) =>
-    collectorApi.completeStop(v.routeId, v.stopId, { collectedKg: v.collectedKg }));
+export const useIniciarRota = () => useMutacaoColetor((id: UUID) => apiColetor.iniciar(id));
+export const useConcluirParada = () =>
+  useMutacaoColetor((v: { routeId: UUID; stopId: UUID; collectedKg?: number | null }) =>
+    apiColetor.concluirParada(v.routeId, v.stopId, { collectedKg: v.collectedKg }));
 
 // ------------------------------------------------------------------ admin (queries)
 
-export const useAdminOverview = () => useQuery({ queryKey: qk.admin.overview, queryFn: adminApi.overview, refetchInterval: 60_000 });
-export const useAdminUsers = (p: AdminUsersParams = {}) =>
-  useQuery({ queryKey: qk.admin.users(p), queryFn: () => adminApi.users(p), placeholderData: keepPreviousData });
-export const useAdminDisposals = (p: AdminDisposalsParams = {}) =>
-  useQuery({ queryKey: qk.admin.disposals(p), queryFn: () => adminApi.disposals(p), placeholderData: keepPreviousData });
-export const useAdminRewards = () => useQuery({ queryKey: qk.admin.rewards, queryFn: adminApi.rewards });
-export const useAdminCollectionPoints = () => useQuery({ queryKey: qk.admin.collectionPoints, queryFn: adminApi.collectionPoints });
-export const useAdminChallenges = () => useQuery({ queryKey: qk.admin.challenges, queryFn: adminApi.challenges });
-export const useAdminOrganizations = () => useQuery({ queryKey: qk.admin.organizations, queryFn: adminApi.organizations });
-export const useAdminGoals = () => useQuery({ queryKey: qk.admin.goals, queryFn: adminApi.goals });
-export const useAdminCollectionRequests = (status?: CollectionRequestStatus) =>
-  useQuery({ queryKey: qk.admin.collectionRequests(status), queryFn: () => adminApi.collectionRequests({ status }) });
-export const useAdminCollectors = () => useQuery({ queryKey: qk.admin.collectors, queryFn: adminApi.collectors, staleTime: 5 * 60_000 });
-export const useAdminRoutes = () => useQuery({ queryKey: qk.admin.routes, queryFn: adminApi.routes });
-export const useAdminBins = () => useQuery({ queryKey: qk.admin.bins, queryFn: adminApi.bins, refetchInterval: 30_000 });
-export const useAdminAudit = (p: AuditQuery = {}) =>
-  useQuery({ queryKey: qk.admin.audit(p), queryFn: () => adminApi.audit(p), placeholderData: keepPreviousData });
+export const useVisaoGeralAdmin = () => useQuery({ queryKey: qk.admin.overview, queryFn: apiAdmin.visaoGeral, refetchInterval: 60_000 });
+export const useUsuariosAdmin = (p: FiltroUsuariosAdmin = {}) =>
+  useQuery({ queryKey: qk.admin.users(p), queryFn: () => apiAdmin.usuarios(p), placeholderData: keepPreviousData });
+export const useDescartesAdmin = (p: FiltroDescartesAdmin = {}) =>
+  useQuery({ queryKey: qk.admin.disposals(p), queryFn: () => apiAdmin.descartes(p), placeholderData: keepPreviousData });
+export const useRecompensasAdmin = () => useQuery({ queryKey: qk.admin.rewards, queryFn: apiAdmin.recompensas });
+export const useEcopontosAdmin = () => useQuery({ queryKey: qk.admin.collectionPoints, queryFn: apiAdmin.ecopontos });
+export const useDesafiosAdmin = () => useQuery({ queryKey: qk.admin.challenges, queryFn: apiAdmin.desafios });
+export const useOrganizacoesAdmin = () => useQuery({ queryKey: qk.admin.organizations, queryFn: apiAdmin.organizacoes });
+export const useMetasAdmin = () => useQuery({ queryKey: qk.admin.goals, queryFn: apiAdmin.metas });
+export const useSolicitacoesColetaAdmin = (status?: CollectionRequestStatus) =>
+  useQuery({ queryKey: qk.admin.collectionRequests(status), queryFn: () => apiAdmin.solicitacoesColeta({ status }) });
+export const useColetoresAdmin = () => useQuery({ queryKey: qk.admin.collectors, queryFn: apiAdmin.coletores, staleTime: 5 * 60_000 });
+export const useRotasAdmin = () => useQuery({ queryKey: qk.admin.routes, queryFn: apiAdmin.rotas });
+export const useLixeirasAdmin = () => useQuery({ queryKey: qk.admin.bins, queryFn: apiAdmin.lixeiras, refetchInterval: 30_000 });
+export const useAuditoriaAdmin = (p: FiltroAuditoria = {}) =>
+  useQuery({ queryKey: qk.admin.audit(p), queryFn: () => apiAdmin.auditoria(p), placeholderData: keepPreviousData });
 
 // ------------------------------------------------------------------ admin (mutações)
 
 /** Mutação admin genérica: invalida as chaves dadas ao terminar com sucesso. */
-function useAdminMutation<TVars, TData>(fn: (v: TVars) => Promise<TData>, invalidate: readonly (readonly unknown[])[]) {
+function useMutacaoAdmin<TVars, TData>(fn: (v: TVars) => Promise<TData>, invalidar: readonly (readonly unknown[])[]) {
   const qc = useQueryClient();
-  return useMutation<TData, ApiError, TVars>({
+  return useMutation<TData, ErroApi, TVars>({
     mutationFn: fn,
     onSuccess: () => {
-      invalidate.forEach((queryKey) => qc.invalidateQueries({ queryKey }));
+      invalidar.forEach((queryKey) => qc.invalidateQueries({ queryKey }));
       qc.invalidateQueries({ queryKey: qk.admin.overview });
     },
   });
 }
 
-export const useUpdateAdminUser = () =>
-  useAdminMutation((v: { id: UUID; role?: Role; enabled?: boolean }) => adminApi.updateUser(v.id, { role: v.role, enabled: v.enabled }), [['admin', 'users']]);
+export const useAtualizarUsuarioAdmin = () =>
+  useMutacaoAdmin((v: { id: UUID; role?: Role; enabled?: boolean }) => apiAdmin.atualizarUsuario(v.id, { role: v.role, enabled: v.enabled }), [['admin', 'users']]);
 
-export const useApproveDisposal = () =>
-  useAdminMutation((v: { id: UUID; categoryId?: UUID; quantityKg?: number }) =>
-    adminApi.approveDisposal(v.id, { categoryId: v.categoryId, quantityKg: v.quantityKg }), [['admin', 'disposals'], qk.disposals.all]);
-export const useRejectDisposal = () =>
-  useAdminMutation((v: { id: UUID; reason: string }) => adminApi.rejectDisposal(v.id, v.reason), [['admin', 'disposals'], qk.disposals.all]);
+export const useAprovarDescarte = () =>
+  useMutacaoAdmin((v: { id: UUID; categoryId?: UUID; quantityKg?: number }) =>
+    apiAdmin.aprovarDescarte(v.id, { categoryId: v.categoryId, quantityKg: v.quantityKg }), [['admin', 'disposals'], qk.disposals.all]);
+export const useRecusarDescarte = () =>
+  useMutacaoAdmin((v: { id: UUID; reason: string }) => apiAdmin.recusarDescarte(v.id, v.reason), [['admin', 'disposals'], qk.disposals.all]);
 
-export const useSaveCategory = () =>
-  useAdminMutation((v: { id?: UUID; body: CategoryInput }) =>
-    v.id ? adminApi.updateCategory(v.id, v.body) : adminApi.createCategory(v.body), [['categories']]);
+export const useSalvarCategoria = () =>
+  useMutacaoAdmin((v: { id?: UUID; body: CategoryInput }) =>
+    v.id ? apiAdmin.atualizarCategoria(v.id, v.body) : apiAdmin.criarCategoria(v.body), [['categories']]);
 
-export const useSaveCollectionPoint = () =>
-  useAdminMutation((v: { id?: UUID; body: CollectionPointInput }) =>
-    v.id ? adminApi.updateCollectionPoint(v.id, v.body) : adminApi.createCollectionPoint(v.body), [['collection-points']]);
-export const useDeleteCollectionPoint = () =>
-  useAdminMutation((id: UUID) => adminApi.deleteCollectionPoint(id), [['collection-points']]);
+export const useSalvarEcoponto = () =>
+  useMutacaoAdmin((v: { id?: UUID; body: CollectionPointInput }) =>
+    v.id ? apiAdmin.atualizarEcoponto(v.id, v.body) : apiAdmin.criarEcoponto(v.body), [['collection-points']]);
+export const useExcluirEcoponto = () =>
+  useMutacaoAdmin((id: UUID) => apiAdmin.excluirEcoponto(id), [['collection-points']]);
 
-export const useSaveReward = () =>
-  useAdminMutation((v: { id?: UUID; body: RewardInput }) =>
-    v.id ? adminApi.updateReward(v.id, v.body) : adminApi.createReward(v.body), [qk.rewards]);
+export const useSalvarRecompensa = () =>
+  useMutacaoAdmin((v: { id?: UUID; body: RewardInput }) =>
+    v.id ? apiAdmin.atualizarRecompensa(v.id, v.body) : apiAdmin.criarRecompensa(v.body), [qk.rewards]);
 
-export const useSaveChallenge = () =>
-  useAdminMutation((v: { id?: UUID; body: ChallengeInput }) =>
-    v.id ? adminApi.updateChallenge(v.id, v.body) : adminApi.createChallenge(v.body), [qk.admin.challenges, qk.gamification]);
+export const useSalvarDesafio = () =>
+  useMutacaoAdmin((v: { id?: UUID; body: ChallengeInput }) =>
+    v.id ? apiAdmin.atualizarDesafio(v.id, v.body) : apiAdmin.criarDesafio(v.body), [qk.admin.challenges, qk.gamification]);
 
-export const useCreateOrganization = () =>
-  useAdminMutation((b: { name: string; type: OrganizationType }) => adminApi.createOrganization(b), [qk.admin.organizations, qk.organizations]);
+export const useCriarOrganizacao = () =>
+  useMutacaoAdmin((b: { name: string; type: OrganizationType }) => apiAdmin.criarOrganizacao(b), [qk.admin.organizations, qk.organizations]);
 
-export const useSaveGoal = () =>
-  useAdminMutation((v: { id?: UUID; body: GoalInput }) =>
-    v.id ? adminApi.updateGoal(v.id, v.body) : adminApi.createGoal(v.body), [qk.admin.goals, ['impact']]);
+export const useSalvarMeta = () =>
+  useMutacaoAdmin((v: { id?: UUID; body: GoalInput }) =>
+    v.id ? apiAdmin.atualizarMeta(v.id, v.body) : apiAdmin.criarMeta(v.body), [qk.admin.goals, ['impact']]);
 
-export const useOptimizeRoutes = () => useMutation<Awaited<ReturnType<typeof adminApi.optimizeRoutes>>, ApiError, OptimizeRoutesInput>({ mutationFn: adminApi.optimizeRoutes });
-export const useCreateRoutes = () =>
-  useAdminMutation((b: CreateRoutesInput) => adminApi.createRoutes(b), [qk.admin.routes, ['admin', 'collection-requests'], qk.collectorRoutes]);
+export const useOtimizarRotas = () => useMutation<Awaited<ReturnType<typeof apiAdmin.otimizarRotas>>, ErroApi, EntradaOtimizarRotas>({ mutationFn: apiAdmin.otimizarRotas });
+export const useCriarRotas = () =>
+  useMutacaoAdmin((b: EntradaCriarRotas) => apiAdmin.criarRotas(b), [qk.admin.routes, ['admin', 'collection-requests'], qk.collectorRoutes]);

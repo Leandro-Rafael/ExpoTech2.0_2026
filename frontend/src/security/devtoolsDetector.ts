@@ -20,90 +20,90 @@
  * Limites conhecidos (é dissuasão, não proteção): DevTools desacoplado (janela separada) ou
  * acoplado à direita/esquerda não é detectável assim; a garantia real está no servidor.
  */
-const JUMP_PX = 200;
-const WINDOW_CHANGE_PX = 40;
-const CONFIRM_MS = 1000;
-const INTERVAL_MS = 2000;
-const RESIZE_DEBOUNCE_MS = 250;
+const SALTO_PX = 200;
+const MUDANCA_JANELA_PX = 40;
+const CONFIRMACAO_MS = 1000;
+const INTERVALO_MS = 2000;
+const ESPERA_REDIMENSIONAR_MS = 250;
 
-interface Sample { dh: number; ow: number; oh: number; dpr: number }
+interface Amostra { dh: number; ow: number; oh: number; dpr: number }
 
-function isDesktopPointer(): boolean {
+function ehPonteiroDesktop(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-  const fine = window.matchMedia('(pointer: fine)').matches;
-  const coarse = window.matchMedia('(any-pointer: coarse)').matches;
-  const mobileUa = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  return fine && !coarse && !mobileUa;
+  const fino = window.matchMedia('(pointer: fine)').matches;
+  const grosso = window.matchMedia('(any-pointer: coarse)').matches;
+  const navegadorCelular = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  return fino && !grosso && !navegadorCelular;
 }
 
-function sample(): Sample | null {
+function amostrar(): Amostra | null {
   const { outerWidth: ow, outerHeight: oh, innerWidth: iw, innerHeight: ih } = window;
   if (!ow || !oh || !iw || !ih) return null;
   return { dh: oh - ih, ow, oh, dpr: window.devicePixelRatio || 1 };
 }
 
 /** Inicia a detecção; devolve a função que remove todos os listeners e timers. */
-export function startDevtoolsDetector(onOpen: () => void): () => void {
-  if (!isDesktopPointer()) return () => {};
+export function iniciarDetectorDevtools(aoAbrir: () => void): () => void {
+  if (!ehPonteiroDesktop()) return () => {};
 
-  let base = sample();
-  let confirmations = 0;
-  let reported = false; // um aviso por "episódio" (zera quando volta à linha de base)
-  let confirmTimer: number | undefined;
-  let resizeTimer: number | undefined;
-  let interval: number | undefined;
+  let base = amostrar();
+  let confirmacoes = 0;
+  let avisado = false; // um aviso por "episódio" (zera quando volta à linha de base)
+  let timerConfirmacao: number | undefined;
+  let timerRedimensionar: number | undefined;
+  let intervalo: number | undefined;
 
-  const check = () => {
+  const verificar = () => {
     if (document.visibilityState !== 'visible') return;
-    const now = sample();
-    if (!now) return;
-    if (!base) { base = now; return; }
-    const windowChanged = Math.abs(now.ow - base.ow) > WINDOW_CHANGE_PX || Math.abs(now.oh - base.oh) > WINDOW_CHANGE_PX;
-    if (now.dpr !== base.dpr || windowChanged) {
+    const atual = amostrar();
+    if (!atual) return;
+    if (!base) { base = atual; return; }
+    const janelaMudou = Math.abs(atual.ow - base.ow) > MUDANCA_JANELA_PX || Math.abs(atual.oh - base.oh) > MUDANCA_JANELA_PX;
+    if (atual.dpr !== base.dpr || janelaMudou) {
       // zoom ou a própria janela mudou: nova linha de base, nunca um aviso
-      base = now;
-      confirmations = 0;
-      reported = false;
+      base = atual;
+      confirmacoes = 0;
+      avisado = false;
       return;
     }
-    const jump = now.dh - base.dh;
-    if (jump > JUMP_PX) {
-      confirmations++;
-      if (confirmations === 1) {
-        window.clearTimeout(confirmTimer);
-        confirmTimer = window.setTimeout(check, CONFIRM_MS);
-      } else if (!reported) {
-        reported = true;
-        onOpen();
+    const salto = atual.dh - base.dh;
+    if (salto > SALTO_PX) {
+      confirmacoes++;
+      if (confirmacoes === 1) {
+        window.clearTimeout(timerConfirmacao);
+        timerConfirmacao = window.setTimeout(verificar, CONFIRMACAO_MS);
+      } else if (!avisado) {
+        avisado = true;
+        aoAbrir();
       }
     } else {
-      confirmations = 0;
-      if (jump < JUMP_PX / 2) reported = false;
+      confirmacoes = 0;
+      if (salto < SALTO_PX / 2) avisado = false;
     }
   };
 
-  const onResize = () => {
-    window.clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(check, RESIZE_DEBOUNCE_MS);
+  const aoRedimensionar = () => {
+    window.clearTimeout(timerRedimensionar);
+    timerRedimensionar = window.setTimeout(verificar, ESPERA_REDIMENSIONAR_MS);
   };
-  const startInterval = () => {
-    window.clearInterval(interval);
-    interval = document.visibilityState === 'visible' ? window.setInterval(check, INTERVAL_MS) : undefined;
+  const iniciarIntervalo = () => {
+    window.clearInterval(intervalo);
+    intervalo = document.visibilityState === 'visible' ? window.setInterval(verificar, INTERVALO_MS) : undefined;
   };
-  const onVisibility = () => {
-    startInterval();
-    if (document.visibilityState === 'visible') base = sample() ?? base; // ao voltar, recalibra
+  const aoMudarVisibilidade = () => {
+    iniciarIntervalo();
+    if (document.visibilityState === 'visible') base = amostrar() ?? base; // ao voltar, recalibra
   };
 
-  window.addEventListener('resize', onResize, { passive: true });
-  document.addEventListener('visibilitychange', onVisibility);
-  startInterval();
+  window.addEventListener('resize', aoRedimensionar, { passive: true });
+  document.addEventListener('visibilitychange', aoMudarVisibilidade);
+  iniciarIntervalo();
 
   return () => {
-    window.removeEventListener('resize', onResize);
-    document.removeEventListener('visibilitychange', onVisibility);
-    window.clearTimeout(confirmTimer);
-    window.clearTimeout(resizeTimer);
-    window.clearInterval(interval);
+    window.removeEventListener('resize', aoRedimensionar);
+    document.removeEventListener('visibilitychange', aoMudarVisibilidade);
+    window.clearTimeout(timerConfirmacao);
+    window.clearTimeout(timerRedimensionar);
+    window.clearInterval(intervalo);
   };
 }

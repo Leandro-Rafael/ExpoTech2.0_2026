@@ -9,31 +9,31 @@ import { useState } from 'react';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import { ArrowDown, ArrowUp, Check, Plus, Trash2 } from 'lucide-react';
 import type { CategoryCode } from '@/api/types';
-import { ICONS } from '@/components/icons';
-import { IconButton, NumberInput, type NumberInputProps } from '@/components/ui';
+import { ICONES } from '@/components/icons';
+import { BotaoIcone, CampoNumero, type PropsCampoNumero } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import { hexAlpha } from '@/lib/category';
-import { CATEGORY_CODES, categoryFallback } from '@/lib/labels';
+import { hexComAlfa } from '@/lib/category';
+import { CODIGOS_CATEGORIA, categoriaPadrao } from '@/lib/labels';
 
 interface A11y { id?: string; 'aria-invalid'?: boolean | 'true' | 'false'; 'aria-describedby'?: string }
 
-export function CategoryCodesPicker({ value, onChange, colors, ...a11y }: {
-  value: CategoryCode[]; onChange: (v: CategoryCode[]) => void; colors?: Partial<Record<CategoryCode, string>>;
+export function SeletorCategorias({ value, onChange, cores, ...a11y }: {
+  value: CategoryCode[]; onChange: (v: CategoryCode[]) => void; cores?: Partial<Record<CategoryCode, string>>;
 } & A11y) {
-  const toggle = (c: CategoryCode) => onChange(value.includes(c) ? value.filter((x) => x !== c) : [...value, c]);
+  const alternar = (c: CategoryCode) => onChange(value.includes(c) ? value.filter((x) => x !== c) : [...value, c]);
   return (
     <div role="group" id={a11y.id} aria-describedby={a11y['aria-describedby']} className="flex flex-wrap gap-1.5">
-      {CATEGORY_CODES.map((c) => {
-        const on = value.includes(c);
-        const color = colors?.[c] ?? categoryFallback[c].color;
+      {CODIGOS_CATEGORIA.map((c) => {
+        const marcado = value.includes(c);
+        const cor = cores?.[c] ?? categoriaPadrao[c].color;
         return (
-          <button key={c} type="button" aria-pressed={on} onClick={() => toggle(c)}
+          <button key={c} type="button" aria-pressed={marcado} onClick={() => alternar(c)}
             className={cn('inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[13px] transition-colors',
-              on ? 'text-fg' : 'border-line text-muted hover:border-line-strong hover:text-fg-soft')}
-            style={on ? { borderColor: hexAlpha(color, 0.55), backgroundColor: hexAlpha(color, 0.12) } : undefined}>
-            <span className="size-2 rounded-full" style={{ backgroundColor: color }} aria-hidden />
-            {categoryFallback[c].name}
-            {on && <Check className="size-3.5" aria-hidden />}
+              marcado ? 'text-fg' : 'border-line text-muted hover:border-line-strong hover:text-fg-soft')}
+            style={marcado ? { borderColor: hexComAlfa(cor, 0.55), backgroundColor: hexComAlfa(cor, 0.12) } : undefined}>
+            <span className="size-2 rounded-full" style={{ backgroundColor: cor }} aria-hidden />
+            {categoriaPadrao[c].name}
+            {marcado && <Check className="size-3.5" aria-hidden />}
           </button>
         );
       })}
@@ -42,23 +42,23 @@ export function CategoryCodesPicker({ value, onChange, colors, ...a11y }: {
 }
 
 /** Nomes únicos de ícones (sem aliases duplicados). */
-const ICON_NAMES = (() => {
-  const seen = new Set<unknown>();
-  return Object.entries(ICONS).filter(([, C]) => (seen.has(C) ? false : (seen.add(C), true))).map(([n]) => n);
+const NOMES_ICONES = (() => {
+  const vistos = new Set<unknown>();
+  return Object.entries(ICONES).filter(([, C]) => (vistos.has(C) ? false : (vistos.add(C), true))).map(([n]) => n);
 })();
 
-export function IconPicker({ value, onChange, color, ...a11y }: { value: string; onChange: (v: string) => void; color?: string } & A11y) {
+export function SeletorIcone({ value, onChange, cor, ...a11y }: { value: string; onChange: (v: string) => void; cor?: string } & A11y) {
   return (
     <div role="radiogroup" id={a11y.id} aria-describedby={a11y['aria-describedby']} aria-label="Ícone"
       className="grid max-h-44 grid-cols-8 gap-1 overflow-y-auto rounded-xl border border-line bg-bg-deep/50 p-1.5 sm:grid-cols-10" data-lenis-prevent>
-      {ICON_NAMES.map((n) => {
-        const Icon = ICONS[n];
-        const on = value === n;
+      {NOMES_ICONES.map((n) => {
+        const Icon = ICONES[n];
+        const marcado = value === n;
         return (
-          <button key={n} type="button" role="radio" aria-checked={on} aria-label={n} title={n} onClick={() => onChange(n)}
+          <button key={n} type="button" role="radio" aria-checked={marcado} aria-label={n} title={n} onClick={() => onChange(n)}
             className={cn('flex aspect-square items-center justify-center rounded-lg transition-colors',
-              on ? 'bg-surface-3 shadow-[inset_0_0_0_1px_rgb(236_239_234/0.3)]' : 'text-muted hover:bg-white/[0.05] hover:text-fg')}
-            style={on && color ? { color } : undefined}>
+              marcado ? 'bg-surface-3 shadow-[inset_0_0_0_1px_rgb(236_239_234/0.3)]' : 'text-muted hover:bg-white/[0.05] hover:text-fg')}
+            style={marcado && cor ? { color: cor } : undefined}>
             <Icon className="size-[18px]" aria-hidden />
           </button>
         );
@@ -67,36 +67,36 @@ export function IconPicker({ value, onChange, color, ...a11y }: { value: string;
   );
 }
 
-const SWATCHES = ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#10B981', '#06B6D4', '#3B82F6', '#8B5CF6', '#EC4899', '#A16207', '#6B7280'];
+const AMOSTRAS_CORES = ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#10B981', '#06B6D4', '#3B82F6', '#8B5CF6', '#EC4899', '#A16207', '#6B7280'];
 
-export function ColorPicker({ value, onChange, ...a11y }: { value: string; onChange: (v: string) => void } & A11y) {
-  const [text, setText] = useState(value);
-  const valid = /^#[0-9a-f]{6}$/i.test(value);
+export function SeletorCor({ value, onChange, ...a11y }: { value: string; onChange: (v: string) => void } & A11y) {
+  const [texto, setTexto] = useState(value);
+  const valida = /^#[0-9a-f]{6}$/i.test(value);
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <label className="relative size-11 shrink-0 cursor-pointer overflow-hidden rounded-[10px] border border-line-strong" style={{ backgroundColor: valid ? value : '#111' }}>
+        <label className="relative size-11 shrink-0 cursor-pointer overflow-hidden rounded-[10px] border border-line-strong" style={{ backgroundColor: valida ? value : '#111' }}>
           <span className="sr-only">Escolher cor</span>
-          <input type="color" value={valid ? value : '#000000'} onChange={(e) => { const v = e.target.value.toUpperCase(); setText(v); onChange(v); }}
+          <input type="color" value={valida ? value : '#000000'} onChange={(e) => { const v = e.target.value.toUpperCase(); setTexto(v); onChange(v); }}
             className="absolute inset-0 size-full cursor-pointer opacity-0" />
         </label>
         <input
           {...a11y}
-          value={text}
+          value={texto}
           maxLength={7}
           spellCheck={false}
           onChange={(e) => {
             let v = e.target.value.trim().replace(/[^#0-9a-fA-F]/g, '');
             if (v && !v.startsWith('#')) v = `#${v}`;
-            setText(v.toUpperCase());
+            setTexto(v.toUpperCase());
             onChange(v.toUpperCase());
           }}
           className="h-11 w-32 rounded-[10px] border border-line-strong bg-bg-deep/70 px-3 font-mono text-sm text-fg uppercase focus:border-[rgb(236_239_234/0.36)] focus:shadow-[0_0_0_3px_rgb(197_242_107/0.14)] focus:outline-none aria-invalid:border-danger/70"
         />
       </div>
       <div className="flex flex-wrap gap-1.5" aria-label="Cores sugeridas">
-        {SWATCHES.map((c) => (
-          <button key={c} type="button" onClick={() => { setText(c); onChange(c); }} aria-label={`Cor ${c}`} aria-pressed={value.toUpperCase() === c}
+        {AMOSTRAS_CORES.map((c) => (
+          <button key={c} type="button" onClick={() => { setTexto(c); onChange(c); }} aria-label={`Cor ${c}`} aria-pressed={value.toUpperCase() === c}
             className={cn('size-6 rounded-md border border-black/30 transition-transform hover:scale-110', value.toUpperCase() === c && 'ring-2 ring-fg ring-offset-2 ring-offset-surface-2')}
             style={{ backgroundColor: c }} />
         ))}
@@ -105,17 +105,17 @@ export function ColorPicker({ value, onChange, ...a11y }: { value: string; onCha
   );
 }
 
-export function ListEditor({ value, onChange, max = 12, maxLength = 300, placeholder, ...a11y }: {
+export function EditorLista({ value, onChange, max = 12, maxLength = 300, placeholder, ...a11y }: {
   value: string[]; onChange: (v: string[]) => void; max?: number; maxLength?: number; placeholder?: string;
 } & A11y) {
-  const [draft, setDraft] = useState('');
-  const add = () => {
-    const t = draft.trim();
+  const [rascunho, setRascunho] = useState('');
+  const adicionar = () => {
+    const t = rascunho.trim();
     if (!t || value.length >= max) return;
     onChange([...value, t.slice(0, maxLength)]);
-    setDraft('');
+    setRascunho('');
   };
-  const move = (i: number, d: -1 | 1) => {
+  const mover = (i: number, d: -1 | 1) => {
     const n = [...value];
     const j = i + d;
     if (j < 0 || j >= n.length) return;
@@ -132,9 +132,9 @@ export function ListEditor({ value, onChange, max = 12, maxLength = 300, placeho
               <input value={g} maxLength={maxLength} aria-label={`Orientação ${i + 1}`}
                 onChange={(e) => onChange(value.map((x, k) => (k === i ? e.target.value : x)))}
                 className="min-w-0 flex-1 rounded-md bg-transparent px-1.5 py-1 text-[13.5px] text-fg-soft focus:bg-bg-deep focus:outline-none" />
-              <IconButton icon={ArrowUp} size="sm" label="Mover para cima" onClick={() => move(i, -1)} disabled={i === 0} />
-              <IconButton icon={ArrowDown} size="sm" label="Mover para baixo" onClick={() => move(i, 1)} disabled={i === value.length - 1} />
-              <IconButton icon={Trash2} size="sm" variant="danger" label="Remover orientação" onClick={() => onChange(value.filter((_, k) => k !== i))} />
+              <BotaoIcone icon={ArrowUp} size="sm" label="Mover para cima" onClick={() => mover(i, -1)} disabled={i === 0} />
+              <BotaoIcone icon={ArrowDown} size="sm" label="Mover para baixo" onClick={() => mover(i, 1)} disabled={i === value.length - 1} />
+              <BotaoIcone icon={Trash2} size="sm" variant="danger" label="Remover orientação" onClick={() => onChange(value.filter((_, k) => k !== i))} />
             </li>
           ))}
         </ol>
@@ -142,13 +142,13 @@ export function ListEditor({ value, onChange, max = 12, maxLength = 300, placeho
       <div className="flex gap-2">
         <input
           id={a11y.id} aria-invalid={a11y['aria-invalid']} aria-describedby={a11y['aria-describedby']}
-          value={draft} maxLength={maxLength} placeholder={placeholder ?? 'Nova orientação'}
+          value={rascunho} maxLength={maxLength} placeholder={placeholder ?? 'Nova orientação'}
           disabled={value.length >= max}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+          onChange={(e) => setRascunho(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionar(); } }}
           className="h-10 min-w-0 flex-1 rounded-[10px] border border-line-strong bg-bg-deep/70 px-3 text-[13.5px] text-fg placeholder:text-subtle focus:border-[rgb(236_239_234/0.36)] focus:shadow-[0_0_0_3px_rgb(197_242_107/0.14)] focus:outline-none disabled:opacity-50"
         />
-        <button type="button" onClick={add} disabled={!draft.trim() || value.length >= max}
+        <button type="button" onClick={adicionar} disabled={!rascunho.trim() || value.length >= max}
           className="inline-flex h-10 items-center gap-1.5 rounded-[10px] border border-line-strong px-3 text-[13px] text-fg-soft hover:bg-white/[0.04] disabled:opacity-40">
           <Plus className="size-4" aria-hidden /> Adicionar
         </button>
@@ -165,12 +165,12 @@ export function ListEditor({ value, onChange, max = 12, maxLength = 300, placeho
  */
 export function FormNumber<T extends FieldValues>({ control, name, ...props }: {
   control: Control<T>; name: Path<T>;
-} & Omit<NumberInputProps, 'value' | 'onChange' | 'name'>) {
+} & Omit<PropsCampoNumero, 'value' | 'onChange' | 'name'>) {
   return (
     <Controller control={control} name={name}
       render={({ field, fieldState }) => (
-        <NumberInput {...props} name={field.name} ref={field.ref} value={field.value as number | null | undefined}
-          onChange={field.onChange} onBlur={field.onBlur} invalid={!!fieldState.error || props.invalid} />
+        <CampoNumero {...props} name={field.name} ref={field.ref} value={field.value as number | null | undefined}
+          onChange={field.onChange} onBlur={field.onBlur} invalido={!!fieldState.error || props.invalido} />
       )} />
   );
 }

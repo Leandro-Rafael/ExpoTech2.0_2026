@@ -1,22 +1,22 @@
 import type { CategoryCode } from '@/api/types';
-import { categoryFallback } from './labels';
+import { categoriaPadrao } from './labels';
 
 /** Cor hex da categoria (usa a cor da API se houver, senão o fallback local). */
-export function categoryColor(code: CategoryCode | null | undefined, apiColor?: string | null): string {
-  if (apiColor && /^#[0-9a-f]{3,8}$/i.test(apiColor)) return apiColor;
-  return code ? categoryFallback[code].color : '#8fa89a';
+export function corDaCategoria(codigo: CategoryCode | null | undefined, corApi?: string | null): string {
+  if (corApi && /^#[0-9a-f]{3,8}$/i.test(corApi)) return corApi;
+  return codigo ? categoriaPadrao[codigo].color : '#8fa89a';
 }
 
-export function categoryName(code: CategoryCode | null | undefined): string {
-  return code ? categoryFallback[code].name : 'Sem categoria';
+export function nomeDaCategoria(codigo: CategoryCode | null | undefined): string {
+  return codigo ? categoriaPadrao[codigo].name : 'Sem categoria';
 }
 
 /** Hex → rgba com alpha (para fundos tingidos com a cor da categoria). */
-export function hexAlpha(hex: string, alpha: number): string {
+export function hexComAlfa(hex: string, alfa: number): string {
   let h = hex.replace('#', '');
   if (h.length === 3) h = h.split('').map((c) => c + c).join('');
   const n = parseInt(h.slice(0, 6), 16);
-  if (Number.isNaN(n)) return `rgba(143,168,154,${alpha})`;
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  if (Number.isNaN(n)) return `rgba(143,168,154,${alfa})`;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alfa})`;
 }
 

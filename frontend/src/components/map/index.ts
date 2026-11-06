@@ -5,8 +5,8 @@
  *
  * Ver o comentário no topo de cada arquivo para exemplos de uso.
  */
-export { MapView, type LatLngTuple } from './MapView';
-export { FitBounds } from './FitBounds';
-export { CategoryMarker, DotMarker, NumberedMarker, DepotMarker, PositionMarker } from './markers';
-export { RoutePolyline } from './RoutePolyline';
-export { LocationPicker } from './LocationPicker';
+export { Mapa as MapView, type LatLngTuple } from './MapView';
+export { Enquadrar as FitBounds } from './FitBounds';
+export { MarcadorCategoria as CategoryMarker, MarcadorPonto as DotMarker, MarcadorNumerado as NumberedMarker, MarcadorCentral as DepotMarker, MarcadorPosicao as PositionMarker } from './markers';
+export { LinhaRota as RoutePolyline } from './RoutePolyline';
+export { SeletorLocal as LocationPicker } from './LocationPicker';

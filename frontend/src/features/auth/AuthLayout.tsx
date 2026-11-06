@@ -3,14 +3,14 @@ import { Link } from 'react-router';
 import { motion } from 'motion/react';
 import { Logo } from '@/components/layout/Logo';
 
-const highlights = [
+const destaques = [
   ['IA', 'Fotografe e receba a categoria e o jeito certo de descartar.'],
   ['Casa', 'Lixeiras inteligentes pedem a coleta sozinhas.'],
   ['Pontos', 'Troque por benefícios de parceiros do seu bairro.'],
 ];
 
 /** Layout dividido das telas de autenticação: painel editorial à esquerda, formulário à direita. */
-export function AuthLayout({ title, subtitle, children, footer }: { title: string; subtitle: ReactNode; children: ReactNode; footer?: ReactNode }) {
+export function LayoutAuth({ title, subtitulo, children, rodape }: { title: string; subtitulo: ReactNode; children: ReactNode; rodape?: ReactNode }) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_1fr]">
       {/* Painel da marca */}
@@ -26,7 +26,7 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
               Cada descarte certo aproxima o bairro do lixo zero.
             </h2>
             <dl className="mt-8 border-t border-line">
-              {highlights.map(([k, v]) => (
+              {destaques.map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[5.5rem_1fr] gap-4 border-b border-line py-3 text-[14px]">
                   <dt className="label-mono pt-0.5">{k}</dt>
                   <dd className="text-fg-soft">{v}</dd>
@@ -51,9 +51,9 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
             className="w-full max-w-[400px]"
           >
             <h1 className="text-[clamp(2rem,1.7rem+1vw,2.5rem)] leading-[1.08] text-fg">{title}</h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-muted">{subtitle}</p>
+            <p className="mt-3 text-[15px] leading-relaxed text-muted">{subtitulo}</p>
             <div className="mt-10">{children}</div>
-            {footer && <div className="mt-10 text-center text-sm text-muted">{footer}</div>}
+            {rodape && <div className="mt-10 text-center text-sm text-muted">{rodape}</div>}
           </motion.div>
         </div>
         <footer className="pb-6 text-center font-mono text-[11px] text-subtle">EcoTech Zero · ExpoTech 2026 · UniFECAF</footer>

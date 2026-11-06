@@ -3,16 +3,16 @@ import { motion } from 'motion/react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
-interface TabItem<V extends string = string> { value: V; label: ReactNode; icon?: LucideIcon; count?: number; disabled?: boolean }
+interface ItemAba<V extends string = string> { value: V; label: ReactNode; icon?: LucideIcon; count?: number; disabled?: boolean }
 
-export interface TabsProps<V extends string> {
-  items: TabItem<V>[];
+export interface PropsAbas<V extends string> {
+  itens: ItemAba<V>[];
   value: V;
   onChange: (value: V) => void;
   /** Prefixo de id para ligar abas ↔ painéis (use o mesmo em <TabPanel>). */
   idBase: string;
   variant?: 'pills' | 'underline';
-  fullWidth?: boolean;
+  larguraTotal?: boolean;
   className?: string;
   'aria-label'?: string;
 }
@@ -22,58 +22,58 @@ export interface TabsProps<V extends string> {
  *   <Tabs idBase="rk" items={[...]} value={scope} onChange={setScope} />
  *   <TabPanel idBase="rk" value={scope}>…</TabPanel>
  */
-export function Tabs<V extends string>({ items, value, onChange, idBase, variant = 'pills', fullWidth, className, ...aria }: TabsProps<V>) {
-  const listRef = useRef<HTMLDivElement>(null);
+export function Abas<V extends string>({ itens, value, onChange, idBase, variant = 'pills', larguraTotal, className, ...aria }: PropsAbas<V>) {
+  const listaRef = useRef<HTMLDivElement>(null);
 
-  const onKeyDown = (e: KeyboardEvent) => {
-    const enabled = items.filter((i) => !i.disabled);
-    const idx = enabled.findIndex((i) => i.value === value);
-    let next = -1;
-    if (e.key === 'ArrowRight') next = (idx + 1) % enabled.length;
-    else if (e.key === 'ArrowLeft') next = (idx - 1 + enabled.length) % enabled.length;
-    else if (e.key === 'Home') next = 0;
-    else if (e.key === 'End') next = enabled.length - 1;
-    if (next < 0) return;
+  const aoTeclar = (e: KeyboardEvent) => {
+    const habilitadas = itens.filter((i) => !i.disabled);
+    const idx = habilitadas.findIndex((i) => i.value === value);
+    let proxima = -1;
+    if (e.key === 'ArrowRight') proxima = (idx + 1) % habilitadas.length;
+    else if (e.key === 'ArrowLeft') proxima = (idx - 1 + habilitadas.length) % habilitadas.length;
+    else if (e.key === 'Home') proxima = 0;
+    else if (e.key === 'End') proxima = habilitadas.length - 1;
+    if (proxima < 0) return;
     e.preventDefault();
-    onChange(enabled[next].value);
-    requestAnimationFrame(() => listRef.current?.querySelector<HTMLElement>(`#${CSS.escape(`${idBase}-tab-${enabled[next].value}`)}`)?.focus());
+    onChange(habilitadas[proxima].value);
+    requestAnimationFrame(() => listaRef.current?.querySelector<HTMLElement>(`#${CSS.escape(`${idBase}-tab-${habilitadas[proxima].value}`)}`)?.focus());
   };
 
   return (
     <div
-      ref={listRef}
+      ref={listaRef}
       role="tablist"
       aria-label={aria['aria-label']}
-      onKeyDown={onKeyDown}
+      onKeyDown={aoTeclar}
       className={cn(
         'relative flex max-w-full overflow-x-auto [scrollbar-width:none]',
         variant === 'pills' ? 'gap-1 rounded-xl border border-line bg-bg-deep/50 p-1' : 'gap-5 border-b border-line',
-        fullWidth && 'w-full',
+        larguraTotal && 'w-full',
         className,
       )}
     >
-      {items.map((item) => {
-        const active = item.value === value;
-        const Icon = item.icon;
+      {itens.map((item) => {
+        const ativa = item.value === value;
+        const Icone = item.icon;
         return (
           <button
             key={item.value}
             id={`${idBase}-tab-${item.value}`}
             role="tab"
             type="button"
-            aria-selected={active}
+            aria-selected={ativa}
             aria-controls={`${idBase}-panel-${item.value}`}
-            tabIndex={active ? 0 : -1}
+            tabIndex={ativa ? 0 : -1}
             disabled={item.disabled}
             onClick={() => onChange(item.value)}
             className={cn(
               'relative inline-flex shrink-0 items-center justify-center gap-2 text-sm font-medium whitespace-nowrap transition-colors disabled:opacity-40',
               variant === 'pills' ? 'h-9 rounded-lg px-3.5' : 'h-11 px-0.5',
-              fullWidth && 'flex-1',
-              active ? 'text-fg' : 'text-muted hover:text-fg-soft',
+              larguraTotal && 'flex-1',
+              ativa ? 'text-fg' : 'text-muted hover:text-fg-soft',
             )}
           >
-            {active && (
+            {ativa && (
               <motion.span
                 layoutId={`${idBase}-indicator`}
                 aria-hidden
@@ -84,10 +84,10 @@ export function Tabs<V extends string>({ items, value, onChange, idBase, variant
               />
             )}
             <span className="relative z-10 inline-flex items-center gap-2">
-              {Icon && <Icon className="size-4" aria-hidden />}
+              {Icone && <Icone className="size-4" aria-hidden />}
               {item.label}
               {item.count != null && (
-                <span className={cn('rounded-full px-1.5 font-mono text-[11px] tabular', active ? 'bg-white/10 text-fg' : 'bg-white/5 text-muted')}>{item.count}</span>
+                <span className={cn('rounded-full px-1.5 font-mono text-[11px] tabular', ativa ? 'bg-white/10 text-fg' : 'bg-white/5 text-muted')}>{item.count}</span>
               )}
             </span>
           </button>
@@ -97,7 +97,7 @@ export function Tabs<V extends string>({ items, value, onChange, idBase, variant
   );
 }
 
-export function TabPanel({ idBase, value, children, className }: { idBase: string; value: string; children: ReactNode; className?: string }) {
+export function PainelAba({ idBase, value, children, className }: { idBase: string; value: string; children: ReactNode; className?: string }) {
   return (
     <div role="tabpanel" id={`${idBase}-panel-${value}`} aria-labelledby={`${idBase}-tab-${value}`} tabIndex={0} className={cn('outline-none', className)}>
       {children}

@@ -1,51 +1,51 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { Button } from './Button';
+import { Botao } from './Button';
 import { Modal } from './Modal';
 
-export interface ConfirmDialogProps {
+export interface PropsDialogoConfirmacao {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  aoConfirmar: () => void;
   title: ReactNode;
   description?: ReactNode;
-  confirmLabel?: string;
-  cancelLabel?: string;
+  rotuloConfirmar?: string;
+  rotuloCancelar?: string;
   /** danger: ação destrutiva (botão vermelho + ícone de alerta). */
   tone?: 'default' | 'danger';
-  loading?: boolean;
+  carregando?: boolean;
   /** Conteúdo extra (ex.: campo "motivo da recusa"). */
   children?: ReactNode;
-  confirmDisabled?: boolean;
+  confirmarDesativado?: boolean;
 }
 
 /** Confirmação de ação. `<ConfirmDialog tone="danger" title="Excluir lixeira?" onConfirm={...} />` */
-export function ConfirmDialog({
-  open, onClose, onConfirm, title, description, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar',
-  tone = 'default', loading, children, confirmDisabled,
-}: ConfirmDialogProps) {
-  const Icon = tone === 'danger' ? AlertTriangle : HelpCircle;
+export function DialogoConfirmacao({
+  open, onClose, aoConfirmar, title, description, rotuloConfirmar = 'Confirmar', rotuloCancelar = 'Cancelar',
+  tone = 'default', carregando, children, confirmarDesativado,
+}: PropsDialogoConfirmacao) {
+  const Icone = tone === 'danger' ? AlertTriangle : HelpCircle;
   return (
     <Modal
       open={open}
-      onClose={loading ? () => {} : onClose}
+      onClose={carregando ? () => {} : onClose}
       size="sm"
-      hideClose
+      esconderFechar
       title={
         <span className="flex items-center gap-3">
           <span className={cn('inline-flex size-10 items-center justify-center rounded-xl', tone === 'danger' ? 'bg-danger/10 text-danger' : 'border border-line text-fg-soft')}>
-            <Icon className="size-5" aria-hidden />
+            <Icone className="size-5" aria-hidden />
           </span>
           {title}
         </span>
       }
-      footer={
+      rodape={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={loading}>{cancelLabel}</Button>
-          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading} disabled={confirmDisabled} data-autofocus>
-            {confirmLabel}
-          </Button>
+          <Botao variant="ghost" onClick={onClose} disabled={carregando}>{rotuloCancelar}</Botao>
+          <Botao variant={tone === 'danger' ? 'danger' : 'primary'} onClick={aoConfirmar} carregando={carregando} disabled={confirmarDesativado} data-autofocus>
+            {rotuloConfirmar}
+          </Botao>
         </>
       }
     >

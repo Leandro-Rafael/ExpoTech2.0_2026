@@ -1,8 +1,8 @@
-import type { Tone } from '@/lib/labels';
+import type { Tom } from '@/lib/labels';
 
-export type AuditGroup = 'acesso' | 'descartes' | 'coletas' | 'catalogo' | 'usuarios' | 'casa' | 'recompensas' | 'outros';
+export type GrupoAuditoria = 'acesso' | 'descartes' | 'coletas' | 'catalogo' | 'usuarios' | 'casa' | 'recompensas' | 'outros';
 
-export const AUDIT_GROUPS: Record<AuditGroup, { label: string; tone: Tone }> = {
+export const GRUPOS_AUDITORIA: Record<GrupoAuditoria, { label: string; tone: Tom }> = {
   acesso: { label: 'Acesso e segurança', tone: 'info' },
   descartes: { label: 'Descartes', tone: 'brand' },
   coletas: { label: 'Coletas e rotas', tone: 'lime' },
@@ -13,7 +13,7 @@ export const AUDIT_GROUPS: Record<AuditGroup, { label: string; tone: Tone }> = {
   outros: { label: 'Outros', tone: 'neutral' },
 };
 
-const A: Record<string, [string, AuditGroup, Tone?]> = {
+const ACOES_AUDITORIA: Record<string, [string, GrupoAuditoria, Tom?]> = {
   LOGIN_SUCCESS: ['Entrou no sistema', 'acesso'],
   LOGIN_FAILED: ['Falha de login', 'acesso', 'warning'],
   LOGIN_DISABLED_ACCOUNT: ['Login em conta desativada', 'acesso', 'danger'],
@@ -70,32 +70,32 @@ const A: Record<string, [string, AuditGroup, Tone?]> = {
 };
 
 /** "SOME_NEW_ACTION" → "Some new action" quando não há rótulo. */
-function humanize(code: string) {
-  const s = code.toLowerCase().replace(/_/g, ' ');
+function humanizar(codigo: string) {
+  const s = codigo.toLowerCase().replace(/_/g, ' ');
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function auditMeta(action: string): { label: string; group: AuditGroup; tone: Tone } {
-  const m = A[action];
-  if (!m) return { label: humanize(action), group: 'outros', tone: 'neutral' };
-  return { label: m[0], group: m[1], tone: m[2] ?? AUDIT_GROUPS[m[1]].tone };
+export function infoAuditoria(acao: string): { label: string; group: GrupoAuditoria; tone: Tom } {
+  const m = ACOES_AUDITORIA[acao];
+  if (!m) return { label: humanizar(acao), group: 'outros', tone: 'neutral' };
+  return { label: m[0], group: m[1], tone: m[2] ?? GRUPOS_AUDITORIA[m[1]].tone };
 }
 
 /**
  * Opções do filtro "ação" (para o filtro no servidor): códigos com o mesmo rótulo viram uma opção só
  * (ex.: SECURITY_INSPECTION_LOCK e INSPECTION_LOCKED). `value` = códigos separados por vírgula.
  */
-export function auditActionOptions(group: AuditGroup | 'ALL'): { value: string; label: string }[] {
-  const byLabel = new Map<string, string[]>();
-  for (const [code, [label, g]] of Object.entries(A)) {
-    if (group !== 'ALL' && g !== group) continue;
-    byLabel.set(label, [...(byLabel.get(label) ?? []), code]);
+export function opcoesAcoesAuditoria(grupo: GrupoAuditoria | 'ALL'): { value: string; label: string }[] {
+  const porRotulo = new Map<string, string[]>();
+  for (const [codigo, [rotulo, g]] of Object.entries(ACOES_AUDITORIA)) {
+    if (grupo !== 'ALL' && g !== grupo) continue;
+    porRotulo.set(rotulo, [...(porRotulo.get(rotulo) ?? []), codigo]);
   }
-  return [...byLabel].map(([label, codes]) => ({ value: codes.join(','), label }))
+  return [...porRotulo].map(([rotulo, codigos]) => ({ value: codigos.join(','), label: rotulo }))
     .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
 }
 
 /** Todos os códigos conhecidos de um grupo (filtro por área no servidor). */
-export function auditGroupActions(group: AuditGroup): string[] {
-  return Object.entries(A).filter(([, m]) => m[1] === group).map(([code]) => code);
+export function acoesDoGrupo(grupo: GrupoAuditoria): string[] {
+  return Object.entries(ACOES_AUDITORIA).filter(([, m]) => m[1] === grupo).map(([codigo]) => codigo);
 }

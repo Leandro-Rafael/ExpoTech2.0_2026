@@ -6,14 +6,14 @@
  * - nível pelo total já ganho (totalEarned), saldo (points) é o disponível para resgates.
  */
 import type { BadgeTier, Category, CategoryCode, Level } from '@/api/types';
-import type { ChallengeRec, DisposalRec, MockDb, TxRec } from '../db';
-import { fail } from '../http';
-import { DAY, addDays, localDate } from './dates';
-import { round } from './random';
+import type { RegistroDesafio, RegistroDescarte, BancoSimulado, RegistroTransacao } from '../db';
+import { falha } from '../http';
+import { DIA, somarDias, dataLocal } from './dates';
+import { arredondar } from './random';
 
 // ---------------------------------------------------------------- níveis
 
-export const LEVELS = [
+export const NIVEIS = [
   { index: 0, name: 'Semente', minPoints: 0 },
   { index: 1, name: 'Broto', minPoints: 200 },
   { index: 2, name: 'Muda', minPoints: 600 },
@@ -22,135 +22,135 @@ export const LEVELS = [
   { index: 5, name: 'Guardião 2050', minPoints: 8000 },
 ] as const;
 
-export function levelFor(totalEarned: number): Level {
-  let current: (typeof LEVELS)[number] = LEVELS[0];
-  for (const l of LEVELS) if (totalEarned >= l.minPoints) current = l;
-  const next = LEVELS[current.index + 1] ?? null;
-  const progress = next ? Math.min(1, (totalEarned - current.minPoints) / (next.minPoints - current.minPoints)) : 1;
+export function nivelPara(totalGanho: number): Level {
+  let atual: (typeof NIVEIS)[number] = NIVEIS[0];
+  for (const l of NIVEIS) if (totalGanho >= l.minPoints) atual = l;
+  const proximo = NIVEIS[atual.index + 1] ?? null;
+  const progresso = proximo ? Math.min(1, (totalGanho - atual.minPoints) / (proximo.minPoints - atual.minPoints)) : 1;
   return {
-    index: current.index,
-    name: current.name,
-    minPoints: current.minPoints,
-    nextName: next?.name ?? null,
-    nextMinPoints: next?.minPoints ?? null,
-    progress: round(progress, 4),
+    index: atual.index,
+    name: atual.name,
+    minPoints: atual.minPoints,
+    nextName: proximo?.name ?? null,
+    nextMinPoints: proximo?.minPoints ?? null,
+    progress: arredondar(progresso, 4),
   };
 }
 
 // ---------------------------------------------------------------- cálculo
 
-const AI_CONFIRMED_BONUS = 0.1;
+const BONUS_IA_CONFIRMADA = 0.1;
 // Bônus de 10% só quando a IA do servidor confirma a categoria; o palpite do navegador poderia ser forjado.
-function computePoints(category: Pick<Category, 'pointsPerKg'>, kg: number, aiConfirmed: boolean): number {
+function calcularPontos(categoria: Pick<Category, 'pointsPerKg'>, kg: number, iaConfirmada: boolean): number {
   if (kg <= 0) return 0;
-  if (category.pointsPerKg <= 0) return 1;
-  let base = Math.round(kg * category.pointsPerKg);
-  if (aiConfirmed) base = Math.round(base * (1 + AI_CONFIRMED_BONUS));
+  if (categoria.pointsPerKg <= 0) return 1;
+  let base = Math.round(kg * categoria.pointsPerKg);
+  if (iaConfirmada) base = Math.round(base * (1 + BONUS_IA_CONFIRMADA));
   return Math.max(1, base);
 }
 
 /** Sempre false no modo demonstração: a sugestão enviada pelo cliente é só um palpite e não pode gerar bônus. */
-function aiConfirmed(_d: DisposalRec, _category: Category): boolean {
+function iaConfirmou(_d: RegistroDescarte, _category: Category): boolean {
   return false;
 }
 
 // ---------------------------------------------------------------- transações
 
-function credit(d: MockDb, userId: string, amount: number, type: TxRec['type'], description: string, at: string, disposalId: string | null = null): TxRec {
-  const user = d.users.find((u) => u.id === userId);
-  if (!user) throw fail.notFound('Usuário não encontrado.');
-  user.points += amount;
-  if (type === 'EARN' || type === 'BONUS') user.totalEarned += amount;
-  const tx: TxRec = { id: crypto.randomUUID(), userId, type, amount, balanceAfter: user.points, description, createdAt: at, disposalId };
+function creditar(d: BancoSimulado, idUsuario: string, valor: number, tipo: RegistroTransacao['type'], descricao: string, quando: string, idDescarte: string | null = null): RegistroTransacao {
+  const usuario = d.users.find((u) => u.id === idUsuario);
+  if (!usuario) throw falha.notFound('Usuário não encontrado.');
+  usuario.points += valor;
+  if (tipo === 'EARN' || tipo === 'BONUS') usuario.totalEarned += valor;
+  const tx: RegistroTransacao = { id: crypto.randomUUID(), userId: idUsuario, type: tipo, amount: valor, balanceAfter: usuario.points, description: descricao, createdAt: quando, disposalId: idDescarte };
   d.transactions.push(tx);
   return tx;
 }
 
-export function debit(d: MockDb, userId: string, cost: number, description: string, at: string): TxRec {
-  const user = d.users.find((u) => u.id === userId);
-  if (!user) throw fail.notFound('Usuário não encontrado.');
+export function debitar(d: BancoSimulado, idUsuario: string, custo: number, descricao: string, quando: string): RegistroTransacao {
+  const usuario = d.users.find((u) => u.id === idUsuario);
+  if (!usuario) throw falha.notFound('Usuário não encontrado.');
   // Resgate só com saldo suficiente. O nível usa totalEarned, então gastar pontos não faz a pessoa cair de nível.
-  if (user.points < cost) {
-    throw fail.insufficientPoints(`Saldo insuficiente: você tem ${user.points} pontos e a recompensa custa ${cost}.`);
+  if (usuario.points < custo) {
+    throw falha.insufficientPoints(`Saldo insuficiente: você tem ${usuario.points} pontos e a recompensa custa ${custo}.`);
   }
-  user.points -= cost;
-  const tx: TxRec = { id: crypto.randomUUID(), userId, type: 'REDEEM', amount: -cost, balanceAfter: user.points, description, createdAt: at, disposalId: null };
+  usuario.points -= custo;
+  const tx: RegistroTransacao = { id: crypto.randomUUID(), userId: idUsuario, type: 'REDEEM', amount: -custo, balanceAfter: usuario.points, description: descricao, createdAt: quando, disposalId: null };
   d.transactions.push(tx);
   return tx;
 }
 
-const kgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatoKg = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Aprova um descarte e credita os pontos UMA vez. Retorna os pontos concedidos. */
-export function approveDisposal(d: MockDb, disposal: DisposalRec, at: string): number {
+export function aprovarDescarte(d: BancoSimulado, descarte: RegistroDescarte, quando: string): number {
   // 1. Já aprovado não credita de novo; recusado não pode virar aprovado.
-  if (disposal.status === 'APPROVED') return disposal.pointsAwarded; // nunca credita duas vezes
-  if (disposal.status === 'REJECTED') throw fail.conflict('Este descarte já foi recusado e não pode ser aprovado.');
+  if (descarte.status === 'APPROVED') return descarte.pointsAwarded; // nunca credita duas vezes
+  if (descarte.status === 'REJECTED') throw falha.conflict('Este descarte já foi recusado e não pode ser aprovado.');
   // 2. Pontos = kg × pontos por kg da categoria (mínimo 1).
-  const category = d.categories.find((c) => c.id === disposal.categoryId)!;
-  const awarded = computePoints(category, disposal.quantityKg, aiConfirmed(disposal, category));
+  const categoria = d.categories.find((c) => c.id === descarte.categoryId)!;
+  const concedidos = calcularPontos(categoria, descarte.quantityKg, iaConfirmou(descarte, categoria));
   // 3. Marca como aprovado e lança a transação no extrato do morador.
-  disposal.status = 'APPROVED';
-  disposal.pointsAwarded = awarded;
-  disposal.reviewedAt = at;
-  credit(d, disposal.userId, awarded, 'EARN', `Descarte aprovado: ${kgFmt.format(disposal.quantityKg)} kg de ${category.name}`, at, disposal.id);
+  descarte.status = 'APPROVED';
+  descarte.pointsAwarded = concedidos;
+  descarte.reviewedAt = quando;
+  creditar(d, descarte.userId, concedidos, 'EARN', `Descarte aprovado: ${formatoKg.format(descarte.quantityKg)} kg de ${categoria.name}`, quando, descarte.id);
   // 4. Confere se o descarte completou algum desafio ou liberou medalha.
-  evaluateChallenges(d, disposal.userId, at);
-  evaluateBadges(d, disposal.userId, at);
-  return awarded;
+  avaliarDesafios(d, descarte.userId, quando);
+  avaliarMedalhas(d, descarte.userId, quando);
+  return concedidos;
 }
 
 // ---------------------------------------------------------------- sequência
 
 /** Dias seguidos (terminando hoje ou ontem) com ao menos um descarte aprovado. */
-export function streakDays(d: MockDb, userId: string, at: string): number {
-  const days = new Set(
-    d.disposals.filter((x) => x.userId === userId && x.status === 'APPROVED').map((x) => localDate(x.disposedAt)),
+export function diasSeguidos(d: BancoSimulado, idUsuario: string, quando: string): number {
+  const dias = new Set(
+    d.disposals.filter((x) => x.userId === idUsuario && x.status === 'APPROVED').map((x) => dataLocal(x.disposedAt)),
   );
-  let day = localDate(at);
-  if (!days.has(day)) day = addDays(day, -1);
-  let streak = 0;
-  while (days.has(day)) {
-    streak++;
-    day = addDays(day, -1);
+  let dia = dataLocal(quando);
+  if (!dias.has(dia)) dia = somarDias(dia, -1);
+  let sequencia = 0;
+  while (dias.has(dia)) {
+    sequencia++;
+    dia = somarDias(dia, -1);
   }
-  return streak;
+  return sequencia;
 }
 
 // ---------------------------------------------------------------- desafios
 
-export function challengeProgress(d: MockDb, userId: string, c: ChallengeRec): number {
-  const end = addDays(c.endsAt, 1);
+export function progressoDesafio(d: BancoSimulado, idUsuario: string, c: RegistroDesafio): number {
+  const fim = somarDias(c.endsAt, 1);
   let total = 0;
   for (const x of d.disposals) {
-    if (x.userId !== userId || x.status !== 'APPROVED') continue;
-    const day = localDate(x.disposedAt);
-    if (day < c.startsAt || day >= end) continue;
+    if (x.userId !== idUsuario || x.status !== 'APPROVED') continue;
+    const dia = dataLocal(x.disposedAt);
+    if (dia < c.startsAt || dia >= fim) continue;
     if (c.categoryCode) {
       const cat = d.categories.find((k) => k.id === x.categoryId);
       if (cat?.code !== c.categoryCode) continue;
     }
     total += c.metric === 'KG' ? x.quantityKg : 1;
   }
-  return round(total, 2);
+  return arredondar(total, 2);
 }
 
 /** Conclui desafios atingidos e credita o bônus (uma vez por desafio). */
-function evaluateChallenges(d: MockDb, userId: string, at: string) {
-  const today = localDate(at);
+function avaliarDesafios(d: BancoSimulado, idUsuario: string, quando: string) {
+  const hoje = dataLocal(quando);
   for (const c of d.challenges) {
-    if (!c.active || today < c.startsAt || today > c.endsAt) continue;
-    if (d.completions.some((k) => k.userId === userId && k.challengeId === c.id)) continue;
-    if (challengeProgress(d, userId, c) >= c.target) {
-      d.completions.push({ userId, challengeId: c.id, at });
-      if (c.bonusPoints > 0) credit(d, userId, c.bonusPoints, 'BONUS', `Desafio concluído: ${c.title}`, at);
+    if (!c.active || hoje < c.startsAt || hoje > c.endsAt) continue;
+    if (d.completions.some((k) => k.userId === idUsuario && k.challengeId === c.id)) continue;
+    if (progressoDesafio(d, idUsuario, c) >= c.target) {
+      d.completions.push({ userId: idUsuario, challengeId: c.id, at: quando });
+      if (c.bonusPoints > 0) creditar(d, idUsuario, c.bonusPoints, 'BONUS', `Desafio concluído: ${c.title}`, quando);
     }
   }
 }
 
 // ---------------------------------------------------------------- medalhas
 
-export interface BadgeStats {
+export interface EstatisticasMedalhas {
   approvedCount: number;
   totalKg: number;
   kgByCategory: Partial<Record<CategoryCode, number>>;
@@ -159,18 +159,18 @@ export interface BadgeStats {
   hasSmartBin: boolean;
 }
 
-export interface BadgeDef {
+export interface DefinicaoMedalha {
   code: string;
   name: string;
   description: string;
   icon: string;
   tier: BadgeTier;
-  earned: (s: BadgeStats) => boolean;
+  earned: (s: EstatisticasMedalhas) => boolean;
 }
 
-const kg = (s: BadgeStats, c: CategoryCode) => s.kgByCategory[c] ?? 0;
+const kg = (s: EstatisticasMedalhas, c: CategoryCode) => s.kgByCategory[c] ?? 0;
 
-export const BADGES: BadgeDef[] = [
+export const MEDALHAS: DefinicaoMedalha[] = [
   { code: 'PRIMEIRO_DESCARTE', name: 'Primeiro passo', description: 'Teve o primeiro descarte aprovado.', icon: 'footprints', tier: 'BRONZE', earned: (s) => s.approvedCount >= 1 },
   { code: 'DEZ_DESCARTES', name: 'Reciclador dedicado', description: '10 descartes aprovados.', icon: 'recycle', tier: 'PRATA', earned: (s) => s.approvedCount >= 10 },
   { code: 'CINQUENTA_DESCARTES', name: 'Hábito sustentável', description: '50 descartes aprovados.', icon: 'repeat', tier: 'OURO', earned: (s) => s.approvedCount >= 50 },
@@ -188,31 +188,31 @@ export const BADGES: BadgeDef[] = [
   { code: 'GUARDIAO_2050', name: 'Guardião 2050', description: 'Alcançou 8.000 pontos acumulados.', icon: 'shield-check', tier: 'DIAMANTE', earned: (s) => s.totalEarned >= 8000 },
 ];
 
-function badgeStats(d: MockDb, userId: string, at: string): BadgeStats {
-  const user = d.users.find((u) => u.id === userId)!;
-  const mine = d.disposals.filter((x) => x.userId === userId && x.status === 'APPROVED');
-  const kgByCategory: Partial<Record<CategoryCode, number>> = {};
+function estatisticasMedalhas(d: BancoSimulado, idUsuario: string, quando: string): EstatisticasMedalhas {
+  const usuario = d.users.find((u) => u.id === idUsuario)!;
+  const meus = d.disposals.filter((x) => x.userId === idUsuario && x.status === 'APPROVED');
+  const kgPorCategoria: Partial<Record<CategoryCode, number>> = {};
   let totalKg = 0;
-  for (const x of mine) {
-    const code = d.categories.find((c) => c.id === x.categoryId)?.code;
-    if (!code) continue;
-    kgByCategory[code] = (kgByCategory[code] ?? 0) + x.quantityKg;
+  for (const x of meus) {
+    const codigo = d.categories.find((c) => c.id === x.categoryId)?.code;
+    if (!codigo) continue;
+    kgPorCategoria[codigo] = (kgPorCategoria[codigo] ?? 0) + x.quantityKg;
     totalKg += x.quantityKg;
   }
-  const hasSmartBin = !!user.householdId && d.bins.some((b) => b.householdId === user.householdId);
-  return { approvedCount: mine.length, totalKg, kgByCategory, streakDays: streakDays(d, userId, at), totalEarned: user.totalEarned, hasSmartBin };
+  const temLixeira = !!usuario.householdId && d.bins.some((b) => b.householdId === usuario.householdId);
+  return { approvedCount: meus.length, totalKg, kgByCategory: kgPorCategoria, streakDays: diasSeguidos(d, idUsuario, quando), totalEarned: usuario.totalEarned, hasSmartBin: temLixeira };
 }
 
 /** Concede as medalhas cujas condições passaram a ser verdadeiras. */
-export function evaluateBadges(d: MockDb, userId: string, at: string) {
-  const stats = badgeStats(d, userId, at);
-  for (const b of BADGES) {
-    if (d.userBadges.some((x) => x.userId === userId && x.code === b.code)) continue;
-    if (b.earned(stats)) d.userBadges.push({ userId, code: b.code, awardedAt: at });
+export function avaliarMedalhas(d: BancoSimulado, idUsuario: string, quando: string) {
+  const estatisticas = estatisticasMedalhas(d, idUsuario, quando);
+  for (const b of MEDALHAS) {
+    if (d.userBadges.some((x) => x.userId === idUsuario && x.code === b.code)) continue;
+    if (b.earned(estatisticas)) d.userBadges.push({ userId: idUsuario, code: b.code, awardedAt: quando });
   }
 }
 
 /** Usuários ativos nos últimos 30 dias (para o painel). */
-export function isRecent(iso: string | null, now: number, days: number): boolean {
-  return !!iso && now - Date.parse(iso) <= days * DAY;
+export function ehRecente(iso: string | null, agora: number, dias: number): boolean {
+  return !!iso && agora - Date.parse(iso) <= dias * DIA;
 }

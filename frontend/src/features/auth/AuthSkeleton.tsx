@@ -1,8 +1,8 @@
-import { Skeleton } from '@/components/ui/Skeleton';
+import { Esqueleto } from '@/components/ui/Skeleton';
 import { Logo } from '@/components/layout/Logo';
 
 /** Esqueleto com o mesmo layout de /entrar e /cadastro (enquanto o chunk da página carrega). */
-export function AuthSkeleton() {
+export function EsqueletoAuth() {
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_1fr]" role="status" aria-label="Carregando">
       <aside aria-hidden className="relative hidden overflow-hidden border-r border-line bg-bg lg:flex lg:flex-col">
@@ -14,14 +14,14 @@ export function AuthSkeleton() {
         <div className="container-app flex h-16 items-center lg:hidden"><Logo size={28} /></div>
         <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-8">
           <div className="w-full max-w-[400px] space-y-4">
-            <Skeleton className="h-10 w-3/4" />
-            <Skeleton className="h-4 w-full" />
+            <Esqueleto className="h-10 w-3/4" />
+            <Esqueleto className="h-4 w-full" />
             <div className="h-6" />
-            <Skeleton className="h-3 w-16" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-3 w-16" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Esqueleto className="h-3 w-16" />
+            <Esqueleto className="h-12 w-full" />
+            <Esqueleto className="h-3 w-16" />
+            <Esqueleto className="h-12 w-full" />
+            <Esqueleto className="h-12 w-full rounded-xl" />
           </div>
         </div>
       </div>

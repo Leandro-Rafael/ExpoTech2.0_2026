@@ -9,25 +9,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type { AdminUser, InspectionEventResult, InspectionTrigger, IntegrityReport, UUID } from './types';
 
-export const securityApi = {
+export const apiSeguranca = {
   /** POST /security/inspection-events — o servidor conta avisos e bloqueia no 3º. */
-  reportInspection: (trigger: InspectionTrigger) =>
-    api.post<InspectionEventResult>('/security/inspection-events', { trigger }),
+  reportarInspecao: (gatilho: InspectionTrigger) =>
+    api.post<InspectionEventResult>('/security/inspection-events', { trigger: gatilho }),
   /** POST /admin/users/{id}/unlock — limpa bloqueio por senha e por inspeção (e os avisos). */
-  unlockUser: (id: UUID) => api.post<AdminUser>(`/admin/users/${encodeURIComponent(id)}/unlock`),
+  desbloquearUsuario: (id: UUID) => api.post<AdminUser>(`/admin/users/${encodeURIComponent(id)}/unlock`),
   /** GET /admin/integrity — verifica a cadeia HMAC do extrato/auditoria e os saldos. */
-  integrity: () => api.get<IntegrityReport>('/admin/integrity'),
+  integridade: () => api.get<IntegrityReport>('/admin/integrity'),
 };
 
-const securityKeys = {
+const chavesSeguranca = {
   integrity: ['admin', 'integrity'] as const,
 };
 
 /** Desbloqueia um usuário e atualiza a lista de usuários do admin. */
-export function useUnlockUser() {
+export function useDesbloquearUsuario() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: UUID) => securityApi.unlockUser(id),
+    mutationFn: (id: UUID) => apiSeguranca.desbloquearUsuario(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
 }
@@ -36,11 +36,11 @@ export function useUnlockUser() {
  * Relatório de integridade. A verificação percorre todo o extrato (é limitada por rate limit no
  * servidor), então só roda quando pedida: `enabled: false` por padrão e `refetch()` no botão.
  */
-export function useIntegrityReport(opts: { enabled?: boolean } = {}) {
+export function useRelatorioIntegridade(opcoes: { enabled?: boolean } = {}) {
   return useQuery({
-    queryKey: securityKeys.integrity,
-    queryFn: securityApi.integrity,
-    enabled: opts.enabled ?? false,
+    queryKey: chavesSeguranca.integrity,
+    queryFn: apiSeguranca.integridade,
+    enabled: opcoes.enabled ?? false,
     staleTime: 60_000,
     retry: false,
     refetchOnWindowFocus: false,

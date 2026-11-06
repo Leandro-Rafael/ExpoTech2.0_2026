@@ -1,30 +1,30 @@
 import { useState, type ComponentPropsWithRef } from 'react';
 import { cn } from '@/lib/cn';
-import { controlClasses } from './Input';
-import { useFieldA11y } from './Field';
+import { classesControle } from './Input';
+import { useAcessibilidadeCampo } from './Field';
 
-export interface TextareaProps extends ComponentPropsWithRef<'textarea'> {
-  invalid?: boolean;
+export interface PropsAreaTexto extends ComponentPropsWithRef<'textarea'> {
+  invalido?: boolean;
   /** Mostra contador "12/500" quando maxLength é definido. */
-  showCount?: boolean;
+  mostrarContador?: boolean;
 }
 
 /** Área de texto. Compatível com register(). */
-export function Textarea({ invalid, showCount = true, className, maxLength, onChange, ...props }: TextareaProps) {
-  const rest = useFieldA11y(props);
-  const [count, setCount] = useState(() => String(rest.value ?? rest.defaultValue ?? '').length);
+export function AreaTexto({ invalido, mostrarContador = true, className, maxLength, onChange, ...props }: PropsAreaTexto) {
+  const resto = useAcessibilidadeCampo(props);
+  const [contagem, setContagem] = useState(() => String(resto.value ?? resto.defaultValue ?? '').length);
   return (
     <div className="relative">
       <textarea
-        aria-invalid={invalid || rest['aria-invalid'] || undefined}
+        aria-invalid={invalido || resto['aria-invalid'] || undefined}
         maxLength={maxLength}
-        onChange={(e) => { setCount(e.target.value.length); onChange?.(e); }}
-        className={cn(controlClasses, 'min-h-24 resize-y px-3.5 py-3 text-sm leading-relaxed', showCount && maxLength && 'pb-7', className)}
-        {...rest}
+        onChange={(e) => { setContagem(e.target.value.length); onChange?.(e); }}
+        className={cn(classesControle, 'min-h-24 resize-y px-3.5 py-3 text-sm leading-relaxed', mostrarContador && maxLength && 'pb-7', className)}
+        {...resto}
       />
-      {showCount && maxLength && (
+      {mostrarContador && maxLength && (
         <span className="pointer-events-none absolute right-3 bottom-2 text-[11px] text-subtle tabular" aria-hidden>
-          {rest.value != null ? String(rest.value).length : count}/{maxLength}
+          {resto.value != null ? String(resto.value).length : contagem}/{maxLength}
         </span>
       )}
     </div>

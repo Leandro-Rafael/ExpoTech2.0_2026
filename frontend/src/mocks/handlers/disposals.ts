@@ -1,46 +1,46 @@
 /** /api/disposals — registro (com Idempotency-Key e antifraude) e histórico do usuário. */
 import type { AiSource, CategoryCode, Disposal, DisposalStatus, Page } from '@/api/types';
-import { db, nowIso, type DisposalRec } from '../db';
-import { paginate, toDisposal } from '../dto';
-import { UUID_RE, Validator, bodyObject, created, enumParam, fail, intParam, num, ok, str } from '../http';
-import { audit } from '../logic/audit';
-import { DAY } from '../logic/dates';
-import { FLAG_THRESHOLD, assess } from '../logic/fraud';
-import { approveDisposal } from '../logic/points';
-import { round } from '../logic/random';
-import { route } from '../server';
+import { banco, agoraIso, type RegistroDescarte } from '../db';
+import { paginar, paraDescarte } from '../dto';
+import { UUID_RE, Validador, objetoDoCorpo, criado, parametroEnum, falha, parametroInteiro, lerNumero, ok, lerTexto } from '../http';
+import { registrarAuditoria } from '../logic/audit';
+import { DIA } from '../logic/dates';
+import { LIMIAR_SINALIZACAO, avaliar } from '../logic/fraud';
+import { aprovarDescarte } from '../logic/points';
+import { arredondar } from '../logic/random';
+import { rota } from '../server';
 
-export const CATEGORY_CODES: CategoryCode[] = ['PLASTICO', 'PAPEL', 'VIDRO', 'METAL', 'ORGANICO', 'ELETRONICO', 'REJEITO'];
-const AI_SOURCES: AiSource[] = ['CLAUDE', 'LOCAL', 'MANUAL'];
-export const DISPOSAL_STATUSES: DisposalStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
-const AUTO_APPROVE_MAX_SCORE = 20;
-const AUTO_APPROVE_MAX_KG = 5;
+export const CODIGOS_CATEGORIA: CategoryCode[] = ['PLASTICO', 'PAPEL', 'VIDRO', 'METAL', 'ORGANICO', 'ELETRONICO', 'REJEITO'];
+const FONTES_IA: AiSource[] = ['CLAUDE', 'LOCAL', 'MANUAL'];
+export const STATUS_DESCARTE: DisposalStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
+const AUTOAPROVAR_RISCO_MAX = 20;
+const AUTOAPROVAR_KG_MAX = 5;
 
-export function registerDisposalRoutes() {
-  route('POST', '/disposals', ({ me, body, headers }) => {
-    const d = db();
-    const key = headers.get('Idempotency-Key');
-    if (key !== null && !/^[A-Za-z0-9_-]{8,64}$/.test(key)) {
-      throw fail.field('Idempotency-Key', 'use de 8 a 64 caracteres (letras, números, - ou _)');
+export function registrarRotasDescarte() {
+  rota('POST', '/disposals', ({ me, body, headers }) => {
+    const d = banco();
+    const chave = headers.get('Idempotency-Key');
+    if (chave !== null && !/^[A-Za-z0-9_-]{8,64}$/.test(chave)) {
+      throw falha.campo('Idempotency-Key', 'use de 8 a 64 caracteres (letras, números, - ou _)');
     }
-    if (key) {
-      const existingId = d.idempotency[`${me.id}:${key}`];
-      const existing = existingId && d.disposals.find((x) => x.id === existingId);
-      if (existing) return created<Disposal>(toDisposal(d, existing)); // clique duplo: devolve o mesmo descarte
+    if (chave) {
+      const idExistente = d.idempotency[`${me.id}:${chave}`];
+      const existente = idExistente && d.disposals.find((x) => x.id === idExistente);
+      if (existente) return criado<Disposal>(paraDescarte(d, existente)); // clique duplo: devolve o mesmo descarte
     }
 
-    const b = bodyObject(body);
-    const v = new Validator();
-    const categoryId = str(b.categoryId);
-    const category = categoryId ? d.categories.find((c) => c.id === categoryId && c.active) : undefined;
-    if (!categoryId) v.add('categoryId', 'informe a categoria');
-    else if (!category) v.add('categoryId', 'categoria não encontrada');
+    const b = objetoDoCorpo(body);
+    const v = new Validador();
+    const idCategoria = lerTexto(b.categoryId);
+    const categoria = idCategoria ? d.categories.find((c) => c.id === idCategoria && c.active) : undefined;
+    if (!idCategoria) v.add('categoryId', 'informe a categoria');
+    else if (!categoria) v.add('categoryId', 'categoria não encontrada');
 
-    const kgRaw = num(b.quantityKg);
-    if (kgRaw === null) v.add('quantityKg', 'deve ser um número');
-    else if (kgRaw < 0.01) v.add('quantityKg', 'a quantidade mínima é 0,01 kg');
-    else if (category && kgRaw > category.maxKgPerDisposal) {
-      v.add('quantityKg', `máximo de ${category.maxKgPerDisposal} kg por descarte de ${category.name}`);
+    const kgBruto = lerNumero(b.quantityKg);
+    if (kgBruto === null) v.add('quantityKg', 'deve ser um número');
+    else if (kgBruto < 0.01) v.add('quantityKg', 'a quantidade mínima é 0,01 kg');
+    else if (categoria && kgBruto > categoria.maxKgPerDisposal) {
+      v.add('quantityKg', `máximo de ${categoria.maxKgPerDisposal} kg por descarte de ${categoria.name}`);
     }
 
     const lat = b.latitude ?? null;
@@ -51,95 +51,95 @@ export function registerDisposalRoutes() {
       v.check(typeof lon === 'number' && lon >= -180 && lon <= 180, 'longitude', 'longitude inválida');
     }
 
-    const now = Date.now();
-    let disposedAt = new Date(now).toISOString();
+    const agora = Date.now();
+    let descartadoEm = new Date(agora).toISOString();
     if (b.disposedAt !== undefined && b.disposedAt !== null) {
       const t = typeof b.disposedAt === 'string' ? Date.parse(b.disposedAt) : NaN;
       if (Number.isNaN(t)) v.add('disposedAt', 'data inválida');
-      else if (t > now + 5 * 60_000) v.add('disposedAt', 'a data do descarte não pode ser no futuro');
-      else if (t < now - 7 * DAY) v.add('disposedAt', 'só é possível registrar descartes dos últimos 7 dias');
-      else disposedAt = new Date(t).toISOString();
+      else if (t > agora + 5 * 60_000) v.add('disposedAt', 'a data do descarte não pode ser no futuro');
+      else if (t < agora - 7 * DIA) v.add('disposedAt', 'só é possível registrar descartes dos últimos 7 dias');
+      else descartadoEm = new Date(t).toISOString();
     }
 
-    const photoId = b.photoId ?? null;
-    const photo = typeof photoId === 'string' ? d.photos.find((p) => p.id === photoId && p.ownerId === me.id) ?? null : null;
-    if (photoId !== null) {
-      if (!photo) throw fail.notFound('Foto não encontrada.'); // de outro usuário ou inexistente (como no back-end)
-      else if (d.disposals.some((x) => x.photoId === photo.id)) v.add('photoId', 'esta foto já foi usada em outro descarte');
+    const idFoto = b.photoId ?? null;
+    const foto = typeof idFoto === 'string' ? d.photos.find((p) => p.id === idFoto && p.ownerId === me.id) ?? null : null;
+    if (idFoto !== null) {
+      if (!foto) throw falha.notFound('Foto não encontrada.'); // de outro usuário ou inexistente (como no back-end)
+      else if (d.disposals.some((x) => x.photoId === foto.id)) v.add('photoId', 'esta foto já foi usada em outro descarte');
     }
 
-    const cpId = b.collectionPointId ?? null;
-    if (cpId !== null) {
-      const cp = typeof cpId === 'string' && UUID_RE.test(cpId) ? d.collectionPoints.find((p) => p.id === cpId && p.active) : undefined;
+    const idEcoponto = b.collectionPointId ?? null;
+    if (idEcoponto !== null) {
+      const cp = typeof idEcoponto === 'string' && UUID_RE.test(idEcoponto) ? d.collectionPoints.find((p) => p.id === idEcoponto && p.active) : undefined;
       if (!cp) v.add('collectionPointId', 'ecoponto não encontrado');
-      else if (category && !cp.categories.includes(category.code)) v.add('collectionPointId', `este ecoponto não recebe ${category.name.toLowerCase()}`);
+      else if (categoria && !cp.categories.includes(categoria.code)) v.add('collectionPointId', `este ecoponto não recebe ${categoria.name.toLowerCase()}`);
     }
 
-    const notes = b.notes === undefined || b.notes === null ? null : str(b.notes);
-    if (notes !== null && notes.length > 500) v.add('notes', 'máximo de 500 caracteres');
-    const aiCode = b.aiSuggestedCode ?? null;
-    if (aiCode !== null && !CATEGORY_CODES.includes(aiCode as CategoryCode)) v.add('aiSuggestedCode', 'categoria inválida');
-    const aiConf = b.aiConfidence ?? null;
-    if (aiConf !== null && (typeof aiConf !== 'number' || aiConf < 0 || aiConf > 1)) v.add('aiConfidence', 'deve estar entre 0 e 1');
-    const aiSource = b.aiSource ?? null;
-    if (aiSource !== null && !AI_SOURCES.includes(aiSource as AiSource)) v.add('aiSource', 'origem inválida');
+    const observacoes = b.notes === undefined || b.notes === null ? null : lerTexto(b.notes);
+    if (observacoes !== null && observacoes.length > 500) v.add('notes', 'máximo de 500 caracteres');
+    const codigoIa = b.aiSuggestedCode ?? null;
+    if (codigoIa !== null && !CODIGOS_CATEGORIA.includes(codigoIa as CategoryCode)) v.add('aiSuggestedCode', 'categoria inválida');
+    const confiancaIa = b.aiConfidence ?? null;
+    if (confiancaIa !== null && (typeof confiancaIa !== 'number' || confiancaIa < 0 || confiancaIa > 1)) v.add('aiConfidence', 'deve estar entre 0 e 1');
+    const fonteIa = b.aiSource ?? null;
+    if (fonteIa !== null && !FONTES_IA.includes(fonteIa as AiSource)) v.add('aiSource', 'origem inválida');
     v.throwIfAny();
 
-    const at = nowIso();
-    const rec: DisposalRec = {
+    const quando = agoraIso();
+    const registro: RegistroDescarte = {
       id: crypto.randomUUID(),
       userId: me.id,
-      categoryId: category!.id,
-      quantityKg: round(kgRaw!, 3),
+      categoryId: categoria!.id,
+      quantityKg: arredondar(kgBruto!, 3),
       status: 'PENDING',
       pointsAwarded: 0,
-      photoId: photo?.id ?? null,
+      photoId: foto?.id ?? null,
       latitude: lat as number | null,
       longitude: lon as number | null,
-      collectionPointId: cpId as string | null,
-      disposedAt,
-      createdAt: at,
+      collectionPointId: idEcoponto as string | null,
+      disposedAt: descartadoEm,
+      createdAt: quando,
       reviewedAt: null,
       rejectionReason: null,
-      notes: notes || null,
-      aiSuggestedCode: aiCode as CategoryCode | null,
-      aiConfidence: aiConf as number | null,
-      aiSource: aiSource as AiSource | null,
+      notes: observacoes || null,
+      aiSuggestedCode: codigoIa as CategoryCode | null,
+      aiConfidence: confiancaIa as number | null,
+      aiSource: fonteIa as AiSource | null,
       fraudScore: 0,
       fraudFlags: [],
-      idempotencyKey: key,
+      idempotencyKey: chave,
     };
-    const fraud = assess(d, rec, category!, photo);
-    rec.fraudScore = fraud.score;
-    rec.fraudFlags = fraud.flags;
-    d.disposals.push(rec);
-    if (key) d.idempotency[`${me.id}:${key}`] = rec.id;
-    audit(d, me, 'DISPOSAL_CREATED', 'Disposal', rec.id, `${rec.quantityKg} kg de ${category!.name}${fraud.score >= FLAG_THRESHOLD ? ` (risco ${fraud.score})` : ''}`);
+    const fraude = avaliar(d, registro, categoria!, foto);
+    registro.fraudScore = fraude.score;
+    registro.fraudFlags = fraude.flags;
+    d.disposals.push(registro);
+    if (chave) d.idempotency[`${me.id}:${chave}`] = registro.id;
+    registrarAuditoria(d, me, 'DISPOSAL_CREATED', 'Disposal', registro.id, `${registro.quantityKg} kg de ${categoria!.name}${fraude.score >= LIMIAR_SINALIZACAO ? ` (risco ${fraude.score})` : ''}`);
 
     // aprovação automática de baixo risco (como APP_AUTO_APPROVE=true no back-end)
-    if (fraud.score < AUTO_APPROVE_MAX_SCORE && rec.quantityKg <= AUTO_APPROVE_MAX_KG && photo) {
-      const awarded = approveDisposal(d, rec, at);
-      audit(d, 'sistema', 'DISPOSAL_AUTO_APPROVED', 'Disposal', rec.id, `+${awarded} pontos (baixo risco)`);
+    if (fraude.score < AUTOAPROVAR_RISCO_MAX && registro.quantityKg <= AUTOAPROVAR_KG_MAX && foto) {
+      const concedidos = aprovarDescarte(d, registro, quando);
+      registrarAuditoria(d, 'sistema', 'DISPOSAL_AUTO_APPROVED', 'Disposal', registro.id, `+${concedidos} pontos (baixo risco)`);
     }
-    return created<Disposal>(toDisposal(d, rec));
+    return criado<Disposal>(paraDescarte(d, registro));
   });
 
-  route('GET', '/disposals', ({ me, query }) => {
-    const d = db();
-    const status = enumParam(query, 'status', DISPOSAL_STATUSES);
-    const page = intParam(query, 'page', 0, 0, 10_000);
-    const size = intParam(query, 'size', 20, 1, 100);
-    const list = d.disposals
+  rota('GET', '/disposals', ({ me, query }) => {
+    const d = banco();
+    const status = parametroEnum(query, 'status', STATUS_DESCARTE);
+    const pagina = parametroInteiro(query, 'page', 0, 0, 10_000);
+    const tamanho = parametroInteiro(query, 'size', 20, 1, 100);
+    const lista = d.disposals
       .filter((x) => x.userId === me.id && (!status || x.status === status))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const p = paginate(list, page, size);
-    return ok<Page<Disposal>>({ ...p, content: p.content.map((x) => toDisposal(d, x)) });
+    const p = paginar(lista, pagina, tamanho);
+    return ok<Page<Disposal>>({ ...p, content: p.content.map((x) => paraDescarte(d, x)) });
   });
 
-  route('GET', '/disposals/:id', ({ me, params }) => {
-    const d = db();
+  rota('GET', '/disposals/:id', ({ me, params }) => {
+    const d = banco();
     const x = d.disposals.find((k) => k.id === params.id);
-    if (!x || (x.userId !== me.id && me.role !== 'ADMIN')) throw fail.notFound('Descarte não encontrado.');
-    return ok<Disposal>(toDisposal(d, x, me.role === 'ADMIN'));
+    if (!x || (x.userId !== me.id && me.role !== 'ADMIN')) throw falha.notFound('Descarte não encontrado.');
+    return ok<Disposal>(paraDescarte(d, x, me.role === 'ADMIN'));
   });
 }

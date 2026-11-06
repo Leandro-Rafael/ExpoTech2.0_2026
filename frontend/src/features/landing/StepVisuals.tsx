@@ -15,7 +15,7 @@
  */
 import { useId, useLayoutEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import { Check, MapPin } from 'lucide-react';
-import { prefersReducedMotion } from '@/hooks/useReducedMotion';
+import { prefereMenosMovimento } from '@/hooks/useReducedMotion';
 import { cn } from '@/lib/cn';
 import { gsap } from './gsap';
 
@@ -23,36 +23,36 @@ import { gsap } from './gsap';
 
 const W = 520;
 const H = 320;
-const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const limitar = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+const suavizarSaida = (t: number) => 1 - Math.pow(1 - t, 3);
 
 /** Pose da garrafa: centro x, topo y, escala (desenho local: 52×134, centro x=26). */
 interface Pose { cx: number; top: number; s: number }
-const P_PHOTO: Pose = { cx: 260, top: 46, s: 1.4 };
-const P_CHECK: Pose = { cx: 122, top: 58, s: 1.28 };
-const P_POINTS: Pose = { cx: 260, top: 52, s: 1.3 };
+const P_FOTO: Pose = { cx: 260, top: 46, s: 1.4 };
+const P_CHECAGEM: Pose = { cx: 122, top: 58, s: 1.28 };
+const P_PONTOS: Pose = { cx: 260, top: 52, s: 1.3 };
 /** Garrafa "pairando" antes de ir para o caminhão (centro x, centro y, escala). */
-const HOVER = { x: 92, y: 70, s: 0.5 };
-const poseLerp = (a: Pose, b: Pose, t: number): Pose => ({ cx: lerp(a.cx, b.cx, t), top: lerp(a.top, b.top, t), s: lerp(a.s, b.s, t) });
+const PAIRANDO = { x: 92, y: 70, s: 0.5 };
+const interpolarPose = (a: Pose, b: Pose, t: number): Pose => ({ cx: lerp(a.cx, b.cx, t), top: lerp(a.top, b.top, t), s: lerp(a.s, b.s, t) });
 
-const STOPS: [number, number][] = [[62, 262], [150, 172], [236, 228], [326, 118], [408, 192], [466, 86]];
-const NAIVE = [0, 2, 1, 4, 3, 5];
-const DEPOT = STOPS[0];
+const PARADAS: [number, number][] = [[62, 262], [150, 172], [236, 228], [326, 118], [408, 192], [466, 86]];
+const INGENUA = [0, 2, 1, 4, 3, 5];
+const DEPOSITO = PARADAS[0];
 
 /**
  * Passo 05 — caminhão. Um só estilo plano (ortográfico) em duas vistas do MESMO desenho:
  *   traseira (close, portas de duas folhas) → câmera "inclina" → vista de cima (ícone na rota).
  * REAR: centro da traseira no palco. Abertura local: x −90..90, y −102..42.
  */
-const REAR = { x: 290, y: 168 };
-const OPEN = { x0: REAR.x - 90, x1: REAR.x + 90, y0: REAR.y - 102, y1: REAR.y + 42 };
-const TOP_S = 0.16; // ícone: 300×116 local → ~48×19 px no palco
+const TRASEIRA = { x: 290, y: 168 };
+const ABERTURA = { x0: TRASEIRA.x - 90, x1: TRASEIRA.x + 90, y0: TRASEIRA.y - 102, y1: TRASEIRA.y + 42 };
+const TOPO_S = 0.16; // ícone: 300×116 local → ~48×19 px no palco
 /** Inclinação: altura da traseira (topo −122 até as rodas 100), proporção de largura
  *  traseira/teto (224/112) e comprimento do teto em unidades da traseira. */
-const REAR_SPAN = 222;
-const TOP_K = 2;
-const TOP_LEN = 300 * TOP_K;
+const ALTURA_TRASEIRA = 222;
+const TOPO_K = 2;
+const TOPO_COMP = 300 * TOPO_K;
 /**
  * Perspectiva durante a inclinação: distância da câmera (unidades da traseira). O mais
  * próximo fica mais largo, o mais distante mais estreito (fator F / (F + profundidade)).
@@ -63,50 +63,50 @@ const TOP_LEN = 300 * TOP_K;
 const PERSP_F = 1100;
 /** Unidade do palco (viewBox) em CSS: o palco é um container, 100cqw = W unidades. */
 const u = (v: number) => `calc(${v.toFixed(2)} * 100cqw / ${W})`;
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-const easeSine = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * t);
-const routeD = STOPS.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ');
-const naiveD = NAIVE.map((k, i) => `${i ? 'L' : 'M'}${STOPS[k][0]} ${STOPS[k][1]}`).join(' ');
-const SEG = STOPS.slice(1).map(([x, y], i) => Math.hypot(x - STOPS[i][0], y - STOPS[i][1]));
-const ROUTE_LEN = SEG.reduce((a, b) => a + b, 0);
-const STOP_AT = SEG.reduce<number[]>((acc, l) => [...acc, acc[acc.length - 1] + l], [0]);
+const suavizarEntradaSaida = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const suavizarSeno = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * t);
+const caminhoRota = PARADAS.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ');
+const caminhoIngenuo = INGENUA.map((k, i) => `${i ? 'L' : 'M'}${PARADAS[k][0]} ${PARADAS[k][1]}`).join(' ');
+const TRECHOS = PARADAS.slice(1).map(([x, y], i) => Math.hypot(x - PARADAS[i][0], y - PARADAS[i][1]));
+const COMP_ROTA = TRECHOS.reduce((a, b) => a + b, 0);
+const POSICAO_PARADA = TRECHOS.reduce<number[]>((acc, l) => [...acc, acc[acc.length - 1] + l], [0]);
 
 /** Ponto e ângulo ao longo da rota (polilinha), com curva suave do ângulo nas esquinas. */
-function along(d: number): { x: number; y: number; deg: number } {
-  let rest = clamp(d, 0, ROUTE_LEN);
-  for (let i = 0; i < SEG.length; i++) {
-    if (rest <= SEG[i] || i === SEG.length - 1) {
-      const [x0, y0] = STOPS[i];
-      const [x1, y1] = STOPS[i + 1];
-      const f = SEG[i] ? rest / SEG[i] : 0;
-      let deg = (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI;
-      const left = SEG[i] - rest;
-      if (left < 14 && i < SEG.length - 1) {
-        const [x2, y2] = STOPS[i + 2];
-        let next = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
-        if (next - deg > 180) next -= 360;
-        if (deg - next > 180) next += 360;
-        deg = lerp(deg, next, (1 - left / 14) * 0.5);
+function aoLongo(d: number): { x: number; y: number; deg: number } {
+  let resto = limitar(d, 0, COMP_ROTA);
+  for (let i = 0; i < TRECHOS.length; i++) {
+    if (resto <= TRECHOS[i] || i === TRECHOS.length - 1) {
+      const [x0, y0] = PARADAS[i];
+      const [x1, y1] = PARADAS[i + 1];
+      const f = TRECHOS[i] ? resto / TRECHOS[i] : 0;
+      let graus = (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI;
+      const faltando = TRECHOS[i] - resto;
+      if (faltando < 14 && i < TRECHOS.length - 1) {
+        const [x2, y2] = PARADAS[i + 2];
+        let proximo = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+        if (proximo - graus > 180) proximo -= 360;
+        if (graus - proximo > 180) proximo += 360;
+        graus = lerp(graus, proximo, (1 - faltando / 14) * 0.5);
       }
-      return { x: lerp(x0, x1, f), y: lerp(y0, y1, f), deg };
+      return { x: lerp(x0, x1, f), y: lerp(y0, y1, f), deg: graus };
     }
-    rest -= SEG[i];
+    resto -= TRECHOS[i];
   }
-  const [x, y] = STOPS[STOPS.length - 1];
+  const [x, y] = PARADAS[PARADAS.length - 1];
   return { x, y, deg: 0 };
 }
 
-const STEP_META = [
+const META_PASSOS = [
   { title: 'Novo descarte', meta: '23/10 · 14:02' },
   { title: 'Identificação por IA', meta: '0,8 s' },
   { title: 'Validação antifraude', meta: 'risco 0,04' },
   { title: 'Pontos creditados', meta: 'nível Broto' },
   { title: 'Rota otimizada', meta: '−31% km' },
 ];
-const CHECKS = ['Foto inédita (hash perceptual)', 'Quantidade dentro do limite', 'Localização consistente', 'Frequência normal de envios'];
+const CHECAGENS = ['Foto inédita (hash perceptual)', 'Quantidade dentro do limite', 'Localização consistente', 'Frequência normal de envios'];
 /** Versões curtas para o palco estreito do celular. */
-const CHECKS_SHORT = ['Foto inédita', 'Quantidade ok', 'Local consistente', 'Frequência normal'];
-const PARTICLES = [
+const CHECAGENS_CURTAS = ['Foto inédita', 'Quantidade ok', 'Local consistente', 'Frequência normal'];
+const PARTICULAS = [
   { t: '+3', x: -78, y: 30, d: 0 }, { t: '+5', x: 70, y: 6, d: 0.35 }, { t: '+8', x: -60, y: -18, d: 0.8 },
   { t: '+12', x: 82, y: 58, d: 1.15 }, { t: '+', x: -92, y: 78, d: 1.5 }, { t: '+6', x: 54, y: -40, d: 1.85 },
   { t: '+', x: 96, y: 18, d: 0.55 }, { t: '+9', x: -44, y: 96, d: 2.1 },
@@ -114,7 +114,7 @@ const PARTICLES = [
 
 // ------------------------------------------------------------------ desenhos
 
-function BottleArt() {
+function DesenhoGarrafa() {
   return (
     <>
       <defs>
@@ -145,18 +145,18 @@ function BottleArt() {
  * para fora (scaleX a partir da dobradiça = rotação em vista ortográfica) e interior escuro
  * em perspectiva de um ponto.
  */
-function TruckRear({ r }: { r: (k: string) => (el: SVGElement | null) => void }) {
-  const door = (side: -1 | 1) => {
-    const x = side < 0 ? -90 : 0;
+function TraseiraCaminhao({ r }: { r: (k: string) => (el: SVGElement | null) => void }) {
+  const porta = (lado: -1 | 1) => {
+    const x = lado < 0 ? -90 : 0;
     return (
-      <g ref={r(side < 0 ? 'doorL' : 'doorR')}>
+      <g ref={r(lado < 0 ? 'doorL' : 'doorR')}>
         <rect x={x} y="-102" width="90" height="144" fill="url(#tr-door)" />
         <rect x={x} y="-102" width="90" height="144" fill="none" stroke="#0a0e0c" strokeOpacity=".22" strokeWidth="1.5" />
         <path d={`M${x + 8} -78h74M${x + 8} 18h74`} stroke="#0a0e0c" strokeOpacity=".1" strokeWidth="2" />
         <rect x={x} y="-34" width="90" height="9" fill="#34d399" />
-        <rect x={side < 0 ? -14 : 10} y="-18" width="4" height="26" rx="2" fill="#7d8680" />
+        <rect x={lado < 0 ? -14 : 10} y="-18" width="4" height="26" rx="2" fill="#7d8680" />
         {/* sombreamento conforme gira */}
-        <rect ref={r(side < 0 ? 'shadeL' : 'shadeR')} x={x} y="-102" width="90" height="144" fill="#000" style={{ opacity: 0 }} />
+        <rect ref={r(lado < 0 ? 'shadeL' : 'shadeR')} x={x} y="-102" width="90" height="144" fill="#000" style={{ opacity: 0 }} />
       </g>
     );
   };
@@ -184,14 +184,14 @@ function TruckRear({ r }: { r: (k: string) => (el: SVGElement | null) => void })
       <rect x="96" y="40" width="12" height="16" rx="2" fill="#f5b544" opacity=".85" />
       <rect x="-20" y="46" width="40" height="12" rx="2" fill="#ecefea" opacity=".85" />
       <rect x="-118" y="60" width="236" height="12" rx="3" fill="#2b332e" />
-      {door(-1)}
-      {door(1)}
+      {porta(-1)}
+      {porta(1)}
     </>
   );
 }
 
 /** O mesmo caminhão visto de cima (frente para +x): baú, faixa, cabine, para-brisa, giroflex. */
-function TruckTop({ r }: { r: (k: string) => (el: SVGElement | null) => void }) {
+function CaminhaoDeCima({ r }: { r: (k: string) => (el: SVGElement | null) => void }) {
   return (
     <>
       <defs>
@@ -215,49 +215,49 @@ function TruckTop({ r }: { r: (k: string) => (el: SVGElement | null) => void }) 
 
 // ------------------------------------------------------------------ componente
 
-export interface StoryCardProps {
+export interface PropsCartaoHistoria {
   /** scroll: controlado por `progressRef.current(p)` (p de 0 a 5). static: estado final de `step`. */
-  mode: 'scroll' | 'static';
-  step?: number;
-  progressRef?: MutableRefObject<((p: number) => void) | null>;
+  modo: 'scroll' | 'static';
+  passo?: number;
+  refProgresso?: MutableRefObject<((p: number) => void) | null>;
   /** Sequência do caminhão (por tempo) começou (true) ou terminou/foi cancelada (false). */
-  onIntro?: (playing: boolean) => void;
+  onIntro?: (tocando: boolean) => void;
   className?: string;
 }
 
-export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: StoryCardProps) {
+export function CartaoHistoria({ modo, passo = 0, refProgresso, onIntro, className }: PropsCartaoHistoria) {
   const els = useRef<Record<string, HTMLElement | SVGElement | null>>({});
   // lido dentro do efeito sem recriá-lo (o efeito monta os tweens uma vez)
   const onIntroRef = useRef(onIntro);
   onIntroRef.current = onIntro;
   const ref = (k: string) => (el: HTMLElement | SVGElement | null) => { els.current[k] = el; };
-  const animated = mode === 'scroll' || !prefersReducedMotion();
+  const animado = modo === 'scroll' || !prefereMenosMovimento();
   // ids únicos por cartão (a página tem vários): desenhos do caminhão e recortes das faixas
   const uid = `sc${useId().replace(/[^\w-]/g, '')}`;
-  const rearArt = `${uid}-rear`;
-  const topArt = `${uid}-top`;
+  const desenhoTraseira = `${uid}-rear`;
+  const desenhoTopo = `${uid}-top`;
 
   useLayoutEffect(() => {
     const e = els.current;
     const op = (k: string, v: number) => { const el = e[k]; if (el) el.style.opacity = String(Math.round(v * 1000) / 1000); };
     /** Como `op`, mas também tira a camada da pintura (visibility) quando some — usado no caminhão. */
-    const show = (k: string, v: number) => {
+    const mostrar = (k: string, v: number) => {
       op(k, v);
       const el = e[k];
       if (el) el.style.visibility = v > 0.001 ? 'visible' : 'hidden';
     };
-    const last: Record<string, string> = {};
-    const attr = (k: string, name: string, v: string) => {
-      const key = k + name;
-      if (last[key] === v) return;
-      last[key] = v;
-      e[k]?.setAttribute(name, v);
+    const ultimo: Record<string, string> = {};
+    const atributo = (k: string, nome: string, v: string) => {
+      const chave = k + nome;
+      if (ultimo[chave] === v) return;
+      ultimo[chave] = v;
+      e[k]?.setAttribute(nome, v);
     };
     /** Como `attr`, para propriedades de estilo (camada 3D da inclinação). */
     const css = (k: string, prop: 'transform' | 'perspective' | 'perspectiveOrigin', v: string) => {
-      const key = k + prop;
-      if (last[key] === v) return;
-      last[key] = v;
+      const chave = k + prop;
+      if (ultimo[chave] === v) return;
+      ultimo[chave] = v;
       const el = e[k];
       if (el) el.style[prop] = v;
     };
@@ -268,211 +268,211 @@ export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: S
      * completa, mesmo com scroll rápido ou quadros perdidos. O scroll só dispara/zera a
      * intro e depois controla o trajeto na rota.
      */
-    const INTRO_END = 0.79; // fração do passo 05 coberta pela intro (fases já calibradas)
-    const INTRO_SECONDS = 7.6;
+    const FIM_INTRO = 0.79; // fração do passo 05 coberta pela intro (fases já calibradas)
+    const SEGUNDOS_INTRO = 7.6;
     /**
      * Relógio da intro (s) → fase t. A garrafa (arco .30–.44 e queda .44–.52), a inclinação
      * da câmera (.65–.73) e o deslocamento até o depósito (.73–.79) ganham mais tempo para
      * ficarem fluidos. As emendas caem onde o movimento já está parado, sem trancos.
      */
-    const INTRO_KEYS: [number, number][] = [[0, 0], [1.2, 0.3], [2.6, 0.44], [3.4, 0.52], [4.4, 0.65], [6.3, 0.73], [INTRO_SECONDS, INTRO_END]];
+    const QUADROS_INTRO: [number, number][] = [[0, 0], [1.2, 0.3], [2.6, 0.44], [3.4, 0.52], [4.4, 0.65], [6.3, 0.73], [SEGUNDOS_INTRO, FIM_INTRO]];
     /** Depois da intro, o caminhão "alcança" a posição do scroll na rota em vez de saltar. */
-    const FOLLOW_SECONDS = 1.1;
-    const follow = { v: 0 };
-    let followTween: gsap.core.Tween | null = null;
-    const introPhase = (v: number) => {
-      const s = v * INTRO_SECONDS;
-      for (let k = 1; k < INTRO_KEYS.length; k++) {
-        const [s1, t1] = INTRO_KEYS[k];
+    const SEGUNDOS_SEGUIR = 1.1;
+    const seguir = { v: 0 };
+    let tweenSeguir: gsap.core.Tween | null = null;
+    const faseIntro = (v: number) => {
+      const s = v * SEGUNDOS_INTRO;
+      for (let k = 1; k < QUADROS_INTRO.length; k++) {
+        const [s1, t1] = QUADROS_INTRO[k];
         if (s <= s1) {
-          const [s0, t0] = INTRO_KEYS[k - 1];
+          const [s0, t0] = QUADROS_INTRO[k - 1];
           return lerp(t0, t1, (s - s0) / (s1 - s0));
         }
       }
-      return INTRO_END;
+      return FIM_INTRO;
     };
     const intro = { v: 0 };
-    let introTween: gsap.core.Tween | null = null;
-    let lastP = 0;
+    let tweenIntro: gsap.core.Tween | null = null;
+    let ultimoP = 0;
 
-    const apply = (pRaw: number) => {
-      const isStatic = mode === 'static';
-      const p = isStatic ? step + 0.999 : clamp(pRaw, 0, 4.999);
-      if (!isStatic) {
-        lastP = p;
-        if (p >= 4 && !introTween && intro.v < 1) {
+    const aplicar = (pBruto: number) => {
+      const ehEstatico = modo === 'static';
+      const p = ehEstatico ? passo + 0.999 : limitar(pBruto, 0, 4.999);
+      if (!ehEstatico) {
+        ultimoP = p;
+        if (p >= 4 && !tweenIntro && intro.v < 1) {
           onIntroRef.current?.(true);
-          introTween = gsap.to(intro, {
-            v: 1, duration: INTRO_SECONDS, ease: 'none', overwrite: true,
-            onUpdate: () => draw(lastP),
+          tweenIntro = gsap.to(intro, {
+            v: 1, duration: SEGUNDOS_INTRO, ease: 'none', overwrite: true,
+            onUpdate: () => desenhar(ultimoP),
             onComplete: () => {
-              introTween = null;
+              tweenIntro = null;
               onIntroRef.current?.(false);
-              followTween = gsap.to(follow, {
-                v: 1, duration: FOLLOW_SECONDS, ease: 'power2.inOut', overwrite: true,
-                onUpdate: () => draw(lastP),
-                onComplete: () => { followTween = null; },
+              tweenSeguir = gsap.to(seguir, {
+                v: 1, duration: SEGUNDOS_SEGUIR, ease: 'power2.inOut', overwrite: true,
+                onUpdate: () => desenhar(ultimoP),
+                onComplete: () => { tweenSeguir = null; },
               });
             },
           });
-        } else if (p < 4 && (introTween || intro.v > 0)) {
-          if (introTween) onIntroRef.current?.(false);
-          introTween?.kill();
-          followTween?.kill();
-          introTween = followTween = null;
-          intro.v = follow.v = 0;
+        } else if (p < 4 && (tweenIntro || intro.v > 0)) {
+          if (tweenIntro) onIntroRef.current?.(false);
+          tweenIntro?.kill();
+          tweenSeguir?.kill();
+          tweenIntro = tweenSeguir = null;
+          intro.v = seguir.v = 0;
         }
       }
-      draw(p);
+      desenhar(p);
     };
 
-    const draw = (p: number) => {
-      const isStatic = mode === 'static';
+    const desenhar = (p: number) => {
+      const ehEstatico = modo === 'static';
       const i = Math.min(4, Math.floor(p));
       const t0 = p - i;
       // No passo 05 as fases da intro usam o relógio da intro (ou o estado final, no modo estático).
-      const t = i === 4 && !isStatic ? introPhase(intro.v) : t0;
+      const t = i === 4 && !ehEstatico ? faseIntro(intro.v) : t0;
       const vis = (k: number) => {
-        if (isStatic) return k === step ? 1 : 0;
-        const lo = k === 0 ? 1 : clamp((p - k) / 0.06);
-        const hi = k === 4 ? 1 : clamp((k + 1 - p) / 0.06);
+        if (ehEstatico) return k === passo ? 1 : 0;
+        const lo = k === 0 ? 1 : limitar((p - k) / 0.06);
+        const hi = k === 4 ? 1 : limitar((k + 1 - p) / 0.06);
         return lo * hi;
       };
 
       // garrafa (persistente)
-      let pose = P_PHOTO;
-      let bottleO = 1;
-      if (i === 2) pose = poseLerp(P_PHOTO, P_CHECK, easeOut(clamp(t / 0.2)));
-      else if (i === 3) pose = poseLerp(P_CHECK, P_POINTS, easeOut(clamp(t / 0.2)));
+      let pose = P_FOTO;
+      let opacidadeGarrafa = 1;
+      if (i === 2) pose = interpolarPose(P_FOTO, P_CHECAGEM, suavizarSaida(limitar(t / 0.2)));
+      else if (i === 3) pose = interpolarPose(P_CHECAGEM, P_PONTOS, suavizarSaida(limitar(t / 0.2)));
       else if (i === 4) {
         // A (0–.1): vai "pairar" à esquerda · caminhão surge (.1–.2) · portas abrem (.2–.3) ·
         // B (.3–.44): arco até o centro da abertura · C (.44–.52): cai para dentro (clip na abertura)
-        const hoverPose: Pose = { cx: HOVER.x, top: HOVER.y - 67 * HOVER.s, s: HOVER.s };
-        if (t < 0.3) pose = poseLerp(P_POINTS, hoverPose, easeInOut(clamp(t / 0.1)));
+        const posePairando: Pose = { cx: PAIRANDO.x, top: PAIRANDO.y - 67 * PAIRANDO.s, s: PAIRANDO.s };
+        if (t < 0.3) pose = interpolarPose(P_PONTOS, posePairando, suavizarEntradaSaida(limitar(t / 0.1)));
         else if (t < 0.44) {
-          const a = easeInOut(clamp((t - 0.3) / 0.14));
-          const c = { x: REAR.x - 110, y: REAR.y - 150 };
-          const e = { x: REAR.x, y: REAR.y - 58 };
-          const bx = (1 - a) * (1 - a) * HOVER.x + 2 * (1 - a) * a * c.x + a * a * e.x;
-          const by = (1 - a) * (1 - a) * HOVER.y + 2 * (1 - a) * a * c.y + a * a * e.y;
-          const bs = lerp(HOVER.s, 0.48, a);
+          const a = suavizarEntradaSaida(limitar((t - 0.3) / 0.14));
+          const c = { x: TRASEIRA.x - 110, y: TRASEIRA.y - 150 };
+          const e = { x: TRASEIRA.x, y: TRASEIRA.y - 58 };
+          const bx = (1 - a) * (1 - a) * PAIRANDO.x + 2 * (1 - a) * a * c.x + a * a * e.x;
+          const by = (1 - a) * (1 - a) * PAIRANDO.y + 2 * (1 - a) * a * c.y + a * a * e.y;
+          const bs = lerp(PAIRANDO.s, 0.48, a);
           pose = { cx: bx, top: by - 67 * bs, s: bs };
         } else {
-          const d = clamp((t - 0.44) / 0.08);
+          const d = limitar((t - 0.44) / 0.08);
           const bs = lerp(0.48, 0.38, d);
-          const by = lerp(REAR.y - 58, REAR.y + 92, d * d);
-          pose = { cx: REAR.x, top: by - 67 * bs, s: bs };
+          const by = lerp(TRASEIRA.y - 58, TRASEIRA.y + 92, d * d);
+          pose = { cx: TRASEIRA.x, top: by - 67 * bs, s: bs };
         }
-        bottleO = t > 0.53 ? 0 : 1;
+        opacidadeGarrafa = t > 0.53 ? 0 : 1;
       }
-      attr('bottleClip', 'clip-path', i === 4 && t >= 0.44 ? 'url(#sc-open)' : 'none');
-      attr('bottle', 'transform', `translate(${(pose.cx - 26 * pose.s).toFixed(2)} ${pose.top.toFixed(2)}) scale(${pose.s.toFixed(4)})`);
-      op('bottle', bottleO);
-      op('shadow', i === 4 ? 1 - clamp(t / 0.1) : 1);
+      atributo('bottleClip', 'clip-path', i === 4 && t >= 0.44 ? 'url(#sc-open)' : 'none');
+      atributo('bottle', 'transform', `translate(${(pose.cx - 26 * pose.s).toFixed(2)} ${pose.top.toFixed(2)}) scale(${pose.s.toFixed(4)})`);
+      op('bottle', opacidadeGarrafa);
+      op('shadow', i === 4 ? 1 - limitar(t / 0.1) : 1);
 
       // "câmera", em duas etapas com curva senoidal (começa e termina parada):
       //   inclina (.65–.73): sobe de trás até ficar sobre o caminhão, no lugar, sem o mapa;
       //   desloca (.73–.79): o mapa surge e o caminhão, já visto de cima, vai até o depósito.
-      const tilt = i === 4 ? easeSine(clamp((t - 0.65) / 0.08)) : 0;
-      const move = i === 4 ? easeSine(clamp((t - 0.73) / 0.06)) : 0;
-      const mapO = clamp(move / 0.6);
-      op('photo', (1 - 0.6 * clamp((tilt - 0.4) / 0.6)) * (1 - mapO));
-      op('map', mapO);
-      const zoom = Math.pow(1.8, 1 - move);
-      attr('map', 'transform', `translate(${DEPOT[0]} ${DEPOT[1]}) scale(${zoom.toFixed(4)}) translate(${-DEPOT[0]} ${-DEPOT[1]})`);
+      const inclinacao = i === 4 ? suavizarSeno(limitar((t - 0.65) / 0.08)) : 0;
+      const movimento = i === 4 ? suavizarSeno(limitar((t - 0.73) / 0.06)) : 0;
+      const opacidadeMapa = limitar(movimento / 0.6);
+      op('photo', (1 - 0.6 * limitar((inclinacao - 0.4) / 0.6)) * (1 - opacidadeMapa));
+      op('map', opacidadeMapa);
+      const zoom = Math.pow(1.8, 1 - movimento);
+      atributo('map', 'transform', `translate(${DEPOSITO[0]} ${DEPOSITO[1]}) scale(${zoom.toFixed(4)}) translate(${-DEPOSITO[0]} ${-DEPOSITO[1]})`);
 
       // IA: caixa + varredura + rótulo
-      op('bbox', i === 1 ? clamp((t - 0.05) / 0.12) : i === 2 ? 1 - clamp(t / 0.1) : 0);
-      op('chip', i === 1 ? clamp((t - 0.35) / 0.1) : 0);
-      let scanO = 0;
-      let scanY = 6;
-      if (i === 1) { scanO = clamp((t - 0.05) / 0.1); scanY = 6 + 128 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t * 1.5)); }
-      if (i === 2) { scanO = clamp((t - 0.1) / 0.05) * (1 - clamp((t - 0.58) / 0.05)); scanY = 6 + 128 * clamp((t - 0.12) / 0.45); }
-      op('scan', scanO);
-      attr('scan', 'transform', `translate(0 ${scanY.toFixed(1)})`);
+      op('bbox', i === 1 ? limitar((t - 0.05) / 0.12) : i === 2 ? 1 - limitar(t / 0.1) : 0);
+      op('chip', i === 1 ? limitar((t - 0.35) / 0.1) : 0);
+      let opacidadeVarredura = 0;
+      let yVarredura = 6;
+      if (i === 1) { opacidadeVarredura = limitar((t - 0.05) / 0.1); yVarredura = 6 + 128 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t * 1.5)); }
+      if (i === 2) { opacidadeVarredura = limitar((t - 0.1) / 0.05) * (1 - limitar((t - 0.58) / 0.05)); yVarredura = 6 + 128 * limitar((t - 0.12) / 0.45); }
+      op('scan', opacidadeVarredura);
+      atributo('scan', 'transform', `translate(0 ${yVarredura.toFixed(1)})`);
 
       // validação: painel ao lado + ✓ em sequência + aprovado
-      op('checks', i === 2 ? clamp((t - 0.08) / 0.12) : i === 3 ? 1 - clamp(t / 0.1) : 0);
-      CHECKS.forEach((_, k) => {
-        const on = i > 2 ? 1 : i === 2 ? clamp((t - (0.3 + 0.12 * k)) / 0.04) : 0;
-        op(`ck${k}`, on);
-        op(`pd${k}`, 1 - on);
+      op('checks', i === 2 ? limitar((t - 0.08) / 0.12) : i === 3 ? 1 - limitar(t / 0.1) : 0);
+      CHECAGENS.forEach((_, k) => {
+        const ligado = i > 2 ? 1 : i === 2 ? limitar((t - (0.3 + 0.12 * k)) / 0.04) : 0;
+        op(`ck${k}`, ligado);
+        op(`pd${k}`, 1 - ligado);
       });
-      op('approved', i > 2 ? 1 : i === 2 ? clamp((t - 0.8) / 0.06) : 0);
+      op('approved', i > 2 ? 1 : i === 2 ? limitar((t - 0.8) / 0.06) : 0);
 
       // pontos
-      op('particles', vis(3) * (i === 3 ? clamp((t - 0.12) / 0.1) : 1));
+      op('particles', vis(3) * (i === 3 ? limitar((t - 0.12) / 0.1) : 1));
 
       // coleta: traseira em close → portas abrem → garrafa entra → portas fecham → câmera inclina → rota
       // trajeto na rota: controlado pelo scroll, só depois da intro completa
-      const drive = i !== 4 ? 0 : isStatic ? clamp((t - 0.8) / 0.18) : intro.v >= 1 ? clamp((t0 - 0.25) / 0.7) * follow.v : 0;
-      const pt = along(drive * ROUTE_LEN);
-      const start = along(0);
-      const appear = i === 4 ? easeOut(clamp((t - 0.1) / 0.1)) : 0;
-      const settle = i === 4 ? Math.sin(Math.PI * clamp((t - 0.59) / 0.06)) * 2.5 : 0;
+      const percurso = i !== 4 ? 0 : ehEstatico ? limitar((t - 0.8) / 0.18) : intro.v >= 1 ? limitar((t0 - 0.25) / 0.7) * seguir.v : 0;
+      const pt = aoLongo(percurso * COMP_ROTA);
+      const inicio = aoLongo(0);
+      const surgir = i === 4 ? suavizarSaida(limitar((t - 0.1) / 0.1)) : 0;
+      const assentar = i === 4 ? Math.sin(Math.PI * limitar((t - 0.59) / 0.06)) * 2.5 : 0;
       // Inclinação como câmera ortográfica girando θ = 0→90°: a traseira encolhe na altura
       // (cos θ) e o teto aparece acima dela (sin θ), as duas faces sempre emendadas na borda
       // de cima da traseira — nada se sobrepõe nem fica transparente. A escala compensa para
       // a altura total na tela ficar constante (a câmera "afasta" enquanto sobe).
-      const th = (tilt * Math.PI) / 2;
+      const th = (inclinacao * Math.PI) / 2;
       const cos = Math.cos(th);
       const sin = Math.sin(th);
       // profundidade → fator de perspectiva: traseira afunda para baixo (sin θ), teto para a frente (cos θ)
       const kRear = (y: number) => PERSP_F / (PERSP_F + (y + 122) * sin);
-      const kTop = (x: number) => PERSP_F / (PERSP_F + (x + 150) * TOP_K * cos);
-      const up = TOP_LEN * sin * kTop(150);
-      const down = REAR_SPAN * cos * kRear(100);
-      const ts = REAR_SPAN / (up + down); // = 1 em θ=0; altura total na tela constante
-      const edgeY = REAR.y + (1 - appear) * 16 + settle - 122 + ts * up; // emenda traseira/teto
-      const persp = i === 4 && tilt > 0 && tilt < 1;
-      attr('truckRear', 'transform', `translate(${REAR.x} ${edgeY.toFixed(1)}) scale(${ts.toFixed(4)} ${(ts * cos).toFixed(4)}) translate(0 122)`);
-      show('truckRear', i === 4 && !persp && cos > 0.004 ? appear : 0);
-      show('truck3d', persp ? appear : 0);
-      attr('topShadow', 'opacity', (0.35 * (i === 4 ? Math.pow(tilt, 4) : 1)).toFixed(3));
+      const kTop = (x: number) => PERSP_F / (PERSP_F + (x + 150) * TOPO_K * cos);
+      const acima = TOPO_COMP * sin * kTop(150);
+      const abaixo = ALTURA_TRASEIRA * cos * kRear(100);
+      const ts = ALTURA_TRASEIRA / (acima + abaixo); // = 1 em θ=0; altura total na tela constante
+      const yBorda = TRASEIRA.y + (1 - surgir) * 16 + assentar - 122 + ts * acima; // emenda traseira/teto
+      const persp = i === 4 && inclinacao > 0 && inclinacao < 1;
+      atributo('truckRear', 'transform', `translate(${TRASEIRA.x} ${yBorda.toFixed(1)}) scale(${ts.toFixed(4)} ${(ts * cos).toFixed(4)}) translate(0 122)`);
+      mostrar('truckRear', i === 4 && !persp && cos > 0.004 ? surgir : 0);
+      mostrar('truck3d', persp ? surgir : 0);
+      atributo('topShadow', 'opacity', (0.35 * (i === 4 ? Math.pow(inclinacao, 4) : 1)).toFixed(3));
       if (persp) {
         // câmera na emenda: mesma projeção F / (F + profundidade) usada para enquadrar acima
         css('truck3d', 'perspective', u(PERSP_F * ts));
-        css('truck3d', 'perspectiveOrigin', `${u(REAR.x)} ${u(edgeY)}`);
-        css('truckBox', 'transform', `translate(${u(REAR.x)}, ${u(edgeY)}) scale(${ts.toFixed(4)}) rotateX(${(-90 * tilt).toFixed(2)}deg)`);
+        css('truck3d', 'perspectiveOrigin', `${u(TRASEIRA.x)} ${u(yBorda)}`);
+        css('truckBox', 'transform', `translate(${u(TRASEIRA.x)}, ${u(yBorda)}) scale(${ts.toFixed(4)}) rotateX(${(-90 * inclinacao).toFixed(2)}deg)`);
       }
       // vista de cima (frente para cima): comprimento ∝ sin θ, traseira na emenda; depois
       // desloca até o depósito (escala em log = zoom uniforme) e percorre a rota
-      const tilted = TOP_K * ts;
-      let tx = lerp(REAR.x, start.x, move);
-      let ty = lerp(edgeY - 150 * tilted * sin, start.y, move);
-      let deg = lerp(-90, start.deg, move);
-      let sWid = tilted * Math.pow(TOP_S / tilted, move);
+      const inclinado = TOPO_K * ts;
+      let tx = lerp(TRASEIRA.x, inicio.x, movimento);
+      let ty = lerp(yBorda - 150 * inclinado * sin, inicio.y, movimento);
+      let graus = lerp(-90, inicio.deg, movimento);
+      let sWid = inclinado * Math.pow(TOPO_S / inclinado, movimento);
       let sLen = sWid * sin; // no deslocamento sin já é 1
-      if (drive > 0) { tx = pt.x; ty = pt.y; deg = pt.deg; sLen = TOP_S; sWid = TOP_S; }
-      attr('truckTop', 'transform', `translate(${tx.toFixed(1)} ${ty.toFixed(1)}) rotate(${deg.toFixed(1)}) scale(${sLen.toFixed(4)} ${sWid.toFixed(4)})`);
-      show('truckTop', i === 4 && !persp && sin > 0.004 ? 1 : 0);
+      if (percurso > 0) { tx = pt.x; ty = pt.y; graus = pt.deg; sLen = TOPO_S; sWid = TOPO_S; }
+      atributo('truckTop', 'transform', `translate(${tx.toFixed(1)} ${ty.toFixed(1)}) rotate(${graus.toFixed(1)}) scale(${sLen.toFixed(4)} ${sWid.toFixed(4)})`);
+      mostrar('truckTop', i === 4 && !persp && sin > 0.004 ? 1 : 0);
       // portas (duas folhas): abrem .2–.3, fecham .52–.6 com leve acomodação
-      const open = i === 4 ? easeInOut(clamp((t - 0.2) / 0.1)) - easeInOut(clamp((t - 0.52) / 0.08)) : 0;
-      const wobble = i === 4 ? Math.sin(Math.PI * clamp((t - 0.6) / 0.04)) * 0.04 : 0;
+      const abertura = i === 4 ? suavizarEntradaSaida(limitar((t - 0.2) / 0.1)) - suavizarEntradaSaida(limitar((t - 0.52) / 0.08)) : 0;
+      const oscilacao = i === 4 ? Math.sin(Math.PI * limitar((t - 0.6) / 0.04)) * 0.04 : 0;
       // aberta = girada 180° na dobradiça, encostada na lateral com o mesmo tamanho de fechada
-      const dsx = lerp(1, -1, clamp(open)) - wobble;
-      attr('doorL', 'transform', `translate(-90 0) scale(${dsx.toFixed(3)} 1) translate(90 0)`);
-      attr('doorR', 'transform', `translate(90 0) scale(${dsx.toFixed(3)} 1) translate(-90 0)`);
+      const dsx = lerp(1, -1, limitar(abertura)) - oscilacao;
+      atributo('doorL', 'transform', `translate(-90 0) scale(${dsx.toFixed(3)} 1) translate(90 0)`);
+      atributo('doorR', 'transform', `translate(90 0) scale(${dsx.toFixed(3)} 1) translate(-90 0)`);
       // escurece de lado (de perfil para a câmera) e clareia de novo ao ficar de frente, por dentro
-      const shade = dsx >= 0 ? (1 - dsx) * 0.35 : 0.35 - Math.abs(dsx) * 0.13;
-      op('shadeL', shade);
-      op('shadeR', shade);
-      attr('route', 'stroke-dashoffset', (ROUTE_LEN * (1 - drive)).toFixed(1));
-      STOP_AT.forEach((at, k) => { if (k > 0) op(`stop${k}`, drive * ROUTE_LEN >= at - 2 ? 1 : 0); });
+      const sombra = dsx >= 0 ? (1 - dsx) * 0.35 : 0.35 - Math.abs(dsx) * 0.13;
+      op('shadeL', sombra);
+      op('shadeR', sombra);
+      atributo('route', 'stroke-dashoffset', (COMP_ROTA * (1 - percurso)).toFixed(1));
+      POSICAO_PARADA.forEach((quando, k) => { if (k > 0) op(`stop${k}`, percurso * COMP_ROTA >= quando - 2 ? 1 : 0); });
 
       // cabeçalho e painel de detalhes por passo
       for (let k = 0; k < 5; k++) { op(`head${k}`, vis(k)); op(`detail${k}`, vis(k)); }
     };
 
-    apply(0);
-    if (progressRef) progressRef.current = apply;
+    aplicar(0);
+    if (refProgresso) refProgresso.current = aplicar;
     return () => {
-      if (introTween) onIntroRef.current?.(false);
-      introTween?.kill();
-      followTween?.kill();
-      if (progressRef) progressRef.current = null;
+      if (tweenIntro) onIntroRef.current?.(false);
+      tweenIntro?.kill();
+      tweenSeguir?.kill();
+      if (refProgresso) refProgresso.current = null;
     };
-  }, [mode, step, progressRef]);
+  }, [modo, passo, refProgresso]);
 
   const pct = (x: number, total: number) => `${(x / total) * 100}%`;
 
@@ -480,8 +480,8 @@ export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: S
     <div className={cn('surface w-full overflow-hidden rounded-2xl', className)}>
       {/* cabeçalho (troca suave por passo) */}
       <div className="relative h-[49px] border-b border-line">
-        {STEP_META.map((m, k) => (
-          <div key={m.title} ref={ref(`head${k}`)} className="absolute inset-0 flex items-center justify-between px-5" style={{ opacity: 0 }} aria-hidden={mode === 'scroll' ? undefined : k !== step}>
+        {META_PASSOS.map((m, k) => (
+          <div key={m.title} ref={ref(`head${k}`)} className="absolute inset-0 flex items-center justify-between px-5" style={{ opacity: 0 }} aria-hidden={modo === 'scroll' ? undefined : k !== passo}>
             <span className="text-[13px] font-medium text-fg-soft">{m.title}</span>
             <span className="font-mono text-[11px] text-subtle tabular">{m.meta}</span>
           </div>
@@ -507,10 +507,10 @@ export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: S
               <rect width={W} height={H} fill="#0c110e" />
               {Array.from({ length: 13 }, (_, k) => <line key={`h${k}`} x1="0" x2={W} y1={k * 26} y2={k * 26} stroke="#ecefea" strokeOpacity=".035" />)}
               {Array.from({ length: 21 }, (_, k) => <line key={`v${k}`} y1="0" y2={H} x1={k * 26} x2={k * 26} stroke="#ecefea" strokeOpacity=".035" />)}
-              <path d={naiveD} stroke="#ecefea" strokeOpacity=".2" strokeWidth="1.5" strokeDasharray="3 5" fill="none" />
-              <path d={routeD} stroke="#34d399" strokeOpacity=".18" strokeWidth="2.5" fill="none" strokeLinejoin="round" />
-              <path ref={ref('route')} d={routeD} stroke="#34d399" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={ROUTE_LEN} strokeDashoffset={ROUTE_LEN} />
-              {STOPS.map(([x, y], k) => (
+              <path d={caminhoIngenuo} stroke="#ecefea" strokeOpacity=".2" strokeWidth="1.5" strokeDasharray="3 5" fill="none" />
+              <path d={caminhoRota} stroke="#34d399" strokeOpacity=".18" strokeWidth="2.5" fill="none" strokeLinejoin="round" />
+              <path ref={ref('route')} d={caminhoRota} stroke="#34d399" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={COMP_ROTA} strokeDashoffset={COMP_ROTA} />
+              {PARADAS.map(([x, y], k) => (
                 <g key={k}>
                   <circle cx={x} cy={y} r="9" fill="#0a0e0c" stroke={k === 0 ? '#ecefea' : 'rgb(52 211 153 / 0.45)'} strokeWidth="1.5" />
                   {k > 0 && <circle ref={ref(`stop${k}`)} cx={x} cy={y} r="9" fill="#123b2c" stroke="#34d399" strokeWidth="1.5" style={{ opacity: 0 }} />}
@@ -521,19 +521,19 @@ export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: S
             {/* caminhão: traseira (close) e vista de cima (rota) — mesmo desenho, mesmo estilo.
                 Cada desenho existe uma vez (defs) e é clonado: inteiro, ou em faixas na inclinação. */}
             <defs>
-              <g id={rearArt}><TruckRear r={ref} /></g>
-              <g id={topArt}><TruckTop r={ref} /></g>
+              <g id={desenhoTraseira}><TraseiraCaminhao r={ref} /></g>
+              <g id={desenhoTopo}><CaminhaoDeCima r={ref} /></g>
             </defs>
-            <g ref={ref('truckRear')} style={{ opacity: 0, visibility: 'hidden' }}><use href={`#${rearArt}`} /></g>
-            <g ref={ref('truckTop')} style={{ opacity: 0, visibility: 'hidden' }}><use href={`#${topArt}`} /></g>
+            <g ref={ref('truckRear')} style={{ opacity: 0, visibility: 'hidden' }}><use href={`#${desenhoTraseira}`} /></g>
+            <g ref={ref('truckTop')} style={{ opacity: 0, visibility: 'hidden' }}><use href={`#${desenhoTopo}`} /></g>
             <clipPath id="sc-open" clipPathUnits="userSpaceOnUse">
-              <rect x={OPEN.x0} y={OPEN.y0} width={OPEN.x1 - OPEN.x0} height={OPEN.y1 - OPEN.y0} />
+              <rect x={ABERTURA.x0} y={ABERTURA.y0} width={ABERTURA.x1 - ABERTURA.x0} height={ABERTURA.y1 - ABERTURA.y0} />
             </clipPath>
             {/* garrafa persistente (+ sombra, caixa de detecção e linha de varredura acompanham) */}
             <g ref={ref('bottleClip')}>
             <g ref={ref('bottle')}>
               <ellipse ref={ref('shadow')} cx="26" cy="138" rx="34" ry="5" fill="#000" opacity=".45" />
-              <BottleArt />
+              <DesenhoGarrafa />
               <g ref={ref('bbox')} fill="none" stroke="#34d399" strokeWidth="1.6" strokeLinecap="round" style={{ opacity: 0 }}>
                 <path d="M-10 -2v-6h8M54 -8h8v6M62 140v6h-8M-2 146h-8v-6" />
                 <rect x="-10" y="-8" width="72" height="154" rx="2" strokeOpacity=".22" strokeWidth=".8" />
@@ -550,16 +550,16 @@ export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: S
           <div ref={ref('truck3d')} className="pointer-events-none absolute inset-0" style={{ opacity: 0, visibility: 'hidden' }} aria-hidden>
             <div ref={ref('truckBox')} className="absolute top-0 left-0 origin-top-left [transform-style:preserve-3d]">
               <svg viewBox="-135 -122 270 234" className="absolute" style={{ left: u(-135), top: 0, width: u(270), height: u(234) }}>
-                <use href={`#${rearArt}`} />
+                <use href={`#${desenhoTraseira}`} />
               </svg>
               <svg viewBox="-136 -316 272 616" className="absolute origin-bottom" style={{ left: u(-136), top: u(-616), width: u(272), height: u(616), transform: 'rotateX(90deg)' }}>
-                <g transform={`rotate(-90) scale(${TOP_K})`}><use href={`#${topArt}`} /></g>
+                <g transform={`rotate(-90) scale(${TOPO_K})`}><use href={`#${desenhoTopo}`} /></g>
               </svg>
             </div>
           </div>
 
           {/* rótulo da IA (passo 2) */}
-          <div ref={ref('chip')} className="absolute rounded-md border border-line-strong bg-bg/90 px-2.5 py-1.5" style={{ left: pct(P_PHOTO.cx + 26 * P_PHOTO.s + 18, W), top: pct(P_PHOTO.top, H), opacity: 0 }}>
+          <div ref={ref('chip')} className="absolute rounded-md border border-line-strong bg-bg/90 px-2.5 py-1.5" style={{ left: pct(P_FOTO.cx + 26 * P_FOTO.s + 18, W), top: pct(P_FOTO.top, H), opacity: 0 }}>
             <p className="font-mono text-[10px] text-subtle uppercase">Plástico · PET</p>
             <p className="font-mono text-[13px] text-fg tabular">96%</p>
           </div>
@@ -567,13 +567,13 @@ export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: S
           {/* checagens ao lado da garrafa (passo 3) */}
           <div ref={ref('checks')} className="absolute inset-y-[10%] right-[4%] left-[44%] flex flex-col justify-center rounded-lg border border-line bg-bg/80 px-3 sm:px-4" style={{ opacity: 0 }}>
             <ul className="divide-y divide-line">
-              {CHECKS.map((c, k) => (
+              {CHECAGENS.map((c, k) => (
                 <li key={c} className="flex items-center gap-2.5 py-1.5 text-[11px] leading-snug text-fg-soft sm:py-2.5 sm:text-[13px]">
                   <span className="relative inline-flex size-4 shrink-0 items-center justify-center">
                     <span ref={ref(`pd${k}`)} className="absolute inset-0.5 rounded-full border border-line-strong" />
                     <Check ref={ref(`ck${k}`)} className="absolute size-4 text-brand-300" strokeWidth={2.5} style={{ opacity: 0 }} aria-hidden />
                   </span>
-                  <span className="sm:hidden">{CHECKS_SHORT[k]}</span>
+                  <span className="sm:hidden">{CHECAGENS_CURTAS[k]}</span>
                   <span className="max-sm:hidden">{c}</span>
                 </li>
               ))}
@@ -581,12 +581,12 @@ export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: S
           </div>
 
           {/* pontos subindo (passo 4) */}
-          <div ref={ref('particles')} aria-hidden className="pointer-events-none absolute" style={{ left: pct(P_POINTS.cx, W), top: pct(P_POINTS.top + 50, H), opacity: 0 }}>
-            {PARTICLES.map((q, k) => (
+          <div ref={ref('particles')} aria-hidden className="pointer-events-none absolute" style={{ left: pct(P_PONTOS.cx, W), top: pct(P_PONTOS.top + 50, H), opacity: 0 }}>
+            {PARTICULAS.map((q, k) => (
               <span
                 key={k}
-                className={cn('absolute font-mono text-[13px] tabular', k % 3 === 0 ? 'text-accent' : 'text-brand-300', animated && 'animate-[pts-rise_2.6s_cubic-bezier(0.22,1,0.36,1)_infinite]')}
-                style={{ left: q.x, top: q.y, animationDelay: `${q.d}s`, opacity: animated ? undefined : 0.85 }}
+                className={cn('absolute font-mono text-[13px] tabular', k % 3 === 0 ? 'text-accent' : 'text-brand-300', animado && 'animate-[pts-rise_2.6s_cubic-bezier(0.22,1,0.36,1)_infinite]')}
+                style={{ left: q.x, top: q.y, animationDelay: `${q.d}s`, opacity: animado ? undefined : 0.85 }}
               >
                 {q.t}
               </span>
@@ -597,9 +597,9 @@ export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: S
         {/* detalhes por passo (altura fixa, troca suave) */}
         <div className="relative mt-4 h-[104px]">
           <div ref={ref('detail0')} className="absolute inset-0" style={{ opacity: 0 }}>
-            <Row k="Quantidade" v="2,4 kg" />
-            <Row k="Local" v={<span className="inline-flex items-center gap-1"><MapPin className="size-3.5 text-subtle" aria-hidden />Vila Mariana</span>} />
-            <Row k="Foto" v="garrafa-pet.jpg · 1,2 MB" />
+            <Linha k="Quantidade" v="2,4 kg" />
+            <Linha k="Local" v={<span className="inline-flex items-center gap-1"><MapPin className="size-3.5 text-subtle" aria-hidden />Vila Mariana</span>} />
+            <Linha k="Foto" v="garrafa-pet.jpg · 1,2 MB" />
           </div>
           <div ref={ref('detail1')} className="absolute inset-0 space-y-2" style={{ opacity: 0 }}>
             {[{ n: 'Plástico (PET)', p: 96, c: '#e5484d' }, { n: 'Papel', p: 3, c: '#3b82f6' }, { n: 'Vidro', p: 1, c: '#22c55e' }].map((r, k) => (
@@ -641,7 +641,7 @@ export function StoryCard({ mode, step = 0, progressRef, onIntro, className }: S
   );
 }
 
-function Row({ k, v }: { k: string; v: ReactNode }) {
+function Linha({ k, v }: { k: string; v: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-t border-line py-2.5 first:border-t-0 first:pt-0">
       <span className="text-[13px] text-muted">{k}</span>

@@ -3,16 +3,16 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Crosshair, KeyRound, LocateFixed, MapPinned, Plus } from 'lucide-react';
-import { applyServerErrors } from '@/api';
-import { useCreateHousehold, useJoinHousehold } from '@/api/queries';
-import { Button, Field, FormError, Input, NumberInput, Skeleton, toast } from '@/components/ui';
-import { useGeolocation } from '@/hooks/useGeolocation';
-import { formatNumber } from '@/lib/format';
+import { aplicarErrosDoServidor } from '@/api';
+import { useCriarResidencia, useEntrarResidencia } from '@/api/queries';
+import { Botao, Campo, ErroFormulario, CampoTexto, CampoNumero, Esqueleto, toast } from '@/components/ui';
+import { useGeolocalizacao } from '@/hooks/useGeolocation';
+import { formatarNumero } from '@/lib/format';
 
 // Leaflet só carrega se a pessoa abrir o mapa.
 const LocationPicker = lazy(() => import('@/components/map').then((m) => ({ default: m.LocationPicker })));
 
-const createSchema = z.object({
+const esquemaCriacao = z.object({
   name: z.string().trim().min(2, 'Mínimo de 2 caracteres').max(80, 'Máximo de 80 caracteres'),
   neighborhood: z.string().trim().min(2, 'Informe o bairro').max(80, 'Máximo de 80 caracteres'),
   city: z.string().trim().min(2, 'Informe a cidade').max(80, 'Máximo de 80 caracteres'),
@@ -20,20 +20,20 @@ const createSchema = z.object({
   latitude: z.number().min(-90).max(90).nullable(),
   longitude: z.number().min(-180).max(180).nullable(),
 }).refine((v) => (v.latitude == null) === (v.longitude == null), { path: ['latitude'], message: 'Informe latitude e longitude juntas' });
-type CreateValues = z.infer<typeof createSchema>;
+type ValoresCriacao = z.infer<typeof esquemaCriacao>;
 
-const joinSchema = z.object({
+const esquemaConvite = z.object({
   inviteCode: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{6,12}$/, 'O código tem de 6 a 12 letras e números'),
 });
-type JoinValues = z.infer<typeof joinSchema>;
+type ValoresConvite = z.infer<typeof esquemaConvite>;
 
 // Aparece em "Minha casa" para quem ainda não tem residência: criar uma nova ou entrar com um código.
-export function SetupHousehold() {
+export function ConfigurarResidencia() {
   return (
     <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.25fr_1fr] lg:gap-16">
-      <CreateForm />
+      <FormularioCriacao />
       <div className="lg:border-l lg:border-line lg:pl-16">
-        <JoinForm />
+        <FormularioConvite />
         <div className="mt-12 border-t border-line pt-8">
           <p className="label-mono">Como funciona</p>
           <ol className="mt-4 space-y-4 text-sm leading-relaxed text-muted">
@@ -47,21 +47,21 @@ export function SetupHousehold() {
   );
 }
 
-function CreateForm() {
-  const create = useCreateHousehold();
-  const geo = useGeolocation();
-  const [showMap, setShowMap] = useState(false);
-  const form = useForm<CreateValues>({
-    resolver: zodResolver(createSchema),
+function FormularioCriacao() {
+  const criar = useCriarResidencia();
+  const geo = useGeolocalizacao();
+  const [mostrarMapa, setMostrarMapa] = useState(false);
+  const formulario = useForm<ValoresCriacao>({
+    resolver: zodResolver(esquemaCriacao),
     defaultValues: { name: '', neighborhood: '', city: 'Taboão da Serra', address: '', latitude: null, longitude: null },
   });
-  const { register, control, handleSubmit, setValue, setError, watch, formState: { errors, isSubmitting } } = form;
+  const { register, control, handleSubmit, setValue, setError, watch, formState: { errors, isSubmitting } } = formulario;
   const lat = watch('latitude');
   const lon = watch('longitude');
 
-  const useMyLocation = () => {
+  const pedirMinhaLocalizacao = () => {
     geo.request();
-    setShowMap(true);
+    setMostrarMapa(true);
   };
   // Aplica a posição do GPS quando chegar.
   useEffect(() => {
@@ -71,88 +71,88 @@ function CreateForm() {
     }
   }, [geo.status, geo.latitude, geo.longitude, setValue]);
 
-  const onSubmit = handleSubmit(async (v) => {
+  const aoEnviar = handleSubmit(async (v) => {
     try {
-      await create.mutateAsync({
+      await criar.mutateAsync({
         name: v.name, neighborhood: v.neighborhood, city: v.city,
         address: v.address || null, latitude: v.latitude, longitude: v.longitude,
       });
       toast.success('Residência criada! Compartilhe o código de convite com sua família.');
-    } catch (e) { applyServerErrors(e, setError, { knownFields: ['name', 'neighborhood', 'city', 'address', 'latitude', 'longitude'] }); }
+    } catch (e) { aplicarErrosDoServidor(e, setError, { knownFields: ['name', 'neighborhood', 'city', 'address', 'latitude', 'longitude'] }); }
   });
 
   return (
     <section aria-labelledby="create-h">
       <h2 id="create-h" className="text-[clamp(1.5rem,1.3rem+0.6vw,1.875rem)] leading-tight text-fg">Criar uma residência</h2>
       <p className="mt-2 max-w-[56ch] text-sm leading-relaxed text-muted">Você será o responsável e poderá conectar lixeiras inteligentes. O endereço e a localização são usados só para as coletas automáticas.</p>
-      <form onSubmit={onSubmit} noValidate className="mt-6 space-y-5">
-        <FormError error={errors.root?.server} />
-        <Field label="Nome da residência" required error={errors.name} hint="Ex.: Casa da Família Souza, Apto 42">
-          <Input {...register('name')} autoComplete="off" />
-        </Field>
+      <form onSubmit={aoEnviar} noValidate className="mt-6 space-y-5">
+        <ErroFormulario erro={errors.root?.server} />
+        <Campo label="Nome da residência" required erro={errors.name} dica="Ex.: Casa da Família Souza, Apto 42">
+          <CampoTexto {...register('name')} autoComplete="off" />
+        </Campo>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field label="Bairro" required error={errors.neighborhood}><Input {...register('neighborhood')} autoComplete="address-level3" /></Field>
-          <Field label="Cidade" required error={errors.city}><Input {...register('city')} autoComplete="address-level2" /></Field>
+          <Campo label="Bairro" required erro={errors.neighborhood}><CampoTexto {...register('neighborhood')} autoComplete="address-level3" /></Campo>
+          <Campo label="Cidade" required erro={errors.city}><CampoTexto {...register('city')} autoComplete="address-level2" /></Campo>
         </div>
-        <Field label="Endereço" optional error={errors.address} hint="Rua e número, para o coletor encontrar a casa.">
-          <Input {...register('address')} autoComplete="street-address" />
-        </Field>
+        <Campo label="Endereço" opcional erro={errors.address} dica="Rua e número, para o coletor encontrar a casa.">
+          <CampoTexto {...register('address')} autoComplete="street-address" />
+        </Campo>
 
         <fieldset className="space-y-3">
           <legend className="mb-1.5 text-sm font-medium text-fg-soft">Localização no mapa <span className="font-normal text-subtle">(opcional)</span></legend>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" leftIcon={geo.status === 'loading' ? Crosshair : LocateFixed} onClick={useMyLocation} loading={geo.status === 'loading'}>Usar minha localização</Button>
-            <Button size="sm" variant="ghost" leftIcon={MapPinned} onClick={() => setShowMap((s) => !s)} aria-expanded={showMap}>{showMap ? 'Ocultar mapa' : 'Escolher no mapa'}</Button>
+            <Botao size="sm" variant="secondary" iconeEsquerda={geo.status === 'loading' ? Crosshair : LocateFixed} onClick={pedirMinhaLocalizacao} carregando={geo.status === 'loading'}>Usar minha localização</Botao>
+            <Botao size="sm" variant="ghost" iconeEsquerda={MapPinned} onClick={() => setMostrarMapa((s) => !s)} aria-expanded={mostrarMapa}>{mostrarMapa ? 'Ocultar mapa' : 'Escolher no mapa'}</Botao>
           </div>
-          {geo.error && geo.status === 'error' && <p className="text-xs text-warning">{geo.error}</p>}
-          {showMap && (
-            <Suspense fallback={<Skeleton className="h-64 rounded-xl" />}>
+          {geo.erro && geo.status === 'error' && <p className="text-xs text-warning">{geo.erro}</p>}
+          {mostrarMapa && (
+            <Suspense fallback={<Esqueleto className="h-64 rounded-xl" />}>
               <LocationPicker className="h-64" value={lat != null && lon != null ? { latitude: lat, longitude: lon } : null}
                 onChange={(p) => { setValue('latitude', p.latitude, { shouldDirty: true }); setValue('longitude', p.longitude, { shouldDirty: true }); }} />
             </Suspense>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Latitude" error={errors.latitude}>
+            <Campo label="Latitude" erro={errors.latitude}>
               {(a11y) => <Controller control={control} name="latitude" render={({ field }) => (
-                <NumberInput {...field} {...a11y} decimals={6} min={-90} max={90} allowNegative inputSize="sm" placeholder="-23,6" />
+                <CampoNumero {...field} {...a11y} casasDecimais={6} min={-90} max={90} permitirNegativo tamanhoCampo="sm" placeholder="-23,6" />
               )} />}
-            </Field>
-            <Field label="Longitude" error={errors.longitude}>
+            </Campo>
+            <Campo label="Longitude" erro={errors.longitude}>
               {(a11y) => <Controller control={control} name="longitude" render={({ field }) => (
-                <NumberInput {...field} {...a11y} decimals={6} min={-180} max={180} allowNegative inputSize="sm" placeholder="-46,7" />
+                <CampoNumero {...field} {...a11y} casasDecimais={6} min={-180} max={180} permitirNegativo tamanhoCampo="sm" placeholder="-46,7" />
               )} />}
-            </Field>
+            </Campo>
           </div>
-          {lat != null && lon != null && <p className="font-mono text-[11px] text-subtle tabular">Ponto definido: {formatNumber(lat, 5)}, {formatNumber(lon, 5)}</p>}
+          {lat != null && lon != null && <p className="font-mono text-[11px] text-subtle tabular">Ponto definido: {formatarNumero(lat, 5)}, {formatarNumero(lon, 5)}</p>}
         </fieldset>
 
-        <Button type="submit" size="lg" leftIcon={Plus} loading={isSubmitting}>Criar residência</Button>
+        <Botao type="submit" size="lg" iconeEsquerda={Plus} carregando={isSubmitting}>Criar residência</Botao>
       </form>
     </section>
   );
 }
 
-function JoinForm() {
-  const join = useJoinHousehold();
-  const form = useForm<JoinValues>({ resolver: zodResolver(joinSchema), defaultValues: { inviteCode: '' } });
-  const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = form;
-  const onSubmit = handleSubmit(async (v) => {
+function FormularioConvite() {
+  const entrar = useEntrarResidencia();
+  const formulario = useForm<ValoresConvite>({ resolver: zodResolver(esquemaConvite), defaultValues: { inviteCode: '' } });
+  const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = formulario;
+  const aoEnviar = handleSubmit(async (v) => {
     try {
-      const h = await join.mutateAsync(v.inviteCode);
+      const h = await entrar.mutateAsync(v.inviteCode);
       toast.success(`Bem-vindo(a) à ${h.name}!`);
-    } catch (e) { applyServerErrors(e, setError, { knownFields: ['inviteCode'] }); }
+    } catch (e) { aplicarErrosDoServidor(e, setError, { knownFields: ['inviteCode'] }); }
   });
   return (
     <section aria-labelledby="join-h">
       <h2 id="join-h" className="text-[clamp(1.5rem,1.3rem+0.6vw,1.875rem)] leading-tight text-fg">Já tem um convite?</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted">Peça o código a quem criou a residência — ele aparece na página “Minha casa”.</p>
-      <form onSubmit={onSubmit} noValidate className="mt-6 space-y-4">
-        <FormError error={errors.root?.server} />
-        <Field label="Código de convite" required error={errors.inviteCode}>
-          <Input {...register('inviteCode')} leftIcon={KeyRound} autoComplete="off" autoCapitalize="characters" spellCheck={false} maxLength={12}
+      <form onSubmit={aoEnviar} noValidate className="mt-6 space-y-4">
+        <ErroFormulario erro={errors.root?.server} />
+        <Campo label="Código de convite" required erro={errors.inviteCode}>
+          <CampoTexto {...register('inviteCode')} iconeEsquerda={KeyRound} autoComplete="off" autoCapitalize="characters" spellCheck={false} maxLength={12}
             placeholder="ABC123XY" className="font-mono tracking-[0.12em] uppercase" />
-        </Field>
-        <Button type="submit" variant="secondary" loading={isSubmitting}>Entrar na residência</Button>
+        </Campo>
+        <Botao type="submit" variant="secondary" carregando={isSubmitting}>Entrar na residência</Botao>
       </form>
     </section>
   );

@@ -2,7 +2,7 @@ import { useId } from 'react';
 import { cn } from '@/lib/cn';
 
 /** Marca (anel + folha) inline — herda as fontes e escala sem perda. */
-export function LogoMark({ size = 36, className, spin = false }: { size?: number; className?: string; spin?: boolean }) {
+export function MarcaLogo({ size = 36, className, girar = false }: { size?: number; className?: string; girar?: boolean }) {
   const id = useId().replace(/:/g, '');
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={className} aria-hidden>
@@ -14,7 +14,7 @@ export function LogoMark({ size = 36, className, spin = false }: { size?: number
           <stop offset="0" stopColor="#10b981" /><stop offset="1" stopColor="#d9f99d" />
         </linearGradient>
       </defs>
-      <g className={cn(spin && 'origin-center animate-spin-slow')} style={spin ? { transformBox: 'fill-box' } : undefined}>
+      <g className={cn(girar && 'origin-center animate-spin-slow')} style={girar ? { transformBox: 'fill-box' } : undefined}>
         <path d="M48.7 12.1A26 26 0 1 1 27.5 6.4" stroke={`url(#${id}r)`} strokeWidth="5.5" strokeLinecap="round" />
         <path d="M33.9 5.3 26.6 1.9l1 8.6z" fill="#bef264" />
       </g>
@@ -31,21 +31,21 @@ export function LogoMark({ size = 36, className, spin = false }: { size?: number
   );
 }
 
-export interface LogoProps {
+export interface PropsLogo {
   /** compact: só "EcoTech ZERO"; full: com tagline. */
   variant?: 'compact' | 'full' | 'mark';
   size?: number;
   className?: string;
   /** Mostra "Lixo Zero 2050" como subtítulo (app). */
-  product?: boolean;
+  produto?: boolean;
 }
 
 /** Logo EcoTech Zero (marca + wordmark). */
-export function Logo({ variant = 'compact', size = 36, className, product }: LogoProps) {
-  if (variant === 'mark') return <LogoMark size={size} className={className} />;
+export function Logo({ variant = 'compact', size = 36, className, produto }: PropsLogo) {
+  if (variant === 'mark') return <MarcaLogo size={size} className={className} />;
   return (
     <span className={cn('inline-flex items-center gap-2.5', className)} aria-label="EcoTech Zero" role="img">
-      <LogoMark size={size} className="shrink-0" />
+      <MarcaLogo size={size} className="shrink-0" />
       <span className="flex flex-col leading-none" aria-hidden>
         <span className="font-logo font-bold tracking-tight" style={{ fontSize: size * 0.5 }}>
           <span style={{ backgroundImage: 'linear-gradient(90deg,#34d399,#bef264)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>Eco</span><span className="text-fg">Tech</span>
@@ -54,7 +54,7 @@ export function Logo({ variant = 'compact', size = 36, className, product }: Log
         {variant === 'full' && (
           <span className="mt-1 text-[9px] font-medium tracking-[0.18em] text-muted uppercase">Tecnologia para um mundo sem desperdício</span>
         )}
-        {product && variant !== 'full' && (
+        {produto && variant !== 'full' && (
           <span className="mt-1 text-[10px] font-medium tracking-[0.16em] text-muted uppercase">Lixo Zero 2050</span>
         )}
       </span>

@@ -1,156 +1,156 @@
 // Planejamento de coletas (aba "Planejar") e lista de rotas criadas (aba "Rotas").
 import { useEffect, useMemo, useState } from 'react';
 import { Crosshair, Cpu, MapPinned, RotateCcw, Sparkles, User, Warehouse } from 'lucide-react';
-import { errorMessage } from '@/api/client';
-import { useAdminCollectionRequests, useCategories, useOptimizeRoutes } from '@/api/queries';
+import { mensagemDeErro } from '@/api/client';
+import { useSolicitacoesColetaAdmin, useCategorias, useOtimizarRotas } from '@/api/queries';
 import type { CollectionRequest, CollectionRequestStatus, CollectionSource, GeoPoint, RouteOptimization } from '@/api/types';
-import { useSetTab } from '@/components/layout/TabbedPage';
-import { Button, EmptyState, ErrorState, NumberInput, PageHeader, Skeleton, StatusPill, toast } from '@/components/ui';
+import { useTrocarAba } from '@/components/layout/TabbedPage';
+import { Botao, EstadoVazio, EstadoErro, CampoNumero, CabecalhoPagina, Esqueleto, PilulaStatus, toast } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import { formatKg, formatRelative } from '@/lib/format';
-import { categoryFallback, collectionRequestStatus } from '@/lib/labels';
-import { SearchField, Segmented } from '@/features/admin/ui';
-import { CollectionsMap } from '@/features/admin/routing/CollectionsMap';
-import { OptimizationResult } from '@/features/admin/routing/OptimizationResult';
-import { CreateRoutesForm } from '@/features/admin/routing/CreateRoutesForm';
-import { RoutesTab } from '@/features/admin/routing/RoutesTab';
-import { DEFAULT_CAPACITY_KG, DEFAULT_DEPOT, priorityTone } from '@/features/admin/routing/shared';
+import { formatarKg, formatarRelativo } from '@/lib/format';
+import { categoriaPadrao, statusSolicitacaoColeta } from '@/lib/labels';
+import { CampoBusca, Segmentado } from '@/features/admin/ui';
+import { MapaColetas } from '@/features/admin/routing/CollectionsMap';
+import { ResultadoOtimizacao } from '@/features/admin/routing/OptimizationResult';
+import { FormCriarRotas } from '@/features/admin/routing/CreateRoutesForm';
+import { AbaRotas } from '@/features/admin/routing/RoutesTab';
+import { CAPACIDADE_PADRAO_KG, CENTRAL_PADRAO, tomDaPrioridade } from '@/features/admin/routing/shared';
 
-type StatusFilter = CollectionRequestStatus | 'OPEN' | 'ALL';
-type SourceFilter = CollectionSource | 'ALL';
+type FiltroStatus = CollectionRequestStatus | 'OPEN' | 'ALL';
+type FiltroOrigem = CollectionSource | 'ALL';
 
-const OPEN: CollectionRequestStatus[] = ['REQUESTED', 'SCHEDULED', 'IN_ROUTE'];
+const EM_ABERTO: CollectionRequestStatus[] = ['REQUESTED', 'SCHEDULED', 'IN_ROUTE'];
 
-export default function AdminCollectionsPage({ tab }: { tab: 'plan' | 'routes' }) {
-  const setTab = useSetTab();
-  const [status, setStatus] = useState<StatusFilter>('REQUESTED');
-  const [source, setSource] = useState<SourceFilter>('ALL');
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [hovered, setHovered] = useState<string | null>(null);
-  const [depot, setDepot] = useState<GeoPoint>(DEFAULT_DEPOT);
-  const [capacity, setCapacity] = useState<number | null>(DEFAULT_CAPACITY_KG);
-  const [pickingDepot, setPickingDepot] = useState(false);
-  const [result, setResult] = useState<{ data: RouteOptimization; key: string; capacity: number } | null>(null);
-  const [showNaive, setShowNaive] = useState(true);
-  const [focused, setFocused] = useState<number | null>(null);
-  const [created, setCreated] = useState<Set<string>>(new Set());
+export default function PaginaColetas({ aba }: { aba: 'plan' | 'routes' }) {
+  const irParaAba = useTrocarAba();
+  const [status, setStatus] = useState<FiltroStatus>('REQUESTED');
+  const [origem, setOrigem] = useState<FiltroOrigem>('ALL');
+  const [busca, setBusca] = useState('');
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
+  const [destacada, setDestacada] = useState<string | null>(null);
+  const [central, setCentral] = useState<GeoPoint>(CENTRAL_PADRAO);
+  const [capacidade, setCapacidade] = useState<number | null>(CAPACIDADE_PADRAO_KG);
+  const [escolhendoCentral, setEscolhendoCentral] = useState(false);
+  const [resultado, setResultado] = useState<{ data: RouteOptimization; key: string; capacity: number } | null>(null);
+  const [mostrarIngenua, setMostrarIngenua] = useState(true);
+  const [emFoco, setEmFoco] = useState<number | null>(null);
+  const [criadas, setCriadas] = useState<Set<string>>(new Set());
 
   // Busca todas e filtra no cliente (contagens por status sem várias requisições).
-  const all = useAdminCollectionRequests();
-  const categories = useCategories();
-  const optimize = useOptimizeRoutes();
+  const todas = useSolicitacoesColetaAdmin();
+  const categorias = useCategorias();
+  const otimizar = useOtimizarRotas();
 
-  const catColor = (code: keyof typeof categoryFallback) => categories.data?.find((c) => c.code === code)?.color ?? categoryFallback[code].color;
+  const corCategoria = (codigo: keyof typeof categoriaPadrao) => categorias.data?.find((c) => c.code === codigo)?.color ?? categoriaPadrao[codigo].color;
 
-  const counts = useMemo(() => {
+  const contagens = useMemo(() => {
     const c: Record<string, number> = { REQUESTED: 0, OPEN: 0, ALL: 0, COLLECTED: 0 };
-    all.data?.forEach((r) => { c.ALL++; c[r.status] = (c[r.status] ?? 0) + 1; if (OPEN.includes(r.status)) c.OPEN++; });
+    todas.data?.forEach((r) => { c.ALL++; c[r.status] = (c[r.status] ?? 0) + 1; if (EM_ABERTO.includes(r.status)) c.OPEN++; });
     return c;
-  }, [all.data]);
+  }, [todas.data]);
 
   // 1. Lista as solicitações (de moradores ou de lixeiras cheias), das mais urgentes para as menos.
-  const rows = useMemo(() => {
-    const s = search.trim().toLocaleLowerCase('pt-BR');
-    return (all.data ?? []).filter((r) =>
-      (status === 'ALL' || (status === 'OPEN' ? OPEN.includes(r.status) : r.status === status))
-      && (source === 'ALL' || r.source === source)
+  const linhas = useMemo(() => {
+    const s = busca.trim().toLocaleLowerCase('pt-BR');
+    return (todas.data ?? []).filter((r) =>
+      (status === 'ALL' || (status === 'OPEN' ? EM_ABERTO.includes(r.status) : r.status === status))
+      && (origem === 'ALL' || r.source === origem)
       && (!s || r.address.toLocaleLowerCase('pt-BR').includes(s) || r.requester?.name.toLocaleLowerCase('pt-BR').includes(s) || r.smartBin?.name.toLocaleLowerCase('pt-BR').includes(s)),
     ).sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt));
-  }, [all.data, status, source, search]);
+  }, [todas.data, status, origem, busca]);
 
   // Seleção só de solicitações em aberto ("Solicitada"); limpa ids que sumiram.
   useEffect(() => {
-    if (!all.data) return;
-    const valid = new Set(all.data.filter((r) => r.status === 'REQUESTED').map((r) => r.id));
-    setSelected((s) => { const n = new Set([...s].filter((id) => valid.has(id))); return n.size === s.size ? s : n; });
-  }, [all.data]);
+    if (!todas.data) return;
+    const validas = new Set(todas.data.filter((r) => r.status === 'REQUESTED').map((r) => r.id));
+    setSelecionadas((s) => { const n = new Set([...s].filter((id) => validas.has(id))); return n.size === s.size ? s : n; });
+  }, [todas.data]);
 
   // 2. O admin marca quais vai atender. Se mudar a seleção, a central ou a capacidade depois de otimizar,
   //    o resultado fica "desatualizado" (stale) e precisa otimizar de novo.
-  const selectedReqs = useMemo(() => (all.data ?? []).filter((r) => selected.has(r.id)), [all.data, selected]);
-  const selectedKg = selectedReqs.reduce((s, r) => s + r.estimatedKg, 0);
-  const selectionKey = `${[...selected].sort().join(',')}|${depot.latitude},${depot.longitude}|${capacity}`;
-  const stale = !!result && result.key !== selectionKey;
-  const selectable = rows.filter((r) => r.status === 'REQUESTED');
-  const allVisibleSelected = selectable.length > 0 && selectable.every((r) => selected.has(r.id));
+  const solicitacoesSelecionadas = useMemo(() => (todas.data ?? []).filter((r) => selecionadas.has(r.id)), [todas.data, selecionadas]);
+  const kgSelecionados = solicitacoesSelecionadas.reduce((s, r) => s + r.estimatedKg, 0);
+  const chaveSelecao = `${[...selecionadas].sort().join(',')}|${central.latitude},${central.longitude}|${capacidade}`;
+  const desatualizado = !!resultado && resultado.key !== chaveSelecao;
+  const selecionaveis = linhas.filter((r) => r.status === 'REQUESTED');
+  const todasVisiveisSelecionadas = selecionaveis.length > 0 && selecionaveis.every((r) => selecionadas.has(r.id));
 
-  const toggle = (r: CollectionRequest) => {
+  const alternar = (r: CollectionRequest) => {
     if (r.status !== 'REQUESTED') return;
-    setSelected((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; });
+    setSelecionadas((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; });
   };
-  const toggleAllVisible = () => setSelected((s) => {
+  const alternarTodasVisiveis = () => setSelecionadas((s) => {
     const n = new Set(s);
-    if (allVisibleSelected) selectable.forEach((r) => n.delete(r.id)); else selectable.forEach((r) => n.add(r.id));
+    if (todasVisiveisSelecionadas) selecionaveis.forEach((r) => n.delete(r.id)); else selecionaveis.forEach((r) => n.add(r.id));
     return n;
   });
 
   // 3. Otimizar: o servidor divide as paradas em viagens que cabem no caminhão e ordena cada uma
   //    para percorrer a menor distância, saindo e voltando da central.
-  const capacityValid = capacity != null && capacity >= 10 && capacity <= 50_000;
-  const run = () => {
-    if (!selected.size) { toast.error('Selecione ao menos uma solicitação.'); return; }
-    if (!capacityValid) { toast.error('Informe a capacidade do veículo entre 10 e 50.000 kg.'); return; }
-    const key = selectionKey;
-    optimize.mutate({ requestIds: [...selected], depot, vehicleCapacityKg: capacity }, {
-      onSuccess: (data) => { setResult({ data, key, capacity: capacity! }); setFocused(null); },
-      onError: (e) => toast.error(errorMessage(e)),
+  const capacidadeValida = capacidade != null && capacidade >= 10 && capacidade <= 50_000;
+  const otimizarRotas = () => {
+    if (!selecionadas.size) { toast.error('Selecione ao menos uma solicitação.'); return; }
+    if (!capacidadeValida) { toast.error('Informe a capacidade do veículo entre 10 e 50.000 kg.'); return; }
+    const chave = chaveSelecao;
+    otimizar.mutate({ requestIds: [...selecionadas], depot: central, vehicleCapacityKg: capacidade }, {
+      onSuccess: (data) => { setResultado({ data, key: chave, capacity: capacidade! }); setEmFoco(null); },
+      onError: (e) => toast.error(mensagemDeErro(e)),
     });
   };
 
-  const reset = () => { setResult(null); setSelected(new Set()); setFocused(null); };
-  const visibleOnMap = result ? (all.data ?? []).filter((r) => selected.has(r.id) || rows.includes(r)) : rows;
-  const optimized = !!result && !stale;
+  const limpar = () => { setResultado(null); setSelecionadas(new Set()); setEmFoco(null); };
+  const visiveisNoMapa = resultado ? (todas.data ?? []).filter((r) => selecionadas.has(r.id) || linhas.includes(r)) : linhas;
+  const otimizado = !!resultado && !desatualizado;
 
   return (
     <>
-      <PageHeader
-        eyebrow="Administração"
+      <CabecalhoPagina
+        sobretitulo="Administração"
         title="Coletas e rotas"
         description="Escolha as solicitações em aberto, otimize o trajeto dos caminhões e transforme o plano em rotas para os coletores."
       />
 
-      {tab === 'plan' && (
+      {aba === 'plan' && (
         <>
           <div className="grid gap-4 lg:grid-cols-[400px_minmax(0,1fr)]">
             {/* Lista */}
             <section aria-label="Solicitações de coleta" className="surface flex min-w-0 flex-col overflow-hidden rounded-2xl lg:h-[680px]">
               <div className="space-y-2.5 border-b border-line p-3">
-                <Segmented<StatusFilter> label="Status" value={status} onChange={setStatus} className="w-full"
-                  options={[
-                    { value: 'REQUESTED', label: 'Solicitadas', count: counts.REQUESTED },
-                    { value: 'OPEN', label: 'Em aberto', count: counts.OPEN },
-                    { value: 'COLLECTED', label: 'Coletadas', count: counts.COLLECTED },
+                <Segmentado<FiltroStatus> label="Status" value={status} onChange={setStatus} className="w-full"
+                  opcoes={[
+                    { value: 'REQUESTED', label: 'Solicitadas', contagem: contagens.REQUESTED },
+                    { value: 'OPEN', label: 'Em aberto', contagem: contagens.OPEN },
+                    { value: 'COLLECTED', label: 'Coletadas', contagem: contagens.COLLECTED },
                     { value: 'ALL', label: 'Todas' },
                   ]} />
                 <div className="flex gap-2">
-                  <Segmented<SourceFilter> label="Origem" value={source} onChange={setSource}
-                    options={[{ value: 'ALL', label: 'Todas' }, { value: 'USER', label: 'Morador' }, { value: 'SMART_BIN', label: 'Lixeira' }]} />
-                  <SearchField value={search} onChange={setSearch} placeholder="Endereço" className="min-w-0 flex-1" />
+                  <Segmentado<FiltroOrigem> label="Origem" value={origem} onChange={setOrigem}
+                    opcoes={[{ value: 'ALL', label: 'Todas' }, { value: 'USER', label: 'Morador' }, { value: 'SMART_BIN', label: 'Lixeira' }]} />
+                  <CampoBusca value={busca} onChange={setBusca} placeholder="Endereço" className="min-w-0 flex-1" />
                 </div>
               </div>
               <div className="flex h-10 items-center justify-between border-b border-line px-3 text-xs">
-                <label className={cn('inline-flex items-center gap-2 text-muted', !selectable.length && 'opacity-50')}>
-                  <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} disabled={!selectable.length}
+                <label className={cn('inline-flex items-center gap-2 text-muted', !selecionaveis.length && 'opacity-50')}>
+                  <input type="checkbox" checked={todasVisiveisSelecionadas} onChange={alternarTodasVisiveis} disabled={!selecionaveis.length}
                     className="size-4 cursor-pointer accent-[#ecefea]" aria-label="Selecionar todas as solicitações visíveis" />
                   Selecionar visíveis
                 </label>
-                <span className="font-mono text-subtle tabular" title="Ordenadas por prioridade">{rows.length} · por prioridade</span>
+                <span className="font-mono text-subtle tabular" title="Ordenadas por prioridade">{linhas.length} · por prioridade</span>
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto max-lg:max-h-[420px]" data-lenis-prevent>
-                {all.error && !all.data ? <ErrorState error={all.error} onRetry={all.refetch} compact />
-                  : all.isPending ? (
+                {todas.error && !todas.data ? <EstadoErro erro={todas.error} aoTentarDeNovo={todas.refetch} compacto />
+                  : todas.isPending ? (
                     <div className="divide-y divide-line" role="status" aria-label="Carregando">
-                      {Array.from({ length: 8 }, (_, i) => <div key={i} className="flex gap-3 px-3 py-3"><Skeleton className="size-4" /><div className="flex-1 space-y-2"><Skeleton className="h-3.5 w-2/3" /><Skeleton className="h-3 w-1/3" /></div></div>)}
+                      {Array.from({ length: 8 }, (_, i) => <div key={i} className="flex gap-3 px-3 py-3"><Esqueleto className="size-4" /><div className="flex-1 space-y-2"><Esqueleto className="h-3.5 w-2/3" /><Esqueleto className="h-3 w-1/3" /></div></div>)}
                     </div>
-                  ) : !rows.length ? (
-                    <EmptyState compact icon={MapPinned} title="Nenhuma solicitação" description={status === 'REQUESTED' ? 'Não há coletas aguardando roteirização.' : 'Ajuste os filtros.'} />
+                  ) : !linhas.length ? (
+                    <EstadoVazio compacto icon={MapPinned} title="Nenhuma solicitação" description={status === 'REQUESTED' ? 'Não há coletas aguardando roteirização.' : 'Ajuste os filtros.'} />
                   ) : (
                     <ul className="divide-y divide-line/70">
-                      {rows.map((r) => (
-                        <RequestRow key={r.id} r={r} checked={selected.has(r.id)} onToggle={() => toggle(r)}
-                          onHover={(h) => setHovered(h ? r.id : null)} catColor={catColor} />
+                      {linhas.map((r) => (
+                        <LinhaSolicitacao key={r.id} r={r} marcada={selecionadas.has(r.id)} aoAlternar={() => alternar(r)}
+                          aoPassarMouse={(h) => setDestacada(h ? r.id : null)} corCategoria={corCategoria} />
                       ))}
                     </ul>
                   )}
@@ -161,25 +161,25 @@ export default function AdminCollectionsPage({ tab }: { tab: 'plan' | 'routes' }
                 <div className="flex items-end gap-2">
                   <div className="min-w-0 flex-1">
                     <label htmlFor="cap" className="mb-1 block text-xs text-muted">Capacidade do veículo</label>
-                    <NumberInput id="cap" value={capacity} onChange={setCapacity} decimals={0} min={10} max={50_000} step={100} unit="kg" inputSize="sm" invalid={!capacityValid} />
+                    <CampoNumero id="cap" value={capacidade} onChange={setCapacidade} casasDecimais={0} min={10} max={50_000} step={100} unidade="kg" tamanhoCampo="sm" invalido={!capacidadeValida} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="mb-1 text-xs text-muted">Central (partida)</p>
-                    <Button size="sm" variant={pickingDepot ? 'outline' : 'secondary'} leftIcon={pickingDepot ? Crosshair : Warehouse} fullWidth
-                      aria-pressed={pickingDepot} onClick={() => setPickingDepot((p) => !p)}>
-                      {pickingDepot ? 'Clique no mapa…' : 'Definir no mapa'}
-                    </Button>
+                    <Botao size="sm" variant={escolhendoCentral ? 'outline' : 'secondary'} iconeEsquerda={escolhendoCentral ? Crosshair : Warehouse} larguraTotal
+                      aria-pressed={escolhendoCentral} onClick={() => setEscolhendoCentral((p) => !p)}>
+                      {escolhendoCentral ? 'Clique no mapa…' : 'Definir no mapa'}
+                    </Botao>
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[13px] text-muted">
-                    <span className="font-mono text-fg tabular">{selected.size}</span> selecionadas · <span className="font-mono text-fg-soft tabular">{formatKg(selectedKg)}</span>
+                    <span className="font-mono text-fg tabular">{selecionadas.size}</span> selecionadas · <span className="font-mono text-fg-soft tabular">{formatarKg(kgSelecionados)}</span>
                   </p>
                   <div className="flex items-center gap-1">
-                    {(selected.size > 0 || result) && <Button size="sm" variant="ghost" leftIcon={RotateCcw} onClick={reset}>Limpar</Button>}
-                    <Button size="sm" variant={optimized ? 'secondary' : 'primary'} leftIcon={Sparkles} onClick={run} loading={optimize.isPending} disabled={!selected.size}>
+                    {(selecionadas.size > 0 || resultado) && <Botao size="sm" variant="ghost" iconeEsquerda={RotateCcw} onClick={limpar}>Limpar</Botao>}
+                    <Botao size="sm" variant={otimizado ? 'secondary' : 'primary'} iconeEsquerda={Sparkles} onClick={otimizarRotas} carregando={otimizar.isPending} disabled={!selecionadas.size}>
                       Otimizar rotas
-                    </Button>
+                    </Botao>
                   </div>
                 </div>
               </div>
@@ -187,63 +187,63 @@ export default function AdminCollectionsPage({ tab }: { tab: 'plan' | 'routes' }
 
             {/* Mapa */}
             <div className="relative min-w-0">
-              <CollectionsMap
+              <MapaColetas
                 className="h-[420px] rounded-2xl border border-line sm:h-[520px] lg:h-[680px]"
-                requests={visibleOnMap}
-                selected={selected}
-                hovered={hovered}
-                depot={depot}
-                capacityKg={result?.capacity ?? capacity ?? DEFAULT_CAPACITY_KG}
-                optimization={result && !stale ? result.data : null}
-                showNaive={showNaive}
-                focusedRoute={focused}
-                pickingDepot={pickingDepot}
-                onToggle={toggle}
-                onPickDepot={(p) => { setDepot({ latitude: Number(p.latitude.toFixed(6)), longitude: Number(p.longitude.toFixed(6)) }); setPickingDepot(false); toast.success('Central definida.'); }}
+                solicitacoes={visiveisNoMapa}
+                selecionadas={selecionadas}
+                destacada={destacada}
+                central={central}
+                capacidadeKg={resultado?.capacity ?? capacidade ?? CAPACIDADE_PADRAO_KG}
+                otimizacao={resultado && !desatualizado ? resultado.data : null}
+                mostrarIngenua={mostrarIngenua}
+                rotaEmFoco={emFoco}
+                escolhendoCentral={escolhendoCentral}
+                aoAlternar={alternar}
+                aoEscolherCentral={(p) => { setCentral({ latitude: Number(p.latitude.toFixed(6)), longitude: Number(p.longitude.toFixed(6)) }); setEscolhendoCentral(false); toast.success('Central definida.'); }}
               />
-              <MapLegend optimized={optimized} picking={pickingDepot} />
+              <LegendaMapa otimizado={otimizado} escolhendo={escolhendoCentral} />
             </div>
           </div>
 
           {/* 4. Resultado (comparação com a ordem de chegada) e formulário que cria as rotas para os coletores. */}
-          {result && (
+          {resultado && (
             <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-              <OptimizationResult result={result.data} capacityKg={result.capacity} showNaive={showNaive} onShowNaive={setShowNaive}
-                focused={focused} onFocus={setFocused} stale={stale} />
-              <CreateRoutesForm
-                requestIds={[...selected]}
-                depot={result.data.depot}
-                capacityKg={result.capacity}
-                trips={result.data.routes.length}
-                disabled={stale}
-                onCreated={(rs) => { setCreated(new Set(rs.map((r) => r.id))); reset(); setTab('rotas'); }}
+              <ResultadoOtimizacao resultado={resultado.data} capacidadeKg={resultado.capacity} mostrarIngenua={mostrarIngenua} aoMostrarIngenua={setMostrarIngenua}
+                emFoco={emFoco} aoFocar={setEmFoco} desatualizado={desatualizado} />
+              <FormCriarRotas
+                requestIds={[...selecionadas]}
+                depot={resultado.data.depot}
+                capacidadeKg={resultado.capacity}
+                viagens={resultado.data.routes.length}
+                disabled={desatualizado}
+                aoCriar={(rs) => { setCriadas(new Set(rs.map((r) => r.id))); limpar(); irParaAba('rotas'); }}
               />
             </div>
           )}
         </>
       )}
 
-      {tab === 'routes' && <RoutesTab highlight={created} />}
+      {aba === 'routes' && <AbaRotas destaque={criadas} />}
     </>
   );
 }
 
-function RequestRow({ r, checked, onToggle, onHover, catColor }: {
-  r: CollectionRequest; checked: boolean; onToggle: () => void; onHover: (h: boolean) => void; catColor: (c: keyof typeof categoryFallback) => string;
+function LinhaSolicitacao({ r, marcada, aoAlternar, aoPassarMouse, corCategoria }: {
+  r: CollectionRequest; marcada: boolean; aoAlternar: () => void; aoPassarMouse: (h: boolean) => void; corCategoria: (c: keyof typeof categoriaPadrao) => string;
 }) {
-  const selectable = r.status === 'REQUESTED';
-  const tone = priorityTone(r.priority);
+  const selecionavel = r.status === 'REQUESTED';
+  const tom = tomDaPrioridade(r.priority);
   const id = `req-${r.id}`;
   return (
-    <li onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}
-      className={cn('relative flex items-start gap-3 px-3 py-3 transition-colors', checked && 'bg-white/[0.04]', selectable && 'hover:bg-white/[0.025]')}>
-      <input id={id} type="checkbox" checked={checked} onChange={onToggle} disabled={!selectable}
-        onFocus={() => onHover(true)} onBlur={() => onHover(false)}
+    <li onMouseEnter={() => aoPassarMouse(true)} onMouseLeave={() => aoPassarMouse(false)}
+      className={cn('relative flex items-start gap-3 px-3 py-3 transition-colors', marcada && 'bg-white/[0.04]', selecionavel && 'hover:bg-white/[0.025]')}>
+      <input id={id} type="checkbox" checked={marcada} onChange={aoAlternar} disabled={!selecionavel}
+        onFocus={() => aoPassarMouse(true)} onBlur={() => aoPassarMouse(false)}
         className="mt-0.5 size-4 shrink-0 cursor-pointer accent-[#ecefea] disabled:cursor-not-allowed disabled:opacity-30" />
-      <label htmlFor={id} className={cn('min-w-0 flex-1', selectable ? 'cursor-pointer' : 'cursor-default')}>
+      <label htmlFor={id} className={cn('min-w-0 flex-1', selecionavel ? 'cursor-pointer' : 'cursor-default')}>
         <span className="flex items-start justify-between gap-2">
           <span className="truncate text-[13.5px] font-medium text-fg">{r.address}</span>
-          <span title="Prioridade (0–100)" className={cn('shrink-0 font-mono text-[12.5px] tabular', tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-warning' : 'text-subtle')}>
+          <span title="Prioridade (0–100)" className={cn('shrink-0 font-mono text-[12.5px] tabular', tom === 'danger' ? 'text-danger' : tom === 'warning' ? 'text-warning' : 'text-subtle')}>
             P{r.priority}
           </span>
         </span>
@@ -252,24 +252,24 @@ function RequestRow({ r, checked, onToggle, onHover, catColor }: {
             {r.source === 'SMART_BIN' ? <Cpu className="size-3" aria-hidden /> : <User className="size-3" aria-hidden />}
             {r.source === 'SMART_BIN' ? r.smartBin?.name ?? 'Lixeira' : r.requester?.name ?? 'Morador'}
           </span>
-          <span className="font-mono tabular">{formatKg(r.estimatedKg)}</span>
-          <span className="inline-flex items-center gap-1" aria-label={`Materiais: ${r.categoryCodes.map((c) => categoryFallback[c].name).join(', ')}`}>
-            {r.categoryCodes.map((c) => <span key={c} className="size-1.5 rounded-full" style={{ backgroundColor: catColor(c) }} title={categoryFallback[c].name} />)}
+          <span className="font-mono tabular">{formatarKg(r.estimatedKg)}</span>
+          <span className="inline-flex items-center gap-1" aria-label={`Materiais: ${r.categoryCodes.map((c) => categoriaPadrao[c].name).join(', ')}`}>
+            {r.categoryCodes.map((c) => <span key={c} className="size-1.5 rounded-full" style={{ backgroundColor: corCategoria(c) }} title={categoriaPadrao[c].name} />)}
           </span>
-          <span>{formatRelative(r.createdAt)}</span>
-          {r.status !== 'REQUESTED' && <StatusPill map={collectionRequestStatus} value={r.status} className="h-5 px-2 text-[11px]" />}
+          <span>{formatarRelativo(r.createdAt)}</span>
+          {r.status !== 'REQUESTED' && <PilulaStatus mapa={statusSolicitacaoColeta} value={r.status} className="h-5 px-2 text-[11px]" />}
         </span>
       </label>
     </li>
   );
 }
 
-function MapLegend({ optimized, picking }: { optimized: boolean; picking: boolean }) {
+function LegendaMapa({ otimizado, escolhendo }: { otimizado: boolean; escolhendo: boolean }) {
   return (
     <div className="pointer-events-none absolute top-3 left-3 z-[500] max-w-[calc(100%-24px)] rounded-xl border border-line-strong bg-[#0a0e0c]/85 px-3 py-2 text-[11.5px] text-muted">
-      {picking ? (
+      {escolhendo ? (
         <span className="flex items-center gap-2 text-fg-soft"><Crosshair className="size-3.5" aria-hidden /> Clique no mapa para posicionar a central</span>
-      ) : optimized ? (
+      ) : otimizado ? (
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4 rounded bg-brand-300" />Otimizada</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed border-fg-soft/60" />Ordem de chegada</span>

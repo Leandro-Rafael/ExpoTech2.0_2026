@@ -2,25 +2,25 @@ import { useId, type ReactNode } from 'react';
 import {
   Area, AreaChart as RAreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { ChartTooltip } from './ChartTooltip';
-import { chartTheme, tickStyle, type SeriesSpec, type ValueFormatter } from './theme';
+import { DicaGrafico } from './ChartTooltip';
+import { temaGrafico, estiloMarca, type SerieGrafico, type FormatadorValor } from './theme';
 
-export interface AreaChartProps<T extends object> {
-  data: T[];
-  xKey: keyof T & string;
-  series: SeriesSpec[];
+export interface PropsGraficoArea<T extends object> {
+  dados: T[];
+  chaveX: keyof T & string;
+  series: SerieGrafico[];
   height?: number;
-  yFormat?: ValueFormatter;
+  formatoY?: FormatadorValor;
   /** Formato curto do eixo Y (padrão: yFormat). */
-  yTickFormat?: ValueFormatter;
-  xFormat?: (v: string | number) => string;
+  formatoMarcaY?: FormatadorValor;
+  formatoX?: (v: string | number) => string;
   /** Rótulo completo no tooltip (padrão: xFormat). */
-  tooltipLabel?: (v: string | number) => ReactNode;
-  stacked?: boolean;
+  rotuloDica?: (v: string | number) => ReactNode;
+  empilhado?: boolean;
   /** Linha vertical de referência (ex.: "hoje", ano-meta). */
-  referenceX?: { value: string | number; label?: string };
+  referenciaX?: { value: string | number; label?: string };
   /** Esconde o eixo Y (gráficos pequenos). */
-  hideYAxis?: boolean;
+  esconderEixoY?: boolean;
   /** Rótulo acessível (aria-label) do SVG. */
   ariaLabel?: string;
   className?: string;
@@ -31,76 +31,76 @@ export interface AreaChartProps<T extends object> {
  *   <AreaChart data={byMonth} xKey="month" xFormat={formatMonth} yFormat={formatKg}
  *     series={[{ key: 'kg', label: 'Registrado', color: seriesColor.primary }]} />
  */
-export function AreaChart<T extends object>({
-  data, xKey, series, height = 260, yFormat = (v) => String(v), yTickFormat, xFormat, tooltipLabel,
-  stacked, referenceX, hideYAxis, ariaLabel, className,
-}: AreaChartProps<T>) {
+export function GraficoArea<T extends object>({
+  dados, chaveX, series, height = 260, formatoY = (v) => String(v), formatoMarcaY, formatoX, rotuloDica,
+  empilhado, referenciaX, esconderEixoY, ariaLabel, className,
+}: PropsGraficoArea<T>) {
   const gid = useId().replace(/:/g, '');
-  const names = Object.fromEntries(series.map((s) => [s.key, s.label]));
+  const nomes = Object.fromEntries(series.map((s) => [s.chave, s.label]));
   return (
     <div className={className} style={{ height }} role="img" aria-label={ariaLabel}>
       <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 600, height }}>
-        <RAreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: hideYAxis ? 8 : 0 }} accessibilityLayer>
+        <RAreaChart data={dados} margin={{ top: 8, right: 8, bottom: 0, left: esconderEixoY ? 8 : 0 }} accessibilityLayer>
           <defs>
             {series.map((s) => (
-              <linearGradient key={s.key} id={`${gid}-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={s.color} stopOpacity={0.22} />
-                <stop offset="100%" stopColor={s.color} stopOpacity={0.02} />
+              <linearGradient key={s.chave} id={`${gid}-${s.chave}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={s.cor} stopOpacity={0.22} />
+                <stop offset="100%" stopColor={s.cor} stopOpacity={0.02} />
               </linearGradient>
             ))}
           </defs>
-          <CartesianGrid vertical={false} stroke={chartTheme.grid} />
+          <CartesianGrid vertical={false} stroke={temaGrafico.grade} />
           <XAxis
-            dataKey={xKey as never}
-            tick={tickStyle}
+            dataKey={chaveX as never}
+            tick={estiloMarca}
             tickLine={false}
-            axisLine={{ stroke: chartTheme.axis }}
-            tickFormatter={xFormat}
+            axisLine={{ stroke: temaGrafico.eixo }}
+            tickFormatter={formatoX}
             minTickGap={16}
             tickMargin={8}
           />
           <YAxis
-            hide={hideYAxis}
-            tick={tickStyle}
+            hide={esconderEixoY}
+            tick={estiloMarca}
             tickLine={false}
             axisLine={false}
-            tickFormatter={yTickFormat ?? yFormat}
+            tickFormatter={formatoMarcaY ?? formatoY}
             width={56}
             tickMargin={4}
           />
           <Tooltip
-            cursor={{ stroke: chartTheme.cursor, strokeWidth: 1 }}
+            cursor={{ stroke: temaGrafico.cursor, strokeWidth: 1 }}
             content={(p) => (
-              <ChartTooltip
+              <DicaGrafico
                 active={p.active}
                 payload={p.payload as never}
                 label={p.label as string}
-                labelFormat={tooltipLabel ?? (xFormat as never)}
-                valueFormat={yFormat}
-                names={names}
+                formatoRotulo={rotuloDica ?? (formatoX as never)}
+                formatoValor={formatoY}
+                nomes={nomes}
               />
             )}
           />
-          {referenceX && (
+          {referenciaX && (
             <ReferenceLine
-              x={referenceX.value}
-              stroke={chartTheme.cursor}
-              label={referenceX.label ? { value: referenceX.label, position: 'insideTopRight', fill: chartTheme.tick, fontSize: 11, fontFamily: chartTheme.tickFont } : undefined}
+              x={referenciaX.value}
+              stroke={temaGrafico.cursor}
+              label={referenciaX.label ? { value: referenciaX.label, position: 'insideTopRight', fill: temaGrafico.marca, fontSize: 11, fontFamily: temaGrafico.fonteMarca } : undefined}
             />
           )}
           {series.map((s) => (
             <Area
-              key={s.key}
+              key={s.chave}
               type="monotone"
-              dataKey={s.key}
+              dataKey={s.chave}
               name={s.label}
-              stackId={stacked ? 'a' : undefined}
-              stroke={s.color}
+              stackId={empilhado ? 'a' : undefined}
+              stroke={s.cor}
               strokeWidth={2}
-              strokeDasharray={s.dashed ? '5 4' : undefined}
-              fill={s.lineOnly ? 'transparent' : `url(#${gid}-${s.key})`}
+              strokeDasharray={s.tracejada ? '5 4' : undefined}
+              fill={s.soLinha ? 'transparent' : `url(#${gid}-${s.chave})`}
               dot={false}
-              activeDot={{ r: 4, fill: s.color, stroke: chartTheme.surface, strokeWidth: 2 }}
+              activeDot={{ r: 4, fill: s.cor, stroke: temaGrafico.superficie, strokeWidth: 2 }}
               isAnimationActive
               animationDuration={700}
             />

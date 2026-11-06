@@ -8,48 +8,48 @@ import type { ReactNode } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { ShieldAlert } from 'lucide-react';
 import type { Role } from '@/api/types';
-import { useAuth } from './AuthProvider';
-import { FullscreenLoader } from '@/components/layout/FullscreenLoader';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { ButtonLink } from '@/components/ui/Button';
+import { useAutenticacao } from './AuthProvider';
+import { CarregamentoTelaCheia } from '@/components/layout/FullscreenLoader';
+import { EstadoVazio } from '@/components/ui/EmptyState';
+import { LinkBotao } from '@/components/ui/Button';
 
-function loginPath(from: string) {
-  return from && from !== '/' ? `/entrar?redirect=${encodeURIComponent(from)}` : '/entrar';
+function caminhoLogin(origem: string) {
+  return origem && origem !== '/' ? `/entrar?redirect=${encodeURIComponent(origem)}` : '/entrar';
 }
 
 /** Lê ?redirect= de forma segura (apenas caminhos internos). */
-export function safeRedirect(search: string, fallback = '/app'): string {
-  const target = new URLSearchParams(search).get('redirect');
+export function redirecionamentoSeguro(consulta: string, padrao = '/app'): string {
+  const destino = new URLSearchParams(consulta).get('redirect');
   // Só caminhos internos: um "//outro-site.com" mandaria a pessoa para fora depois do login.
-  if (target && target.startsWith('/') && !target.startsWith('//') && !target.startsWith('/\\')) return target;
-  return fallback;
+  if (destino && destino.startsWith('/') && !destino.startsWith('//') && !destino.startsWith('/\\')) return destino;
+  return padrao;
 }
 
-export function RequireAuth({ children }: { children?: ReactNode }) {
-  const { status } = useAuth();
-  const location = useLocation();
+export function ExigirLogin({ children }: { children?: ReactNode }) {
+  const { status } = useAutenticacao();
+  const localizacao = useLocation();
   // 1. Enquanto o servidor não responde quem está logado, mostra o carregamento.
-  if (status === 'loading') return <FullscreenLoader label="Verificando sua sessão…" />;
+  if (status === 'loading') return <CarregamentoTelaCheia label="Verificando sua sessão…" />;
   // 2. Sem login: vai para /entrar, guardando a tela pedida em ?redirect=.
   if (status === 'anonymous') {
-    return <Navigate to={loginPath(location.pathname + location.search)} replace />;
+    return <Navigate to={caminhoLogin(localizacao.pathname + localizacao.search)} replace />;
   }
   // 3. Logado: mostra a tela.
   return children ?? <Outlet />;
 }
 
 // Esconder a tela é só para o usuário; quem barra de verdade é o servidor, em cada rota da API.
-export function RequireRole({ roles, children }: { roles: Role[]; children?: ReactNode }) {
-  const { user } = useAuth();
-  if (!user || !roles.includes(user.role)) {
+export function ExigirPerfil({ perfis, children }: { perfis: Role[]; children?: ReactNode }) {
+  const { user: usuario } = useAutenticacao();
+  if (!usuario || !perfis.includes(usuario.role)) {
     return (
       <div className="container-app py-16">
-        <EmptyState
+        <EstadoVazio
           icon={ShieldAlert}
           tone="danger"
           title="Acesso restrito"
           description="Esta área é exclusiva para perfis autorizados. Se você acha que deveria ter acesso, fale com a administração."
-          action={<ButtonLink to="/app" variant="secondary">Voltar ao início</ButtonLink>}
+          acao={<LinkBotao to="/app" variant="secondary">Voltar ao início</LinkBotao>}
         />
       </div>
     );
@@ -57,9 +57,9 @@ export function RequireRole({ roles, children }: { roles: Role[]; children?: Rea
   return children ?? <Outlet />;
 }
 
-export function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
-  const { status } = useAuth();
-  const location = useLocation();
-  if (status === 'authenticated') return <Navigate to={safeRedirect(location.search)} replace />;
+export function RedirecionarSeLogado({ children }: { children: ReactNode }) {
+  const { status } = useAutenticacao();
+  const localizacao = useLocation();
+  if (status === 'authenticated') return <Navigate to={redirecionamentoSeguro(localizacao.search)} replace />;
   return children;
 }

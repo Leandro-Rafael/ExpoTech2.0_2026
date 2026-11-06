@@ -1,20 +1,20 @@
 import type { GeoPoint } from '@/api/types';
 
 /** Distância em km entre dois pontos (fórmula de Haversine). */
-export function haversineKm(a: GeoPoint, b: GeoPoint): number {
+export function distanciaHaversineKm(a: GeoPoint, b: GeoPoint): number {
   const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.latitude - a.latitude);
-  const dLon = toRad(b.longitude - a.longitude);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLon / 2) ** 2;
+  const paraRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = paraRad(b.latitude - a.latitude);
+  const dLon = paraRad(b.longitude - a.longitude);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(paraRad(a.latitude)) * Math.cos(paraRad(b.latitude)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
 /** Central de coleta (Taboão da Serra) — mesma do back-end. */
-export const DEFAULT_DEPOT: GeoPoint = { latitude: -23.6019, longitude: -46.7526 };
+export const DEPOSITO_PADRAO: GeoPoint = { latitude: -23.6019, longitude: -46.7526 };
 
 /** Coordenadas aproximadas dos bairros usados na demo. */
-const NEIGHBORHOODS: Record<string, GeoPoint> = {
+const BAIRROS: Record<string, GeoPoint> = {
   'Jardim Maria Rosa': { latitude: -23.6040, longitude: -46.7555 },
   'Parque Pinheiros': { latitude: -23.6125, longitude: -46.7680 },
   'Centro': { latitude: -23.6225, longitude: -46.7835 },
@@ -29,8 +29,8 @@ const NEIGHBORHOODS: Record<string, GeoPoint> = {
   'Jardim Umarizal': { latitude: -23.6285, longitude: -46.7485 },
 };
 
-const CITY_CENTER: GeoPoint = { latitude: -23.6090, longitude: -46.7580 };
+const CENTRO_CIDADE: GeoPoint = { latitude: -23.6090, longitude: -46.7580 };
 
-export function neighborhoodPoint(name: string): GeoPoint {
-  return NEIGHBORHOODS[name] ?? CITY_CENTER;
+export function pontoDoBairro(nome: string): GeoPoint {
+  return BAIRROS[nome] ?? CENTRO_CIDADE;
 }

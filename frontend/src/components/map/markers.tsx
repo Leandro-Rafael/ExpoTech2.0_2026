@@ -17,60 +17,60 @@ import { Marker, Tooltip } from 'react-leaflet';
 import { divIcon, type LatLngTuple, type LeafletMouseEvent } from 'leaflet';
 import { Check, Warehouse } from 'lucide-react';
 import type { CategoryCode } from '@/api/types';
-import { iconByName } from '@/components/icons';
-import { categoryColor, hexAlpha } from '@/lib/category';
-import { categoryFallback } from '@/lib/labels';
+import { iconePorNome } from '@/components/icons';
+import { corDaCategoria, hexComAlfa } from '@/lib/category';
+import { categoriaPadrao } from '@/lib/labels';
 
-export interface BaseMarkerProps {
+export interface PropsMarcadorBase {
   position: LatLngTuple;
   label?: string;
   tooltip?: ReactNode;
   /** Tooltip sempre visível. */
-  permanentTooltip?: boolean;
+  dicaFixa?: boolean;
   onClick?: (e: LeafletMouseEvent) => void;
   zIndexOffset?: number;
   draggable?: boolean;
-  onDragEnd?: (p: LatLngTuple) => void;
+  aoSoltar?: (p: LatLngTuple) => void;
 }
 
-export interface MapMarkerProps extends BaseMarkerProps {
+export interface PropsMarcadorMapa extends PropsMarcadorBase {
   /** Lado do ícone em px (quadrado). */
   size?: number;
   /** Âncora (padrão: centro). Para pinos, use [size/2, size]. */
-  anchor?: [number, number];
+  ancora?: [number, number];
   children: ReactNode;
 }
 
 /** Marcador genérico com conteúdo React. */
-export function MapMarker({ position, label, tooltip, permanentTooltip, onClick, zIndexOffset, draggable, onDragEnd, size = 28, anchor, children }: MapMarkerProps) {
-  const el = useMemo(() => document.createElement('div'), []);
-  const ax = anchor?.[0];
-  const ay = anchor?.[1];
-  const icon = useMemo(
-    () => divIcon({ html: el, className: 'ez-marker', iconSize: [size, size], iconAnchor: [ax ?? size / 2, ay ?? size / 2], tooltipAnchor: [0, -size / 2] }),
-    [el, size, ax, ay],
+export function MarcadorMapa({ position, label, tooltip, dicaFixa, onClick, zIndexOffset, draggable, aoSoltar, size = 28, ancora, children }: PropsMarcadorMapa) {
+  const elemento = useMemo(() => document.createElement('div'), []);
+  const ax = ancora?.[0];
+  const ay = ancora?.[1];
+  const icone = useMemo(
+    () => divIcon({ html: elemento, className: 'ez-marker', iconSize: [size, size], iconAnchor: [ax ?? size / 2, ay ?? size / 2], tooltipAnchor: [0, -size / 2] }),
+    [elemento, size, ax, ay],
   );
-  if (label) el.setAttribute('aria-label', label);
-  const handlers = useMemo(() => ({
+  if (label) elemento.setAttribute('aria-label', label);
+  const eventos = useMemo(() => ({
     ...(onClick ? { click: onClick } : {}),
-    ...(onDragEnd ? { dragend: (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => { const ll = e.target.getLatLng(); onDragEnd([ll.lat, ll.lng]); } } : {}),
-  }), [onClick, onDragEnd]);
+    ...(aoSoltar ? { dragend: (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => { const ll = e.target.getLatLng(); aoSoltar([ll.lat, ll.lng]); } } : {}),
+  }), [onClick, aoSoltar]);
 
   return (
     <Marker
       position={position}
-      icon={icon}
+      icon={icone}
       title={label}
       keyboard={!!onClick || !!draggable}
       interactive={!!onClick || !!draggable || !!tooltip}
       draggable={draggable}
       zIndexOffset={zIndexOffset}
-      eventHandlers={handlers}
+      eventHandlers={eventos}
       riseOnHover
     >
-      {createPortal(children, el)}
+      {createPortal(children, elemento)}
       {tooltip && (
-        <Tooltip className="ez-tooltip" direction="top" offset={[0, -4]} permanent={permanentTooltip} opacity={1}>
+        <Tooltip className="ez-tooltip" direction="top" offset={[0, -4]} permanent={dicaFixa} opacity={1}>
           {tooltip}
         </Tooltip>
       )}
@@ -80,113 +80,113 @@ export function MapMarker({ position, label, tooltip, permanentTooltip, onClick,
 
 // ------------------------------------------------------------------ variações
 
-export interface CategoryMarkerProps extends BaseMarkerProps {
-  code?: CategoryCode | null;
-  color?: string | null;
+export interface PropsMarcadorCategoria extends PropsMarcadorBase {
+  codigo?: CategoryCode | null;
+  cor?: string | null;
   icon?: string | null;
-  selected?: boolean;
-  dimmed?: boolean;
+  selecionado?: boolean;
+  esmaecido?: boolean;
 }
 
 /** Círculo tingido com o ícone da categoria. */
-export function CategoryMarker({ code, color, icon, selected, dimmed, ...rest }: CategoryMarkerProps) {
-  const hex = categoryColor(code ?? null, color);
-  const Icon = iconByName(icon ?? (code ? categoryFallback[code].icon : null));
-  const size = selected ? 38 : 32;
+export function MarcadorCategoria({ codigo, cor, icon, selecionado, esmaecido, ...rest }: PropsMarcadorCategoria) {
+  const hex = corDaCategoria(codigo ?? null, cor);
+  const Icone = iconePorNome(icon ?? (codigo ? categoriaPadrao[codigo].icon : null));
+  const tamanho = selecionado ? 38 : 32;
   return (
-    <MapMarker {...rest} size={size} zIndexOffset={selected ? 800 : rest.zIndexOffset}>
+    <MarcadorMapa {...rest} size={tamanho} zIndexOffset={selecionado ? 800 : rest.zIndexOffset}>
       <div
         className="flex size-full items-center justify-center rounded-full border transition-[opacity,transform] duration-200"
         style={{
-          color: hex, backgroundColor: '#0d120f', borderColor: hexAlpha(hex, selected ? 0.95 : 0.55),
-          boxShadow: selected ? `0 0 0 4px ${hexAlpha(hex, 0.22)}, 0 6px 16px -6px rgb(0 0 0 / .8)` : '0 4px 12px -4px rgb(0 0 0 / .8)',
-          opacity: dimmed ? 0.4 : 1,
+          color: hex, backgroundColor: '#0d120f', borderColor: hexComAlfa(hex, selecionado ? 0.95 : 0.55),
+          boxShadow: selecionado ? `0 0 0 4px ${hexComAlfa(hex, 0.22)}, 0 6px 16px -6px rgb(0 0 0 / .8)` : '0 4px 12px -4px rgb(0 0 0 / .8)',
+          opacity: esmaecido ? 0.4 : 1,
         }}
       >
-        <Icon aria-hidden className={selected ? 'size-[18px]' : 'size-4'} />
+        <Icone aria-hidden className={selecionado ? 'size-[18px]' : 'size-4'} />
       </div>
-    </MapMarker>
+    </MarcadorMapa>
   );
 }
 
-export interface DotMarkerProps extends BaseMarkerProps {
-  color?: string;
-  selected?: boolean;
-  dimmed?: boolean;
+export interface PropsMarcadorPonto extends PropsMarcadorBase {
+  cor?: string;
+  selecionado?: boolean;
+  esmaecido?: boolean;
   /** Diâmetro em px (padrão 14). */
   size?: number;
   /** Anel interno (ex.: lixeira inteligente). */
-  ring?: boolean;
+  anel?: boolean;
 }
 
 /** Ponto compacto: bom para muitos itens (solicitações, ecopontos). */
-export function DotMarker({ color = '#34d399', selected, dimmed, size = 14, ring, ...rest }: DotMarkerProps) {
-  const box = size + 14; // área de toque maior que o ponto
+export function MarcadorPonto({ cor = '#34d399', selecionado, esmaecido, size = 14, anel, ...rest }: PropsMarcadorPonto) {
+  const areaToque = size + 14; // área de toque maior que o ponto
   return (
-    <MapMarker {...rest} size={box} zIndexOffset={selected ? 700 : rest.zIndexOffset}>
-      <div className="flex size-full items-center justify-center" style={{ opacity: dimmed ? 0.35 : 1 }}>
+    <MarcadorMapa {...rest} size={areaToque} zIndexOffset={selecionado ? 700 : rest.zIndexOffset}>
+      <div className="flex size-full items-center justify-center" style={{ opacity: esmaecido ? 0.35 : 1 }}>
         <span
           className="block rounded-full transition-transform duration-200"
           style={{
             width: size, height: size,
-            backgroundColor: ring ? '#0d120f' : color,
-            border: `2px solid ${ring ? color : '#0a0e0c'}`,
-            boxShadow: selected ? `0 0 0 3px #0a0e0c, 0 0 0 5px ${color}` : '0 2px 6px rgb(0 0 0 / .7)',
-            transform: selected ? 'scale(1.15)' : undefined,
+            backgroundColor: anel ? '#0d120f' : cor,
+            border: `2px solid ${anel ? cor : '#0a0e0c'}`,
+            boxShadow: selecionado ? `0 0 0 3px #0a0e0c, 0 0 0 5px ${cor}` : '0 2px 6px rgb(0 0 0 / .7)',
+            transform: selecionado ? 'scale(1.15)' : undefined,
           }}
         />
       </div>
-    </MapMarker>
+    </MarcadorMapa>
   );
 }
 
-export interface NumberedMarkerProps extends BaseMarkerProps {
+export interface PropsMarcadorNumerado extends PropsMarcadorBase {
   n: number;
   color?: string;
   /** pending: contorno; next: preenchido (próxima parada); done: apagado com ✓. */
-  state?: 'pending' | 'next' | 'done';
-  selected?: boolean;
+  estado?: 'pending' | 'next' | 'done';
+  selecionado?: boolean;
 }
 
 /** Parada numerada de rota. */
-export function NumberedMarker({ n, color = '#34d399', state = 'pending', selected, ...rest }: NumberedMarkerProps) {
-  const size = state === 'next' || selected ? 32 : 26;
-  const filled = state === 'next' || selected;
+export function MarcadorNumerado({ n, color = '#34d399', estado = 'pending', selecionado, ...rest }: PropsMarcadorNumerado) {
+  const tamanho = estado === 'next' || selecionado ? 32 : 26;
+  const preenchido = estado === 'next' || selecionado;
   return (
-    <MapMarker {...rest} size={size} zIndexOffset={filled ? 900 : state === 'done' ? -100 : rest.zIndexOffset}>
+    <MarcadorMapa {...rest} size={tamanho} zIndexOffset={preenchido ? 900 : estado === 'done' ? -100 : rest.zIndexOffset}>
       <div
         className="flex size-full items-center justify-center rounded-full border-2 font-mono text-[12px] leading-none font-semibold tabular"
-        style={state === 'done'
+        style={estado === 'done'
           ? { backgroundColor: '#161c18', borderColor: 'rgb(236 239 234 / .18)', color: '#7d8680' }
-          : filled
-            ? { backgroundColor: color, borderColor: '#0a0e0c', color: '#0a0e0c', boxShadow: `0 0 0 3px ${hexAlpha(color, 0.3)}, 0 6px 14px -6px rgb(0 0 0 / .9)` }
+          : preenchido
+            ? { backgroundColor: color, borderColor: '#0a0e0c', color: '#0a0e0c', boxShadow: `0 0 0 3px ${hexComAlfa(color, 0.3)}, 0 6px 14px -6px rgb(0 0 0 / .9)` }
             : { backgroundColor: '#0d120f', borderColor: color, color, boxShadow: '0 3px 10px -3px rgb(0 0 0 / .8)' }}
       >
-        {state === 'done' ? <Check aria-hidden className="size-3.5" strokeWidth={3} /> : n}
+        {estado === 'done' ? <Check aria-hidden className="size-3.5" strokeWidth={3} /> : n}
       </div>
-    </MapMarker>
+    </MarcadorMapa>
   );
 }
 
 /** Garagem / central de coleta (ponto de partida e chegada). */
-export function DepotMarker(props: BaseMarkerProps) {
+export function MarcadorCentral(props: PropsMarcadorBase) {
   return (
-    <MapMarker label="Central de coleta" tooltip="Central de coleta (início e fim)" {...props} size={34} zIndexOffset={1000}>
+    <MarcadorMapa label="Central de coleta" tooltip="Central de coleta (início e fim)" {...props} size={34} zIndexOffset={1000}>
       <div className="flex size-full items-center justify-center rounded-[10px] border border-[rgb(236_239_234/0.5)] bg-[#ecefea] text-[#0a0e0c] shadow-[0_6px_16px_-6px_rgb(0_0_0/0.9)]">
         <Warehouse aria-hidden className="size-[18px]" />
       </div>
-    </MapMarker>
+    </MarcadorMapa>
   );
 }
 
 /** Posição atual do usuário (pulso discreto). */
-export function PositionMarker(props: BaseMarkerProps) {
+export function MarcadorPosicao(props: PropsMarcadorBase) {
   return (
-    <MapMarker label="Sua posição" tooltip="Você está aqui" {...props} size={40} zIndexOffset={1100}>
+    <MarcadorMapa label="Sua posição" tooltip="Você está aqui" {...props} size={40} zIndexOffset={1100}>
       <div className="relative flex size-full items-center justify-center">
         <span aria-hidden className="ez-pulse absolute size-4 rounded-full bg-[#7cc4f0]" />
         <span aria-hidden className="relative size-3.5 rounded-full border-2 border-[#0a0e0c] bg-[#7cc4f0] shadow-[0_0_0_2px_#7cc4f0]" />
       </div>
-    </MapMarker>
+    </MarcadorMapa>
   );
 }

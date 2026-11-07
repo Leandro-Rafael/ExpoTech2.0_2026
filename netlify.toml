@@ -1,12 +1,23 @@
-# Deploy no Netlify (por enquanto só o front-end, em modo demonstração):
-# a API é simulada no navegador, sem back-end nem banco. Contas demo no README/docs.
+# Site no Netlify. A API (/api) vai para o back-end Java rodando no PC da equipe, exposto pelo ngrok
+# (iniciar-online.bat). Cada requisição sai assinada pelo Netlify (signed) e o back-end só aceita as assinadas.
+# Modo demonstração (API simulada no navegador, sem back-end): trocar o command para "npm run build:demo".
 [build]
   base = "frontend"
-  command = "npm run build:demo"
+  command = "npm run build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "22"
+
+# API → back-end no PC (ngrok). Precisa da variável API_SIGNATURE_TOKEN no painel do Netlify (= APP_PROXY_SIGNING_SECRET).
+# O cabeçalho pula a página de aviso que o ngrok gratuito mostra para navegadores.
+[[redirects]]
+  from = "/api/*"
+  to = "https://alphonso-quaky-unstimulatingly.ngrok-free.dev/api/:splat"
+  status = 200
+  force = true
+  signed = "API_SIGNATURE_TOKEN"
+  headers = { ngrok-skip-browser-warning = "1" }
 
 # SPA: rotas profundas (/entrar, /app/...) caem no index.html.
 [[redirects]]

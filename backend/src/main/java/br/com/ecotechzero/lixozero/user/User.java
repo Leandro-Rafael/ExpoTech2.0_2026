@@ -16,7 +16,7 @@ import org.hibernate.annotations.DynamicUpdate;
 import java.time.Instant;
 
 /**
- * Usuário da plataforma. O saldo de pontos só é alterado pelo PointsService, sempre com lock
+ * Usuário da plataforma. O saldo de pontos só é alterado pelo ServicoPontos, sempre com lock
  * pessimista na linha (SELECT ... FOR UPDATE) para evitar condições de corrida.
  * {@code @DynamicUpdate}: o UPDATE inclui apenas colunas alteradas, evitando sobrescrever
  * o saldo com um valor antigo quando outra transação altera, por exemplo, o último login.
@@ -37,7 +37,7 @@ public class User extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Role role = Role.USER;
+    private PerfilUsuario role = PerfilUsuario.USER;
 
     @Column(nullable = false)
     private boolean enabled = true;
@@ -83,7 +83,7 @@ public class User extends BaseEntity {
     protected User() {
     }
 
-    public User(String name, String email, String passwordHash, Role role) {
+    public User(String name, String email, String passwordHash, PerfilUsuario role) {
         this.name = name;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -152,8 +152,8 @@ public class User extends BaseEntity {
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
+    public PerfilUsuario getRole() { return role; }
+    public void setRole(PerfilUsuario role) { this.role = role; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public long getPoints() { return points; }

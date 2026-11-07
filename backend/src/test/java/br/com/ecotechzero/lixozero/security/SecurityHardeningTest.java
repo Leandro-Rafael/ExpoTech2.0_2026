@@ -1,6 +1,6 @@
 package br.com.ecotechzero.lixozero.security;
 
-import br.com.ecotechzero.lixozero.config.AppProperties;
+import br.com.ecotechzero.lixozero.config.PropriedadesApp;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
@@ -28,14 +28,14 @@ class SecurityHardeningTest {
     private static final byte[] SECRET = "segredo-de-teste-com-64-bytes-para-permitir-hs512-tambem-0123456".getBytes();
     private static final SecretKey KEY = Keys.hmacShaKeyFor(SECRET);
 
-    private final JwtService jwt = new JwtService(props(), Clock.systemUTC());
+    private final ServicoJwt jwt = new ServicoJwt(props(), Clock.systemUTC());
 
-    private static AppProperties props() {
-        return new AppProperties("target/test-data", "America/Sao_Paulo",
-                new AppProperties.Jwt(Base64.getEncoder().encodeToString(SECRET), Duration.ofMinutes(15), Duration.ofDays(7), Duration.ZERO),
-                new AppProperties.Cookies("auto"), "", new AppProperties.EmbeddedDb(54399, false), false, false, 50,
-                new AppProperties.Iot(false, Duration.ofSeconds(90), 6),
-                new AppProperties.Ai(null, "modelo", "https://exemplo.invalid", "2023-06-01", Duration.ofSeconds(1)));
+    private static PropriedadesApp props() {
+        return new PropriedadesApp("target/test-data", "America/Sao_Paulo",
+                new PropriedadesApp.Jwt(Base64.getEncoder().encodeToString(SECRET), Duration.ofMinutes(15), Duration.ofDays(7), Duration.ZERO),
+                new PropriedadesApp.Cookies("auto"), "", new PropriedadesApp.EmbeddedDb(54399, false), false, false, 50,
+                new PropriedadesApp.Iot(false, Duration.ofSeconds(90), 6),
+                new PropriedadesApp.Ai(null, "modelo", "https://exemplo.invalid", "2023-06-01", Duration.ofSeconds(1)));
     }
 
     private static io.jsonwebtoken.JwtBuilder validClaims() {
@@ -73,10 +73,10 @@ class SecurityHardeningTest {
 
     @Test
     void bodyLimitRejectsOversizedJsonByContentLength() throws Exception {
-        var filter = new RequestBodyLimitFilter(new ProblemResponseWriter(JsonMapper.builder().build()));
+        var filter = new FiltroLimiteCorpo(new EscritorRespostaProblema(JsonMapper.builder().build()));
         var request = new MockHttpServletRequest("POST", "/api/auth/login");
         request.setContentType("application/json");
-        request.setContent(new byte[RequestBodyLimitFilter.MAX_JSON_BYTES + 1]);
+        request.setContent(new byte[FiltroLimiteCorpo.MAX_JSON_BYTES + 1]);
         var response = new MockHttpServletResponse();
         AtomicBoolean reached = new AtomicBoolean();
         filter.doFilter(request, response, (req, res) -> reached.set(true));
@@ -88,7 +88,7 @@ class SecurityHardeningTest {
 
     @Test
     void bodyLimitStopsChunkedBodiesWithoutContentLength() throws Exception {
-        var filter = new RequestBodyLimitFilter(new ProblemResponseWriter(JsonMapper.builder().build()));
+        var filter = new FiltroLimiteCorpo(new EscritorRespostaProblema(JsonMapper.builder().build()));
         var request = new MockHttpServletRequest("POST", "/api/disposals") {
             @Override
             public long getContentLengthLong() {
@@ -96,7 +96,7 @@ class SecurityHardeningTest {
             }
         };
         request.setContentType("application/json");
-        request.setContent(new byte[RequestBodyLimitFilter.MAX_JSON_BYTES * 2]);
+        request.setContent(new byte[FiltroLimiteCorpo.MAX_JSON_BYTES * 2]);
         FilterChain readAll = (req, res) -> req.getInputStream().readAllBytes();
 
         assertThatThrownBy(() -> filter.doFilter(request, new MockHttpServletResponse(), readAll)).isInstanceOf(IOException.class);
@@ -104,13 +104,13 @@ class SecurityHardeningTest {
 
     @Test
     void bodyLimitIgnoresSmallBodiesAndUploads() throws Exception {
-        var filter = new RequestBodyLimitFilter(new ProblemResponseWriter(JsonMapper.builder().build()));
+        var filter = new FiltroLimiteCorpo(new EscritorRespostaProblema(JsonMapper.builder().build()));
         var json = new MockHttpServletRequest("POST", "/api/auth/login");
         json.setContentType("application/json");
         json.setContent("{\"email\":\"a@b.com\"}".getBytes());
         var upload = new MockHttpServletRequest("POST", "/api/photos");
         upload.setContentType("multipart/form-data; boundary=x");
-        upload.setContent(new byte[RequestBodyLimitFilter.MAX_JSON_BYTES * 4]); // limitado pelo multipart (5 MB)
+        upload.setContent(new byte[FiltroLimiteCorpo.MAX_JSON_BYTES * 4]); // limitado pelo multipart (5 MB)
 
         for (var request : new MockHttpServletRequest[]{json, upload}) {
             AtomicBoolean reached = new AtomicBoolean();

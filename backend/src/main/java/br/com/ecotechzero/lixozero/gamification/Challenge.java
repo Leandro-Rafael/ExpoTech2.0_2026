@@ -1,6 +1,6 @@
 package br.com.ecotechzero.lixozero.gamification;
 
-import br.com.ecotechzero.lixozero.category.CategoryCode;
+import br.com.ecotechzero.lixozero.category.CodigoCategoria;
 import br.com.ecotechzero.lixozero.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -25,7 +25,7 @@ public class Challenge extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "category_code", length = 20)
-    private CategoryCode categoryCode;
+    private CodigoCategoria categoryCode;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
@@ -53,7 +53,7 @@ public class Challenge extends BaseEntity {
         this.title = title;
     }
 
-    public void apply(GamificationDtos.ChallengeInput in) {
+    public void apply(DtosGamificacao.ChallengeInput in) {
         this.title = in.title().strip();
         this.description = in.description().strip();
         this.categoryCode = in.categoryCode();
@@ -71,7 +71,7 @@ public class Challenge extends BaseEntity {
 
     public String getTitle() { return title; }
     public String getDescription() { return description; }
-    public CategoryCode getCategoryCode() { return categoryCode; }
+    public CodigoCategoria getCategoryCode() { return categoryCode; }
     public Metric getMetric() { return metric; }
     public double getTarget() { return target; }
     public int getBonusPoints() { return bonusPoints; }

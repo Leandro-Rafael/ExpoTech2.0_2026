@@ -1,7 +1,7 @@
 package br.com.ecotechzero.lixozero.integrity;
 
-import br.com.ecotechzero.lixozero.integrity.ChainHashes.AuditRow;
-import br.com.ecotechzero.lixozero.integrity.ChainHashes.LedgerRow;
+import br.com.ecotechzero.lixozero.integrity.HashesCadeia.AuditRow;
+import br.com.ecotechzero.lixozero.integrity.HashesCadeia.LedgerRow;
 import org.flywaydb.core.api.MigrationVersion;
 import org.flywaydb.core.api.migration.Context;
 import org.flywaydb.core.api.migration.JavaMigration;
@@ -33,9 +33,9 @@ public class IntegrityBackfillMigration implements JavaMigration {
 
     private static final Logger log = LoggerFactory.getLogger(IntegrityBackfillMigration.class);
 
-    private final IntegrityKey chave;
+    private final ChaveIntegridade chave;
 
-    public IntegrityBackfillMigration(IntegrityKey chave) {
+    public IntegrityBackfillMigration(ChaveIntegridade chave) {
         this.chave = chave;
     }
 
@@ -93,11 +93,11 @@ public class IntegrityBackfillMigration implements JavaMigration {
                 }
                 long seq = 0;
                 long saldo = 0;
-                String anterior = ChainHashes.GENESIS;
+                String anterior = HashesCadeia.GENESIS;
                 while (!doUsuario.isEmpty()) {
                     LedgerRow proxima = escolherProxima(doUsuario, saldo);
                     seq++;
-                    String hash = IntegrityKey.assinar(mac, ChainHashes.extrato(seq, anterior, proxima));
+                    String hash = ChaveIntegridade.assinar(mac, HashesCadeia.extrato(seq, anterior, proxima));
                     atualizacao.setLong(1, seq);
                     atualizacao.setString(2, anterior);
                     atualizacao.setString(3, hash);
@@ -132,14 +132,14 @@ public class IntegrityBackfillMigration implements JavaMigration {
                 """);
              PreparedStatement atualizacao = c.prepareStatement("update audit_log set seq = ?, prev_hash = ?, hash = ? where id = ?")) {
             ps.setFetchSize(1000);
-            String anterior = ChainHashes.GENESIS;
+            String anterior = HashesCadeia.GENESIS;
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     AuditRow linha = new AuditRow(rs.getObject("id", UUID.class), rs.getObject("actor_id", UUID.class),
                             rs.getString("actor_label"), rs.getString("action"), rs.getString("entity"), rs.getString("entity_id"),
                             rs.getString("details"), rs.getString("ip"), rs.getObject("created_at", OffsetDateTime.class).toInstant());
                     contador++;
-                    String hash = IntegrityKey.assinar(mac, ChainHashes.auditoria(contador, anterior, linha));
+                    String hash = ChaveIntegridade.assinar(mac, HashesCadeia.auditoria(contador, anterior, linha));
                     atualizacao.setLong(1, contador);
                     atualizacao.setString(2, anterior);
                     atualizacao.setString(3, hash);

@@ -1,13 +1,13 @@
 package br.com.ecotechzero.lixozero;
 
 import br.com.ecotechzero.lixozero.admin.CsvReportServiceTestAccess;
-import br.com.ecotechzero.lixozero.disposal.PointsCalculator;
-import br.com.ecotechzero.lixozero.gamification.LevelCatalog;
-import br.com.ecotechzero.lixozero.gamification.StreakCalculator;
-import br.com.ecotechzero.lixozero.impact.ImpactDtos.SimulationInput;
-import br.com.ecotechzero.lixozero.impact.ImpactDtos.SimulationResult;
-import br.com.ecotechzero.lixozero.impact.ScenarioSimulator;
-import br.com.ecotechzero.lixozero.security.PasswordPolicy;
+import br.com.ecotechzero.lixozero.disposal.CalculadoraPontos;
+import br.com.ecotechzero.lixozero.gamification.CatalogoNiveis;
+import br.com.ecotechzero.lixozero.gamification.CalculadoraSequencia;
+import br.com.ecotechzero.lixozero.impact.DtosImpacto.SimulationInput;
+import br.com.ecotechzero.lixozero.impact.DtosImpacto.SimulationResult;
+import br.com.ecotechzero.lixozero.impact.SimuladorCenarios;
+import br.com.ecotechzero.lixozero.security.PoliticaSenha;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Regras de negócio puras: senhas, pontuação, níveis, sequência, simulador e CSV. */
 class DomainRulesTest {
 
-    private final PasswordPolicy policy = new PasswordPolicy();
+    private final PoliticaSenha policy = new PoliticaSenha();
 
     @Test
     void passwordPolicy() {
@@ -39,19 +39,19 @@ class DomainRulesTest {
 
     @Test
     void pointsAreRoundedWithMinimumAndAiBonus() {
-        assertThat(PointsCalculator.calcular(10, 2.5, false)).isEqualTo(25);
-        assertThat(PointsCalculator.calcular(10, 2.5, true)).isEqualTo(28);   // +10%
-        assertThat(PointsCalculator.calcular(1, 0.2, false)).isEqualTo(1);    // mínimo de 1 ponto
+        assertThat(CalculadoraPontos.calcular(10, 2.5, false)).isEqualTo(25);
+        assertThat(CalculadoraPontos.calcular(10, 2.5, true)).isEqualTo(28);   // +10%
+        assertThat(CalculadoraPontos.calcular(1, 0.2, false)).isEqualTo(1);    // mínimo de 1 ponto
     }
 
     @Test
     void levelsDependOnTotalEarned() {
-        assertThat(LevelCatalog.nivelPara(0).name()).isEqualTo("Semente");
-        var muda = LevelCatalog.nivelPara(1000);
+        assertThat(CatalogoNiveis.nivelPara(0).name()).isEqualTo("Semente");
+        var muda = CatalogoNiveis.nivelPara(1000);
         assertThat(muda.name()).isEqualTo("Muda");
         assertThat(muda.nextName()).isEqualTo("Árvore");
         assertThat(muda.progress()).isBetween(0.4, 0.5);
-        var top = LevelCatalog.nivelPara(1_000_000);
+        var top = CatalogoNiveis.nivelPara(1_000_000);
         assertThat(top.nextName()).isNull();
         assertThat(top.progress()).isEqualTo(1.0);
     }
@@ -59,16 +59,16 @@ class DomainRulesTest {
     @Test
     void streakCountsConsecutiveDaysEndingTodayOrYesterday() {
         LocalDate today = LocalDate.of(2026, 10, 23);
-        assertThat(StreakCalculator.sequencia(List.of(today, today.minusDays(1), today.minusDays(2), today.minusDays(4)), today)).isEqualTo(3);
-        assertThat(StreakCalculator.sequencia(List.of(today.minusDays(1), today.minusDays(2)), today)).isEqualTo(2);
-        assertThat(StreakCalculator.sequencia(List.of(today.minusDays(3)), today)).isZero();
+        assertThat(CalculadoraSequencia.sequencia(List.of(today, today.minusDays(1), today.minusDays(2), today.minusDays(4)), today)).isEqualTo(3);
+        assertThat(CalculadoraSequencia.sequencia(List.of(today.minusDays(1), today.minusDays(2)), today)).isEqualTo(2);
+        assertThat(CalculadoraSequencia.sequencia(List.of(today.minusDays(3)), today)).isZero();
     }
 
     @Test
     void simulationIsDeterministicAndConsistent() {
         var input = new SimulationInput(300_000, 1.1, 0.04, 0.5, 2035, 0.01);
-        SimulationResult a = ScenarioSimulator.simular(input, 2026);
-        SimulationResult b = ScenarioSimulator.simular(input, 2026);
+        SimulationResult a = SimuladorCenarios.simular(input, 2026);
+        SimulationResult b = SimuladorCenarios.simular(input, 2026);
         assertThat(a).isEqualTo(b);
         assertThat(a.years()).hasSize(2050 - 2026 + 1);
         assertThat(a.years().getFirst().recycledTonsScenario()).isEqualTo(a.years().getFirst().recycledTonsBaseline());
@@ -78,7 +78,7 @@ class DomainRulesTest {
         assertThat(a.totals().landfillAvoidedTons()).isPositive();
         assertThat(a.totals().co2AvoidedTons()).isPositive();
 
-        var same = ScenarioSimulator.simular(new SimulationInput(1000, 1.0, 0.3, 0.3, 2030, 0.0), 2026);
+        var same = SimuladorCenarios.simular(new SimulationInput(1000, 1.0, 0.3, 0.3, 2030, 0.0), 2026);
         assertThat(same.totals().landfillAvoidedTons()).isZero();        // sem mudança de taxa, sem ganho
     }
 

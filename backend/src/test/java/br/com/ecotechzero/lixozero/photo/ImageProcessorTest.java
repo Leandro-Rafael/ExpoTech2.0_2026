@@ -1,7 +1,7 @@
 package br.com.ecotechzero.lixozero.photo;
 
-import br.com.ecotechzero.lixozero.common.ApiException;
-import br.com.ecotechzero.lixozero.common.ErrorCode;
+import br.com.ecotechzero.lixozero.common.ExcecaoApi;
+import br.com.ecotechzero.lixozero.common.CodigoErro;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ImageProcessorTest {
 
-    private final ImageProcessor processor = new ImageProcessor();
+    private final ProcessadorImagem processor = new ProcessadorImagem();
 
     static byte[] png(int w, int h, Color color) throws IOException {
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
@@ -48,7 +48,7 @@ class ImageProcessorTest {
     void similarImagesHaveCloseHashes() throws IOException {
         long a = processor.processar(png(400, 300, Color.GREEN)).dHash();
         long b = processor.processar(png(420, 315, Color.GREEN)).dHash();
-        assertThat(PerceptualHash.distanciaHamming(a, b)).isLessThanOrEqualTo(PerceptualHash.SIMILARITY_THRESHOLD);
+        assertThat(HashPerceptual.distanciaHamming(a, b)).isLessThanOrEqualTo(HashPerceptual.SIMILARITY_THRESHOLD);
     }
 
     @Test
@@ -56,14 +56,14 @@ class ImageProcessorTest {
         byte[] script = "<script>alert(1)</script> isto não é uma imagem, apenas texto com mais de 64 bytes..."
                 .getBytes(StandardCharsets.UTF_8);
         assertThatThrownBy(() -> processor.processar(script))
-                .isInstanceOf(ApiException.class)
-                .extracting(e -> ((ApiException) e).getCode()).isEqualTo(ErrorCode.INVALID_IMAGE);
+                .isInstanceOf(ExcecaoApi.class)
+                .extracting(e -> ((ExcecaoApi) e).getCode()).isEqualTo(CodigoErro.INVALID_IMAGE);
     }
 
     @Test
     void rejectsTruncatedImage() throws IOException {
         byte[] full = png(300, 300, Color.BLUE);
         byte[] truncated = java.util.Arrays.copyOf(full, 80);
-        assertThatThrownBy(() -> processor.processar(truncated)).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> processor.processar(truncated)).isInstanceOf(ExcecaoApi.class);
     }
 }

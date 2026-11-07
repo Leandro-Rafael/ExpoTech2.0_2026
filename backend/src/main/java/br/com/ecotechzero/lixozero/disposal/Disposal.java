@@ -1,8 +1,8 @@
 package br.com.ecotechzero.lixozero.disposal;
 
-import br.com.ecotechzero.lixozero.ai.AiSource;
+import br.com.ecotechzero.lixozero.ai.OrigemIa;
 import br.com.ecotechzero.lixozero.category.Category;
-import br.com.ecotechzero.lixozero.category.CategoryCode;
+import br.com.ecotechzero.lixozero.category.CodigoCategoria;
 import br.com.ecotechzero.lixozero.collection.CollectionPoint;
 import br.com.ecotechzero.lixozero.common.BaseEntity;
 import br.com.ecotechzero.lixozero.photo.Photo;
@@ -42,7 +42,7 @@ public class Disposal extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private DisposalStatus status = DisposalStatus.PENDING;
+    private StatusDescarte status = StatusDescarte.PENDING;
 
     @Column(name = "points_awarded", nullable = false)
     private int pointsAwarded;
@@ -80,14 +80,14 @@ public class Disposal extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "ai_suggested_code", length = 20)
-    private CategoryCode aiSuggestedCode;
+    private CodigoCategoria aiSuggestedCode;
 
     @Column(name = "ai_confidence")
     private Double aiConfidence;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "ai_source", length = 10)
-    private AiSource aiSource;
+    private OrigemIa aiSource;
 
     /** true = ai_* veio da classificação do SERVIDOR sobre a foto deste descarte (única que vale para o bônus). */
     @Column(name = "ai_verified", nullable = false)
@@ -96,14 +96,14 @@ public class Disposal extends BaseEntity {
     /** Palpite enviado pelo navegador: guardado só para consulta/antifraude, nunca usado para pontuar. */
     @Enumerated(EnumType.STRING)
     @Column(name = "client_ai_code", length = 20)
-    private CategoryCode clientAiCode;
+    private CodigoCategoria clientAiCode;
 
     @Column(name = "client_ai_confidence")
     private Double clientAiConfidence;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "client_ai_source", length = 10)
-    private AiSource clientAiSource;
+    private OrigemIa clientAiSource;
 
     @Column(name = "fraud_score", nullable = false)
     private int fraudScore;
@@ -131,10 +131,10 @@ public class Disposal extends BaseEntity {
     }
     /** Aprova e registra os pontos concedidos. Só é chamado para descartes pendentes. */
     public void approve(int points, User reviewer, Instant at) {
-        if (status != DisposalStatus.PENDING) {
+        if (status != StatusDescarte.PENDING) {
             throw new IllegalStateException("Somente descartes pendentes podem ser aprovados");
         }
-        this.status = DisposalStatus.APPROVED;
+        this.status = StatusDescarte.APPROVED;
         this.pointsAwarded = points;
         this.estimatedPoints = points;
         this.reviewedBy = reviewer;
@@ -143,10 +143,10 @@ public class Disposal extends BaseEntity {
     }
 
     public void reject(String reason, User reviewer, Instant at) {
-        if (status != DisposalStatus.PENDING) {
+        if (status != StatusDescarte.PENDING) {
             throw new IllegalStateException("Somente descartes pendentes podem ser recusados");
         }
-        this.status = DisposalStatus.REJECTED;
+        this.status = StatusDescarte.REJECTED;
         this.pointsAwarded = 0;
         this.rejectionReason = reason;
         this.reviewedBy = reviewer;
@@ -175,7 +175,7 @@ public class Disposal extends BaseEntity {
     }
 
     /** Palpite do cliente (informativo). Só aparece como sugestão exibida se não houver resultado do servidor. */
-    public void recordClientHint(CategoryCode code, Double confidence, AiSource source) {
+    public void recordClientHint(CodigoCategoria code, Double confidence, OrigemIa source) {
         this.clientAiCode = code;
         this.clientAiConfidence = confidence;
         this.clientAiSource = source;
@@ -187,7 +187,7 @@ public class Disposal extends BaseEntity {
     }
 
     /** Classificação feita pelo servidor sobre a foto (copiada do registro da foto, nunca do corpo da requisição). */
-    public void recordServerAi(CategoryCode code, double confidence, AiSource source) {
+    public void recordServerAi(CodigoCategoria code, double confidence, OrigemIa source) {
         this.aiSuggestedCode = code;
         this.aiConfidence = confidence;
         this.aiSource = source;
@@ -200,14 +200,14 @@ public class Disposal extends BaseEntity {
      */
     public boolean aiBonusApplies() {
         return photo != null && aiVerified && aiSuggestedCode != null && aiSuggestedCode == category.getCode()
-                && aiConfidence != null && aiConfidence >= PointsCalculator.CONFIANCA_MINIMA_IA;
+                && aiConfidence != null && aiConfidence >= CalculadoraPontos.CONFIANCA_MINIMA_IA;
     }
 
     public User getUser() { return user; }
     public Category getCategory() { return category; }
     public double getQuantityKg() { return quantityKg; }
-    public DisposalStatus getStatus() { return status; }
-    public void setStatus(DisposalStatus status) { this.status = status; }
+    public StatusDescarte getStatus() { return status; }
+    public void setStatus(StatusDescarte status) { this.status = status; }
     public int getPointsAwarded() { return pointsAwarded; }
     public void setPointsAwarded(int pointsAwarded) { this.pointsAwarded = pointsAwarded; }
     public int getEstimatedPoints() { return estimatedPoints; }
@@ -225,13 +225,13 @@ public class Disposal extends BaseEntity {
     public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
-    public CategoryCode getAiSuggestedCode() { return aiSuggestedCode; }
+    public CodigoCategoria getAiSuggestedCode() { return aiSuggestedCode; }
     public Double getAiConfidence() { return aiConfidence; }
-    public AiSource getAiSource() { return aiSource; }
+    public OrigemIa getAiSource() { return aiSource; }
     public boolean isAiVerified() { return aiVerified; }
-    public CategoryCode getClientAiCode() { return clientAiCode; }
+    public CodigoCategoria getClientAiCode() { return clientAiCode; }
     public Double getClientAiConfidence() { return clientAiConfidence; }
-    public AiSource getClientAiSource() { return clientAiSource; }
+    public OrigemIa getClientAiSource() { return clientAiSource; }
     public int getFraudScore() { return fraudScore; }
     public boolean isFlagged() { return flagged; }
     public String getIdempotencyKey() { return idempotencyKey; }

@@ -17,16 +17,16 @@ public class Organization extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private OrganizationType type;
+    private TipoOrganizacao type;
 
     protected Organization() {
     }
 
-    public Organization(String name, OrganizationType type) {
+    public Organization(String name, TipoOrganizacao type) {
         this.name = name;
         this.type = type;
     }
 
     public String getName() { return name; }
-    public OrganizationType getType() { return type; }
+    public TipoOrganizacao getType() { return type; }
 }

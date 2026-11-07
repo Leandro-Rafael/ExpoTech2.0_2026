@@ -1,7 +1,7 @@
 package br.com.ecotechzero.lixozero.photo;
 
-import br.com.ecotechzero.lixozero.ai.AiSource;
-import br.com.ecotechzero.lixozero.category.CategoryCode;
+import br.com.ecotechzero.lixozero.ai.OrigemIa;
+import br.com.ecotechzero.lixozero.category.CodigoCategoria;
 import br.com.ecotechzero.lixozero.common.BaseEntity;
 import br.com.ecotechzero.lixozero.user.User;
 import jakarta.persistence.Column;
@@ -50,7 +50,7 @@ public class Photo extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "ai_code", length = 20)
-    private CategoryCode aiCode;
+    private CodigoCategoria aiCode;
 
     @Column(name = "ai_confidence")
     private Double aiConfidence;
@@ -60,7 +60,7 @@ public class Photo extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "ai_source", length = 10)
-    private AiSource aiSource;
+    private OrigemIa aiSource;
 
     @Column(name = "ai_model", length = 60)
     private String aiModel;
@@ -83,7 +83,7 @@ public class Photo extends BaseEntity {
     }
 
     /** Resultado do classificador do SERVIDOR (nunca dados vindos do cliente). */
-    public void setServerAi(CategoryCode codigo, Double confianca, String justificativa, AiSource origem, String modelo, Instant momento) {
+    public void setServerAi(CodigoCategoria codigo, Double confianca, String justificativa, OrigemIa origem, String modelo, Instant momento) {
         this.aiCode = codigo;
         this.aiConfidence = confianca;
         this.aiReasoning = justificativa;
@@ -103,10 +103,10 @@ public class Photo extends BaseEntity {
     public int getHeight() { return height; }
     public long getDhash() { return dhash; }
     public String getSha256() { return sha256; }
-    public CategoryCode getAiCode() { return aiCode; }
+    public CodigoCategoria getAiCode() { return aiCode; }
     public Double getAiConfidence() { return aiConfidence; }
     public String getAiReasoning() { return aiReasoning; }
-    public AiSource getAiSource() { return aiSource; }
+    public OrigemIa getAiSource() { return aiSource; }
     public String getAiModel() { return aiModel; }
     public Instant getAiClassifiedAt() { return aiClassifiedAt; }
 }

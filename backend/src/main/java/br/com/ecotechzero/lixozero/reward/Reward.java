@@ -40,7 +40,7 @@ public class Reward extends BaseEntity {
         this.name = name;
     }
 
-    public void apply(RewardDtos.RewardInput in) {
+    public void apply(DtosRecompensa.RewardInput in) {
         this.name = in.name().strip();
         this.description = in.description().strip();
         this.costPoints = in.costPoints();

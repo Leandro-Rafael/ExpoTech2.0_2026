@@ -10,7 +10,7 @@ import java.util.UUID;
 
 /**
  * Registro de auditoria de ações sensíveis (quem, o quê, quando e de qual IP).
- * Somente leitura no JPA: gravado pela {@code AuditChain} numa cadeia de hashes; append-only no banco.
+ * Somente leitura no JPA: gravado pela {@code CadeiaAuditoria} numa cadeia de hashes; append-only no banco.
  */
 @Entity
 @Immutable

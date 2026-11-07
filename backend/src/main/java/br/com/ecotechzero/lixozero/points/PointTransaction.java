@@ -20,7 +20,7 @@ import org.hibernate.annotations.Immutable;
  * permitindo auditar a evolução do saldo. Um índice único no banco garante no máximo um
  * lançamento EARN por descarte.
  * <p>
- * Somente leitura no JPA: as linhas são gravadas pela {@code LedgerChain} já encadeadas (seq, prev_hash e
+ * Somente leitura no JPA: as linhas são gravadas pela {@code CadeiaExtrato} já encadeadas (seq, prev_hash e
  * HMAC) e a tabela é append-only no banco (UPDATE/DELETE recusados por trigger).
  */
 @Entity

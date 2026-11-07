@@ -1,0 +1,44 @@
+package br.com.ecotechzero.lixozero.security;
+
+import br.com.ecotechzero.lixozero.common.ConstantesFiltroIdRequisicao;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
+/**
+ * Correlation id: cada requisição recebe um requestId (ou reaproveita um X-Request-Id válido),
+ * que aparece em todos os logs (MDC) e volta no header da resposta. Facilita rastrear erros
+ * sem expor detalhes internos ao cliente.
+ */
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class FiltroIdRequisicao extends OncePerRequestFilter {
+
+    private static final Pattern ID_SEGURO = Pattern.compile("^[A-Za-z0-9-]{8,64}$");
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadeia)
+            throws ServletException, IOException {
+        String recebido = request.getHeader(ConstantesFiltroIdRequisicao.HEADER);
+        String idRequisicao = recebido != null && ID_SEGURO.matcher(recebido).matches()
+                ? recebido
+                : UUID.randomUUID().toString().substring(0, 13);
+        MDC.put(ConstantesFiltroIdRequisicao.MDC_KEY, idRequisicao);
+        response.setHeader(ConstantesFiltroIdRequisicao.HEADER, idRequisicao);
+        try {
+            cadeia.doFilter(request, response);
+        } finally {
+            MDC.remove(ConstantesFiltroIdRequisicao.MDC_KEY);
+        }
+    }
+}

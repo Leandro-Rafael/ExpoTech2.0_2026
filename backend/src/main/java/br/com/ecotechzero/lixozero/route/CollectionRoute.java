@@ -2,8 +2,8 @@ package br.com.ecotechzero.lixozero.route;
 
 import br.com.ecotechzero.lixozero.collection.CollectionRequest;
 import br.com.ecotechzero.lixozero.common.BaseEntity;
-import br.com.ecotechzero.lixozero.common.GeoPoint;
-import br.com.ecotechzero.lixozero.common.Numbers;
+import br.com.ecotechzero.lixozero.common.PontoGeografico;
+import br.com.ecotechzero.lixozero.common.Numeros;
 import br.com.ecotechzero.lixozero.user.User;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -33,7 +33,7 @@ public class CollectionRoute extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 12)
-    private RouteStatus status = RouteStatus.PLANNED;
+    private StatusRota status = StatusRota.PLANNED;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "collector_id")
@@ -104,28 +104,28 @@ public class CollectionRoute extends BaseEntity {
         for (int i = 0; i < stops.size(); i++) {
             stops.get(i).setSequence(i + 1);
         }
-        GeoPoint garagem = new GeoPoint(depotLatitude, depotLongitude);
-        List<GeoPoint> ordemOtimizada = stops.stream().map(s -> pontoDe(s.getRequest())).toList();
-        List<GeoPoint> ordemDeCriacao = stops.stream()
+        PontoGeografico garagem = new PontoGeografico(depotLatitude, depotLongitude);
+        List<PontoGeografico> ordemOtimizada = stops.stream().map(s -> pontoDe(s.getRequest())).toList();
+        List<PontoGeografico> ordemDeCriacao = stops.stream()
                 .sorted(Comparator.comparing((RouteStop s) -> s.getRequest().getCreatedAt(), Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(s -> pontoDe(s.getRequest()))
                 .toList();
-        this.totalDistanceKm = Numbers.arredondar2(RouteOptimizer.kmRotaFechada(garagem, ordemOtimizada));
-        this.naiveDistanceKm = Math.max(totalDistanceKm, Numbers.arredondar2(RouteOptimizer.kmRotaFechada(garagem, ordemDeCriacao)));
-        this.estimatedMinutes = RouteOptimizer.estimarMinutos(totalDistanceKm, stops.size());
-        this.loadKg = Numbers.arredondar2(stops.stream().mapToDouble(s -> s.getRequest().getEstimatedKg()).sum());
+        this.totalDistanceKm = Numeros.arredondar2(OtimizadorRotas.kmRotaFechada(garagem, ordemOtimizada));
+        this.naiveDistanceKm = Math.max(totalDistanceKm, Numeros.arredondar2(OtimizadorRotas.kmRotaFechada(garagem, ordemDeCriacao)));
+        this.estimatedMinutes = OtimizadorRotas.estimarMinutos(totalDistanceKm, stops.size());
+        this.loadKg = Numeros.arredondar2(stops.stream().mapToDouble(s -> s.getRequest().getEstimatedKg()).sum());
     }
 
-    private static GeoPoint pontoDe(CollectionRequest request) {
-        return new GeoPoint(request.getLatitude(), request.getLongitude());
+    private static PontoGeografico pontoDe(CollectionRequest request) {
+        return new PontoGeografico(request.getLatitude(), request.getLongitude());
     }
 
     public boolean allStopsDone() {
-        return stops.stream().allMatch(s -> s.getStatus() == StopStatus.DONE);
+        return stops.stream().allMatch(s -> s.getStatus() == StatusParada.DONE);
     }
 
     public void start(User collector, Instant at) {
-        this.status = RouteStatus.IN_PROGRESS;
+        this.status = StatusRota.IN_PROGRESS;
         this.startedAt = at;
         if (this.collector == null) {
             this.collector = collector;
@@ -133,12 +133,12 @@ public class CollectionRoute extends BaseEntity {
     }
 
     public void finish(Instant at) {
-        this.status = RouteStatus.DONE;
+        this.status = StatusRota.DONE;
         this.completedAt = at;
     }
 
     public String getName() { return name; }
-    public RouteStatus getStatus() { return status; }
+    public StatusRota getStatus() { return status; }
     public User getCollector() { return collector; }
     public LocalDate getPlannedDate() { return plannedDate; }
     public double getTotalDistanceKm() { return totalDistanceKm; }

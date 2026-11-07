@@ -80,17 +80,17 @@ public class SmartBin extends BaseEntity {
     }
 
     /** Status calculado a partir da última leitura. */
-    public SmartBinStatus statusAt(Instant now, Duration offlineAfter) {
+    public StatusLixeira statusAt(Instant now, Duration offlineAfter) {
         if (lastReadingAt == null || lastReadingAt.plus(offlineAfter).isBefore(now)) {
-            return SmartBinStatus.OFFLINE;
+            return StatusLixeira.OFFLINE;
         }
         if (fillLevel >= 90) {
-            return SmartBinStatus.FULL;
+            return StatusLixeira.FULL;
         }
         if (fillLevel >= Math.min(autoRequestThreshold, 75) || batteryLevel <= 15) {
-            return SmartBinStatus.ATTENTION;
+            return StatusLixeira.ATTENTION;
         }
-        return SmartBinStatus.OK;
+        return StatusLixeira.OK;
     }
 
     public Household getHousehold() { return household; }

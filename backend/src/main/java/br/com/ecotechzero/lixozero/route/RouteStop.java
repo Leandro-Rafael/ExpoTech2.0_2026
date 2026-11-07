@@ -31,7 +31,7 @@ public class RouteStop extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private StopStatus status = StopStatus.PENDING;
+    private StatusParada status = StatusParada.PENDING;
 
     @Column(name = "completed_at")
     private Instant completedAt;
@@ -49,7 +49,7 @@ public class RouteStop extends BaseEntity {
     }
 
     public void complete(Double kg, Instant at) {
-        this.status = StopStatus.DONE;
+        this.status = StatusParada.DONE;
         this.collectedKg = kg;
         this.completedAt = at;
     }
@@ -58,7 +58,7 @@ public class RouteStop extends BaseEntity {
     public CollectionRequest getRequest() { return request; }
     public int getSequence() { return sequence; }
     void setSequence(int sequence) { this.sequence = sequence; }
-    public StopStatus getStatus() { return status; }
+    public StatusParada getStatus() { return status; }
     public Instant getCompletedAt() { return completedAt; }
     public Double getCollectedKg() { return collectedKg; }
 }

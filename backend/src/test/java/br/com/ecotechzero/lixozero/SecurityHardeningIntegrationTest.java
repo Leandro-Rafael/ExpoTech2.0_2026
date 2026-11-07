@@ -1,9 +1,9 @@
 package br.com.ecotechzero.lixozero;
 
-import br.com.ecotechzero.lixozero.common.TokenBucketRateLimiter;
-import br.com.ecotechzero.lixozero.user.Role;
+import br.com.ecotechzero.lixozero.common.LimitadorDeTaxa;
+import br.com.ecotechzero.lixozero.user.PerfilUsuario;
 import br.com.ecotechzero.lixozero.user.User;
-import br.com.ecotechzero.lixozero.user.UserRepository;
+import br.com.ecotechzero.lixozero.user.RepositorioUsuarios;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,9 +54,9 @@ class SecurityHardeningIntegrationTest {
 
     @Autowired MockMvc mvc;
     @Autowired JsonMapper json;
-    @Autowired UserRepository users;
+    @Autowired RepositorioUsuarios users;
     @Autowired PasswordEncoder encoder;
-    @Autowired TokenBucketRateLimiter limiter;
+    @Autowired LimitadorDeTaxa limiter;
     @Autowired JdbcTemplate jdbc;
 
     private final Random random = new Random();
@@ -118,7 +118,7 @@ class SecurityHardeningIntegrationTest {
         return out.toByteArray();
     }
 
-    private void createUser(String email, String password, Role role) {
+    private void createUser(String email, String password, PerfilUsuario role) {
         if (users.findByEmail(email).isEmpty()) {
             users.save(new User("Usuário " + role.name().toLowerCase(), email, encoder.encode(password), role));
         }
@@ -145,9 +145,9 @@ class SecurityHardeningIntegrationTest {
 
     @Test
     void aiBonusOnlyFromServerVerifiedClassification() throws Exception {
-        createUser("admin.ia@exemplo.com", "Admin-IA-2050x", Role.ADMIN);
-        createUser("morador.ia@exemplo.com", "Morador-IA-2050", Role.USER);
-        createUser("vizinho.ia@exemplo.com", "Vizinho-IA-2050", Role.USER);
+        createUser("admin.ia@exemplo.com", "Admin-IA-2050x", PerfilUsuario.ADMIN);
+        createUser("morador.ia@exemplo.com", "Morador-IA-2050", PerfilUsuario.USER);
+        createUser("vizinho.ia@exemplo.com", "Vizinho-IA-2050", PerfilUsuario.USER);
         Client resident = new Client().login("morador.ia@exemplo.com", "Morador-IA-2050");
         Client admin = new Client().login("admin.ia@exemplo.com", "Admin-IA-2050x");
         var cats = categories(resident);
@@ -212,8 +212,8 @@ class SecurityHardeningIntegrationTest {
 
     @Test
     void integrityChainVerifiesAndDetectsTampering() throws Exception {
-        createUser("admin.int@exemplo.com", "Admin-Int-2050x", Role.ADMIN);
-        createUser("morador.int@exemplo.com", "Morador-Int-2050", Role.USER);
+        createUser("admin.int@exemplo.com", "Admin-Int-2050x", PerfilUsuario.ADMIN);
+        createUser("morador.int@exemplo.com", "Morador-Int-2050", PerfilUsuario.USER);
         Client resident = new Client().login("morador.int@exemplo.com", "Morador-Int-2050");
         Client admin = new Client().login("admin.int@exemplo.com", "Admin-Int-2050x");
         String plastic = categories(resident).get("PLASTICO").path("id").asString();
@@ -292,8 +292,8 @@ class SecurityHardeningIntegrationTest {
 
     @Test
     void inspectionWarningsLockAccountAndAdminUnlocks() throws Exception {
-        createUser("admin.insp@exemplo.com", "Admin-Insp-2050", Role.ADMIN);
-        createUser("morador.insp@exemplo.com", "Morador-Insp-2050", Role.USER);
+        createUser("admin.insp@exemplo.com", "Admin-Insp-2050", PerfilUsuario.ADMIN);
+        createUser("morador.insp@exemplo.com", "Morador-Insp-2050", PerfilUsuario.USER);
         UUID userId = users.findByEmail("morador.insp@exemplo.com").orElseThrow().getId();
         Client browser = new Client().login("morador.insp@exemplo.com", "Morador-Insp-2050");
 

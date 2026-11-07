@@ -1,6 +1,6 @@
 package br.com.ecotechzero.lixozero.collection;
 
-import br.com.ecotechzero.lixozero.category.CategoryCode;
+import br.com.ecotechzero.lixozero.category.CodigoCategoria;
 import br.com.ecotechzero.lixozero.common.BaseEntity;
 import br.com.ecotechzero.lixozero.household.SmartBin;
 import br.com.ecotechzero.lixozero.route.CollectionRoute;
@@ -54,11 +54,11 @@ public class CollectionRequest extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 12)
-    private CollectionRequestStatus status = CollectionRequestStatus.REQUESTED;
+    private StatusSolicitacaoColeta status = StatusSolicitacaoColeta.REQUESTED;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private CollectionSource source;
+    private OrigemColeta source;
 
     @Column(name = "preferred_date")
     private LocalDate preferredDate;
@@ -77,7 +77,7 @@ public class CollectionRequest extends BaseEntity {
     @CollectionTable(name = "collection_request_categories", joinColumns = @JoinColumn(name = "collection_request_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "category_code", length = 20)
-    private Set<CategoryCode> categories = new HashSet<>();
+    private Set<CodigoCategoria> categories = new HashSet<>();
 
     @Version
     private long version;
@@ -85,8 +85,8 @@ public class CollectionRequest extends BaseEntity {
     protected CollectionRequest() {
     }
 
-    public CollectionRequest(CollectionSource source, String address, double latitude, double longitude,
-                             Set<CategoryCode> categories, double estimatedKg) {
+    public CollectionRequest(OrigemColeta source, String address, double latitude, double longitude,
+                             Set<CodigoCategoria> categories, double estimatedKg) {
         this.source = source;
         this.address = address;
         this.latitude = latitude;
@@ -96,22 +96,22 @@ public class CollectionRequest extends BaseEntity {
     }
 
     public boolean isOpen() {
-        return CollectionRequestStatus.OPEN.contains(status);
+        return StatusSolicitacaoColeta.OPEN.contains(status);
     }
 
     public void schedule(CollectionRoute route, LocalDate date) {
         this.route = route;
         this.scheduledFor = date;
-        this.status = CollectionRequestStatus.SCHEDULED;
+        this.status = StatusSolicitacaoColeta.SCHEDULED;
     }
 
     public void markCollected(Double kg) {
-        this.status = CollectionRequestStatus.COLLECTED;
+        this.status = StatusSolicitacaoColeta.COLLECTED;
         this.collectedKg = kg;
     }
 
     public void cancel() {
-        this.status = CollectionRequestStatus.CANCELLED;
+        this.status = StatusSolicitacaoColeta.CANCELLED;
         this.route = null;
     }
 
@@ -125,9 +125,9 @@ public class CollectionRequest extends BaseEntity {
     public double getEstimatedKg() { return estimatedKg; }
     public void setEstimatedKg(double estimatedKg) { this.estimatedKg = estimatedKg; }
     public Double getCollectedKg() { return collectedKg; }
-    public CollectionRequestStatus getStatus() { return status; }
-    public void setStatus(CollectionRequestStatus status) { this.status = status; }
-    public CollectionSource getSource() { return source; }
+    public StatusSolicitacaoColeta getStatus() { return status; }
+    public void setStatus(StatusSolicitacaoColeta status) { this.status = status; }
+    public OrigemColeta getSource() { return source; }
     public LocalDate getPreferredDate() { return preferredDate; }
     public void setPreferredDate(LocalDate preferredDate) { this.preferredDate = preferredDate; }
     public LocalDate getScheduledFor() { return scheduledFor; }
@@ -135,7 +135,7 @@ public class CollectionRequest extends BaseEntity {
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 
-    public Set<CategoryCode> getCategories() {
+    public Set<CodigoCategoria> getCategories() {
         return categories.isEmpty() ? Set.of() : EnumSet.copyOf(categories);
     }
 }

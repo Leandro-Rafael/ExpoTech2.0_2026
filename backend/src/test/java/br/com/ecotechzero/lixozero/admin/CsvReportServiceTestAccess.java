@@ -7,6 +7,6 @@ public final class CsvReportServiceTestAccess {
     }
 
     public static String escape(String value) {
-        return CsvReportService.escapar(value);
+        return ServicoRelatorioCsv.escapar(value);
     }
 }

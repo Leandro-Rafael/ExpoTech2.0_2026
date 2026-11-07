@@ -1,7 +1,7 @@
 package br.com.ecotechzero.lixozero.category;
 
 import br.com.ecotechzero.lixozero.common.BaseEntity;
-import br.com.ecotechzero.lixozero.common.StringListConverter;
+import br.com.ecotechzero.lixozero.common.ConversorListaTexto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -18,7 +18,7 @@ public class Category extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20, unique = true)
-    private CategoryCode code;
+    private CodigoCategoria code;
 
     @Column(nullable = false, length = 60)
     private String name;
@@ -26,7 +26,7 @@ public class Category extends BaseEntity {
     @Column(nullable = false, length = 500)
     private String description;
 
-    @Convert(converter = StringListConverter.class)
+    @Convert(converter = ConversorListaTexto.class)
     @Column(nullable = false, columnDefinition = "text")
     private List<String> guidance = List.of();
 
@@ -55,11 +55,11 @@ public class Category extends BaseEntity {
     protected Category() {
     }
 
-    public Category(CategoryCode code) {
+    public Category(CodigoCategoria code) {
         this.code = code;
     }
 
-    public void apply(CategoryDtos.CategoryInput in) {
+    public void apply(DtosCategoria.CategoryInput in) {
         this.code = in.code();
         this.name = in.name().strip();
         this.description = in.description().strip();
@@ -73,7 +73,7 @@ public class Category extends BaseEntity {
         this.active = in.active();
     }
 
-    public CategoryCode getCode() { return code; }
+    public CodigoCategoria getCode() { return code; }
     public String getName() { return name; }
     public String getDescription() { return description; }
     public List<String> getGuidance() { return guidance; }

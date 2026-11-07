@@ -1,6 +1,6 @@
 package br.com.ecotechzero.lixozero.collection;
 
-import br.com.ecotechzero.lixozero.category.CategoryCode;
+import br.com.ecotechzero.lixozero.category.CodigoCategoria;
 import br.com.ecotechzero.lixozero.common.BaseEntity;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -45,7 +45,7 @@ public class CollectionPoint extends BaseEntity {
     @CollectionTable(name = "collection_point_categories", joinColumns = @JoinColumn(name = "collection_point_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "category_code", length = 20)
-    private Set<CategoryCode> categories = new HashSet<>();
+    private Set<CodigoCategoria> categories = new HashSet<>();
 
     protected CollectionPoint() {
     }
@@ -54,7 +54,7 @@ public class CollectionPoint extends BaseEntity {
         this.name = name;
     }
 
-    public void apply(CollectionDtos.CollectionPointInput in) {
+    public void apply(DtosColeta.CollectionPointInput in) {
         this.name = in.name().strip();
         this.address = in.address().strip();
         this.neighborhood = in.neighborhood().strip();
@@ -66,7 +66,7 @@ public class CollectionPoint extends BaseEntity {
         this.categories.addAll(in.categories());
     }
 
-    public boolean accepts(CategoryCode code) {
+    public boolean accepts(CodigoCategoria code) {
         return categories.contains(code);
     }
 
@@ -78,7 +78,7 @@ public class CollectionPoint extends BaseEntity {
     public String getOpeningHours() { return openingHours; }
     public boolean isActive() { return active; }
 
-    public Set<CategoryCode> getCategories() {
+    public Set<CodigoCategoria> getCategories() {
         return categories.isEmpty() ? Set.of() : EnumSet.copyOf(categories);
     }
 }

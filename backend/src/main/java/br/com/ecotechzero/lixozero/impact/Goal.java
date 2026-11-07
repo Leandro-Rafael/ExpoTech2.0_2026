@@ -32,7 +32,7 @@ public class Goal extends BaseEntity {
         this.targetKg = targetKg;
     }
 
-    public void apply(ImpactDtos.GoalInput in) {
+    public void apply(DtosImpacto.GoalInput in) {
         this.year = in.year();
         this.title = in.title().strip();
         this.targetRecyclingRate = in.targetRecyclingRate();

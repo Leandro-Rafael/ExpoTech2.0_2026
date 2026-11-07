@@ -1,11 +1,11 @@
 package br.com.ecotechzero.lixozero;
 
-import br.com.ecotechzero.lixozero.common.TokenBucketRateLimiter;
-import br.com.ecotechzero.lixozero.points.PointTransactionRepository;
+import br.com.ecotechzero.lixozero.common.LimitadorDeTaxa;
+import br.com.ecotechzero.lixozero.points.RepositorioTransacoesPontos;
 import br.com.ecotechzero.lixozero.points.PointTransactionType;
-import br.com.ecotechzero.lixozero.user.Role;
+import br.com.ecotechzero.lixozero.user.PerfilUsuario;
 import br.com.ecotechzero.lixozero.user.User;
-import br.com.ecotechzero.lixozero.user.UserRepository;
+import br.com.ecotechzero.lixozero.user.RepositorioUsuarios;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,10 +47,10 @@ class ApiIntegrationTest {
 
     @Autowired MockMvc mvc;
     @Autowired JsonMapper json;
-    @Autowired UserRepository users;
-    @Autowired PointTransactionRepository transactions;
+    @Autowired RepositorioUsuarios users;
+    @Autowired RepositorioTransacoesPontos transactions;
     @Autowired PasswordEncoder encoder;
-    @Autowired TokenBucketRateLimiter limiter;
+    @Autowired LimitadorDeTaxa limiter;
 
     @BeforeEach
     void resetLimits() {
@@ -157,7 +157,7 @@ class ApiIntegrationTest {
 
     @Test
     void lockoutAfterRepeatedFailures() throws Exception {
-        createUser("bloqueio@exemplo.com", "Bloqueio-Teste-1", Role.USER);
+        createUser("bloqueio@exemplo.com", "Bloqueio-Teste-1", PerfilUsuario.USER);
         Client c = new Client();
         c.csrf();
         int lastStatus = 0;
@@ -173,9 +173,9 @@ class ApiIntegrationTest {
 
     @Test
     void approvalAwardsPointsExactlyOnceAndProtectsResources() throws Exception {
-        createUser("admin.teste@exemplo.com", "Admin-Teste-2050", Role.ADMIN);
-        createUser("morador.teste@exemplo.com", "Morador-Teste-2050", Role.USER);
-        createUser("vizinho.teste@exemplo.com", "Vizinho-Teste-2050", Role.USER);
+        createUser("admin.teste@exemplo.com", "Admin-Teste-2050", PerfilUsuario.ADMIN);
+        createUser("morador.teste@exemplo.com", "Morador-Teste-2050", PerfilUsuario.USER);
+        createUser("vizinho.teste@exemplo.com", "Vizinho-Teste-2050", PerfilUsuario.USER);
 
         Client resident = new Client();
         resident.login("morador.teste@exemplo.com", "Morador-Teste-2050");
@@ -244,10 +244,10 @@ class ApiIntegrationTest {
 
     @Test
     void routeCancellationCollectorIsolationAndHardening() throws Exception {
-        createUser("admin.rotas@exemplo.com", "Admin-Rotas-2050", Role.ADMIN);
-        createUser("coletor.a@exemplo.com", "Coletor-A-2050x", Role.COLLECTOR);
-        createUser("coletor.b@exemplo.com", "Coletor-B-2050x", Role.COLLECTOR);
-        createUser("morador.rotas@exemplo.com", "Morador-Rotas-2050", Role.USER);
+        createUser("admin.rotas@exemplo.com", "Admin-Rotas-2050", PerfilUsuario.ADMIN);
+        createUser("coletor.a@exemplo.com", "Coletor-A-2050x", PerfilUsuario.COLLECTOR);
+        createUser("coletor.b@exemplo.com", "Coletor-B-2050x", PerfilUsuario.COLLECTOR);
+        createUser("morador.rotas@exemplo.com", "Morador-Rotas-2050", PerfilUsuario.USER);
         String collectorA = users.findByEmail("coletor.a@exemplo.com").orElseThrow().getId().toString();
 
         Client resident = new Client();
@@ -318,7 +318,7 @@ class ApiIntegrationTest {
         assertThat(huge.getStatus()).isEqualTo(413);
     }
 
-    private void createUser(String email, String password, Role role) {
+    private void createUser(String email, String password, PerfilUsuario role) {
         if (users.findByEmail(email).isEmpty()) {
             users.save(new User("Usuário " + role.name().toLowerCase(), email, encoder.encode(password), role));
         }

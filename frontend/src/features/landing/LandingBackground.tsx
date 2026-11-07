@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { useMovimentoReduzido } from '@/hooks/useReducedMotion';
 import { cn } from '@/lib/cn';
 
-const CenaAbertura = lazy(() => import('./HeroScene'));
+export const CenaAbertura = lazy(() => import('./HeroScene'));
 
 function temWebGL(): boolean {
   try {
@@ -41,36 +41,46 @@ function FundoEstatico({ className }: { className?: string }) {
 }
 
 /**
- * Fundo fixo da landing. Pinta o estático imediatamente e, quando o navegador
- * fica ocioso, carrega a cena WebGL (chunk "three") e faz crossfade.
+ * Liga a cena 3D quando o navegador fica ocioso (só com WebGL e sem "reduzir movimento").
+ * `visivel` diz quando a cena já desenhou e pode substituir o quadro estático (crossfade).
+ * Usado pela landing e pelo painel das telas de login/cadastro.
  */
-export function FundoLanding() {
+export function useCena3D(ativo = true) {
   const reduzido = useMovimentoReduzido();
   const [montar, setMontar] = useState(false);
   const [pronta, setPronta] = useState(false);
   const [falhou, setFalhou] = useState(false);
   const [sumindo, setSumindo] = useState(false);
   // Falha/desempenho ruim: crossfade para o estático e só então desmonta a cena.
-  const tratarFalha = () => { setSumindo(true); window.setTimeout(() => setFalhou(true), 1600); };
+  const aoFalhar = () => { setSumindo(true); window.setTimeout(() => setFalhou(true), 1600); };
 
   useEffect(() => {
-    if (reduzido || !temWebGL()) return;
+    if (!ativo || reduzido || !temWebGL()) return;
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
     let id: number;
     if (w.requestIdleCallback) id = w.requestIdleCallback(() => setMontar(true), { timeout: 1200 });
     else id = window.setTimeout(() => setMontar(true), 300);
     return () => { if (w.cancelIdleCallback) w.cancelIdleCallback(id); else clearTimeout(id); };
-  }, [reduzido]);
+  }, [ativo, reduzido]);
 
-  const mostrarCena = montar && !falhou && !reduzido;
+  const mostrarCena = ativo && montar && !falhou && !reduzido;
+  return { mostrarCena, visivel: mostrarCena && pronta && !sumindo, aoFicarPronta: () => setPronta(true), aoFalhar };
+}
+
+/**
+ * Fundo fixo da landing. Pinta o estático imediatamente e, quando o navegador
+ * fica ocioso, carrega a cena WebGL (chunk "three") e faz crossfade.
+ */
+export function FundoLanding() {
+  const cena = useCena3D();
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-0 bg-bg [contain:strict] [will-change:transform]">
       <BrilhoAmbiente />
-      <FundoEstatico className={cn('transition-opacity duration-[1500ms]', pronta && mostrarCena && !sumindo ? 'opacity-0' : 'opacity-100')} />
-      {mostrarCena && (
-        <div className={cn('absolute inset-0 transition-opacity duration-[1500ms]', pronta && !sumindo ? 'opacity-100' : 'opacity-0')}>
+      <FundoEstatico className={cn('transition-opacity duration-[1500ms]', cena.visivel ? 'opacity-0' : 'opacity-100')} />
+      {cena.mostrarCena && (
+        <div className={cn('absolute inset-0 transition-opacity duration-[1500ms]', cena.visivel ? 'opacity-100' : 'opacity-0')}>
           <Suspense fallback={null}>
-            <CenaAbertura onReady={() => setPronta(true)} onFail={tratarFalha} />
+            <CenaAbertura onReady={cena.aoFicarPronta} onFail={cena.aoFalhar} />
           </Suspense>
         </div>
       )}

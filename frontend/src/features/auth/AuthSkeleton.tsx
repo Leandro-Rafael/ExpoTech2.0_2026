@@ -4,7 +4,7 @@ import { Logo } from '@/components/layout/Logo';
 /** Esqueleto com o mesmo layout de /entrar e /cadastro (enquanto o chunk da página carrega). */
 export function EsqueletoAuth() {
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1fr_1fr]" role="status" aria-label="Carregando">
+    <div className="grid min-h-dvh lg:h-dvh lg:grid-cols-[1fr_1fr] lg:overflow-hidden" role="status" aria-label="Carregando">
       <aside aria-hidden className="relative hidden overflow-hidden border-r border-line bg-bg lg:flex lg:flex-col">
         <img src="/scene/ring-desktop.webp" alt="" className="absolute inset-0 size-full object-cover object-[78%_45%] opacity-90" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgb(10_14_12/0.2)_0%,rgb(10_14_12/0)_35%,rgb(10_14_12/0.85)_72%,#0a0e0c_100%)]" />

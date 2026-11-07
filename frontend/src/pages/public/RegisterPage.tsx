@@ -74,7 +74,7 @@ export default function PaginaCadastro() {
       subtitulo="Em menos de um minuto você começa a ganhar pontos reciclando."
       rodape={<>Já tem conta? <Link to={`/entrar${localizacao.search}`} className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg">Entrar</Link></>}
     >
-      <form onSubmit={aoEnviar} noValidate className="space-y-5">
+      <form onSubmit={aoEnviar} noValidate className="space-y-5 [@media(max-height:900px)]:space-y-4 [@media(max-height:740px)]:space-y-3">
         <ErroFormulario erro={errors.root?.server} />
         <Campo label="Nome completo" erro={errors.name} required>
           <CampoTexto autoComplete="name" iconeEsquerda={UserRound} placeholder="Como devemos te chamar?" tamanhoCampo="lg" {...register('name')} />
@@ -94,7 +94,7 @@ export default function PaginaCadastro() {
             {...register('terms')}
             aria-invalid={errors.terms ? true : undefined}
             label="Concordo com os termos de uso e a política de privacidade"
-            description="Seus dados são usados apenas para o funcionamento da plataforma (LGPD)."
+            description={<span className="[@media(max-height:900px)]:sr-only">Seus dados são usados apenas para o funcionamento da plataforma (LGPD).</span>}
           />
           {errors.terms && <p role="alert" className="mt-1.5 text-[13px] text-danger">{errors.terms.message}</p>}
         </div>

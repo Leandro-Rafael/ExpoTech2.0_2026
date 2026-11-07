@@ -124,19 +124,18 @@ export default function PaginaLogin() {
       </form>
 
       {/* Credenciais de demonstração: e-mail e senha completos, preencher ou copiar */}
-      <section aria-labelledby="demo-title" className="mt-10">
+      <section aria-labelledby="demo-title" className="mt-8 [@media(max-height:900px)]:mt-6">
         <div className="mb-3 flex items-center gap-2">
           <KeyRound className="size-4 text-subtle" aria-hidden />
           <h2 id="demo-title" className="font-sans text-sm font-medium tracking-normal text-fg">Contas de demonstração</h2>
         </div>
         <ul className="divide-y divide-line rounded-2xl border border-line">
           {CONTAS_DEMO.map((d) => (
-            <li key={d.email} className={cn('flex items-center gap-3 px-4 py-3 transition-colors', preenchida === d.email && 'bg-white/[0.04]')}>
+            <li key={d.email} className={cn('flex items-center gap-3 px-4 py-2.5 transition-colors', preenchida === d.email && 'bg-white/[0.04]')}>
               <d.icon className="size-4 shrink-0 text-subtle" aria-hidden />
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-fg">{d.role}</p>
-                <p className="font-mono text-[12px] break-all text-muted">{d.email}</p>
-                <p className="font-mono text-[12px] text-fg-soft">{d.password}</p>
+                <p className="text-[13px] font-medium text-fg">{d.role} <span className="ml-1 font-mono text-[12px] font-normal text-fg-soft">{d.password}</span></p>
+                <p className="truncate font-mono text-[12px] text-muted" title={d.email}>{d.email}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <BotaoIcone icon={copiada === d.email ? Check : Copy} label={`Copiar credenciais de ${d.role}`} size="sm" onClick={() => copiarDemo(d)} />

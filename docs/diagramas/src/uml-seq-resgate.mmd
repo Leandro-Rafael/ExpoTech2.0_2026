@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    actor M as Morador
+    participant F as Front (React)
+    participant C as ControladorRecompensas
+    participant S as ServicoRecompensas
+    participant P as ServicoPontos
+    participant A as ServicoAuditoria
+    participant DB as PostgreSQL
+
+    M->>F: clica em "Resgatar"
+    F->>C: POST /api/rewards/{id}/redeem
+    activate C
+    C->>S: resgatar(usuarioId, recompensaId)
+    activate S
+    S->>S: limitador verifica a frequência (REDEEM_USER)
+    S->>P: travarUsuario(usuarioId)
+    P->>DB: SELECT ... FOR UPDATE (usuário)
+    S->>DB: trava a recompensa (PESSIMISTIC_WRITE)
+    alt recompensa inativa, sem estoque ou saldo insuficiente
+        S-->>C: ExcecaoApi (404 / OUT_OF_STOCK / INSUFFICIENT_POINTS)
+        C-->>F: erro com a mensagem
+        F-->>M: mostra o motivo
+    else tudo certo
+        S->>DB: decrementStock() e INSERT redemption (código LZ50-XXXX-XXXX)
+        S->>P: debitar(usuarioId, custo, ...)
+        P->>DB: INSERT point_transactions (hash encadeado no extrato)
+        S->>A: registrar(REWARD_REDEEMED, ...)
+        A->>DB: INSERT audit_log (hash encadeado na auditoria)
+        S-->>C: RedemptionDto
+        deactivate S
+        C-->>F: 201 + código do voucher
+        deactivate C
+        F-->>M: mostra o código para usar no parceiro
+    end

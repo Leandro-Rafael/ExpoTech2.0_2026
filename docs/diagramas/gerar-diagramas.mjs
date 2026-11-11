@@ -16,7 +16,7 @@ const docs = join(here, '..');
 const src = join(here, 'src');
 mkdirSync(src, { recursive: true });
 
-const files = ['MODELAGEM_DE_DADOS.md', 'FLUXOGRAMA.md', 'ARQUITETURA.md'];
+const files = ['MODELAGEM_DE_DADOS.md', 'FLUXOGRAMA.md', 'ARQUITETURA.md', 'UML.md'];
 const only = process.argv.slice(2);
 const blocks = [];
 for (const f of files) {

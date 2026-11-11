@@ -129,7 +129,7 @@ flowchart TD
 
 **Como explicar:**
 - O cadastro público cria sempre um **Morador**. Só o Administrador muda o perfil de alguém para Coletor ou Administrador (`PATCH /api/admin/users/{id}`). Isso evita que alguém "se promova" mandando `"role":"ADMIN"` no cadastro.
-- A navegação é filtrada por perfil no Front (`frontend/src/app/navigation.ts`, `RequireRole` em `frontend/src/app/router.tsx`), **mas quem garante a permissão é a API**: `/api/admin/**` só aceita `ADMIN` e `/api/collector/**` aceita `COLLECTOR` ou `ADMIN` (`security/SecurityConfig.java`).
+- A navegação é filtrada por perfil no Front (`frontend/src/app/navigation.ts`, `RequireRole` em `frontend/src/app/router.tsx`), **mas quem garante a permissão é a API**: `/api/admin/**` só aceita `ADMIN` e `/api/collector/**` aceita `COLLECTOR` ou `ADMIN` (`security/ConfigSeguranca.java`).
 - Coletor e Administrador também têm acesso às telas do Morador (linhas tracejadas).
 
 ---
@@ -138,7 +138,7 @@ flowchart TD
 
 ### 2.1 Login (com CSRF, JWT em cookie e bloqueio por tentativas)
 
-Código: `auth/AuthService.login`, `auth/LoginAttemptService.java`, `security/JwtService.java`, `security/AuthCookies.java`, `frontend/src/api/client.ts`.
+Código: `auth/ServicoAutenticacao.entrar`, `auth/ServicoTentativasLogin.java`, `security/ServicoJwt.java`, `security/CookiesAutenticacao.java`, `frontend/src/api/client.ts`.
 
 ![Login](diagramas/fluxo-login.png)
 
@@ -181,7 +181,7 @@ flowchart TD
 
 ### 2.2 Cada requisição autenticada e a renovação da sessão (refresh com rotação e detecção de reuso)
 
-Código: `security/JwtAuthenticationFilter.java`, `auth/RefreshTokenService.rotate`, `frontend/src/api/client.ts` (*single-flight*: uma única renovação compartilhada entre as chamadas).
+Código: `security/FiltroAutenticacaoJwt.java`, `auth/ServicoTokensRenovacao.rotacionar`, `frontend/src/api/client.ts` (*single-flight*: uma única renovação compartilhada entre as chamadas).
 
 ![Refresh](diagramas/fluxo-refresh.png)
 
@@ -224,7 +224,7 @@ flowchart TD
 
 ## 3. Registro de descarte
 
-Código: `frontend/src/pages/app/NewDisposalPage.tsx`, `photo/PhotoService.java`, `photo/ImageProcessor.java`, `ai/ClaudeVisionClassifier.java`, `frontend/src/features/resident/disposal/localClassifier.ts`, `disposal/DisposalService.create`, `fraud/FraudEngine.java`.
+Código: `frontend/src/pages/app/NewDisposalPage.tsx`, `photo/ServicoFotos.java`, `photo/ProcessadorImagem.java`, `ai/ClassificadorVisaoClaude.java`, `frontend/src/features/resident/disposal/localClassifier.ts`, `disposal/ServicoDescartes.criar`, `fraud/MotorFraude.java`.
 
 **3.1 Foto e sugestão da IA**
 
@@ -294,18 +294,18 @@ flowchart TD
     classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
 ```
 
-**Regras do motor antifraude** (`fraud/rules/`, cada uma é uma classe que implementa `FraudRule`):
+**Regras do motor antifraude** (`fraud/rules/`, cada uma é uma classe que implementa `RegraFraude`):
 
 | Regra (código) | Dispara quando | Risco |
 |---|---|---|
-| `FOTO_REPETIDA` (`PhotoReuseRule`) | Mesma foto (SHA-256) já enviada | +60 |
-| `FOTO_SEMELHANTE` (`SimilarPhotoRule`) | Foto parecida (dHash) nos últimos 180 dias | +30 (própria) / +40 (de outra pessoa) |
-| `LIMITE_DIARIO` (`DailyLimitRule`) | Mais de 50 kg no dia | +35 |
-| `CATEGORIA_DIVERGENTE_IA` (`AiMismatchRule`) | IA (confiança ≥ 0,7) discorda da categoria escolhida | +30 (servidor) / +15 (navegador) |
-| `DESLOCAMENTO_IMPOSSIVEL` (`LocationJumpRule`) | Saltos ≥ 10 km a mais de 120 km/h | +30 |
-| `MUITOS_REGISTROS` (`VelocityRule`) | Mais de 4 registros em 10 min | +30 |
-| `QUANTIDADE_ATIPICA` (`QuantityOutlierRule`) | Quantidade ≥ 80 % do máximo da categoria | +20 |
-| `SEM_FOTO` (`MissingPhotoRule`) | Acima de 5 kg sem foto | +15 |
+| `FOTO_REPETIDA` (`RegraFotoReutilizada`) | Mesma foto (SHA-256) já enviada | +60 |
+| `FOTO_SEMELHANTE` (`RegraFotoSemelhante`) | Foto parecida (dHash) nos últimos 180 dias | +30 (própria) / +40 (de outra pessoa) |
+| `LIMITE_DIARIO` (`RegraLimiteDiario`) | Mais de 50 kg no dia | +35 |
+| `CATEGORIA_DIVERGENTE_IA` (`RegraDivergenciaIa`) | IA (confiança ≥ 0,7) discorda da categoria escolhida | +30 (servidor) / +15 (navegador) |
+| `DESLOCAMENTO_IMPOSSIVEL` (`RegraSaltoLocalizacao`) | Saltos ≥ 10 km a mais de 120 km/h | +30 |
+| `MUITOS_REGISTROS` (`RegraVelocidade`) | Mais de 4 registros em 10 min | +30 |
+| `QUANTIDADE_ATIPICA` (`RegraQuantidadeAtipica`) | Quantidade ≥ 80 % do máximo da categoria | +20 |
+| `SEM_FOTO` (`RegraFotoAusente`) | Acima de 5 kg sem foto | +15 |
 
 A soma é limitada a 100. O palpite da IA do navegador **só pode aumentar** o risco, nunca reduzir nem dar bônus.
 
@@ -313,7 +313,7 @@ A soma é limitada a 100. O palpite da IA do navegador **só pode aumentar** o r
 
 ## 4. Moderação pelo administrador
 
-Código: `disposal/DisposalReviewService.java`, `points/PointsService.credit`, `integrity/LedgerChain.java`, `gamification/GamificationService.java`.
+Código: `disposal/ServicoRevisaoDescartes.java`, `points/ServicoPontos.creditar`, `integrity/CadeiaExtrato.java`, `gamification/ServicoGamificacao.java`.
 
 ![Moderação](diagramas/fluxo-moderacao.png)
 
@@ -360,7 +360,7 @@ flowchart TD
 
 ## 5. Resgate de recompensa
 
-Código: `reward/RewardService.redeem`, `points/PointsService.debit`.
+Código: `reward/ServicoRecompensas.resgatar`, `points/ServicoPontos.debitar`.
 
 ![Resgate](diagramas/fluxo-resgate.png)
 
@@ -392,13 +392,13 @@ flowchart TD
     classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
 ```
 
-Tudo acontece numa **única transação**: se qualquer passo falhar, nada é gravado (nem estoque, nem voucher, nem débito). Os códigos HTTP exatos dos erros de negócio estão em `common/ErrorCode.java`.
+Tudo acontece numa **única transação**: se qualquer passo falhar, nada é gravado (nem estoque, nem voucher, nem débito). Os códigos HTTP exatos dos erros de negócio estão em `common/CodigoErro.java`.
 
 ---
 
 ## 6. Smart Home: leitura IoT e pedido automático de coleta
 
-Código: `household/HouseholdService.java`, `household/SmartBinService.java`, `iot/IotController.java`, `iot/IotSimulator.java`.
+Código: `household/ServicoResidencia.java`, `household/ServicoLixeiras.java`, `iot/ControladorIot.java`, `iot/SimuladorIot.java`.
 
 **6.1 Configuração (uma vez, pelo morador)**
 
@@ -453,13 +453,13 @@ flowchart TD
     classDef err fill:#fee2e2,stroke:#b91c1c,color:#0a0e0c
 ```
 
-Os dois blocos se ligam quando o morador grava o `device_id` e a chave no dispositivo (ou quando a lixeira é simulada). Sem leitura há mais de 6 h, a lixeira aparece como **offline** (`APP_IOT_OFFLINE_HOURS`). Depois que o coletor conclui a parada, a lixeira volta a **0 %** (`SmartBinService.emptyAfterCollection`).
+Os dois blocos se ligam quando o morador grava o `device_id` e a chave no dispositivo (ou quando a lixeira é simulada). Sem leitura há mais de 6 h, a lixeira aparece como **offline** (`APP_IOT_OFFLINE_HOURS`). Depois que o coletor conclui a parada, a lixeira volta a **0 %** (`ServicoLixeiras.esvaziarAposColeta`).
 
 ---
 
 ## 7. Coleta e rota otimizada
 
-Código: `collection/CollectionRequestService.java`, `collection/PriorityCalculator.java`, `route/RouteService.java`, `route/RouteOptimizer.java`, `route/CollectorController.java`.
+Código: `collection/ServicoSolicitacoesColeta.java`, `collection/CalculadoraPrioridade.java`, `route/ServicoRotas.java`, `route/OtimizadorRotas.java`, `route/ControladorColetor.java`.
 
 **7.1 Planejamento pelo administrador (otimização)**
 
@@ -524,7 +524,7 @@ flowchart LR
 
 ## 8. Bloqueio por inspeção
 
-Código: `frontend/src/security/InspectionGuard.tsx`, `frontend/src/security/shortcuts.ts`, `frontend/src/security/devtoolsDetector.ts`, `security/InspectionService.java`, `admin/AdminService.unlockUser`.
+Código: `frontend/src/security/InspectionGuard.tsx`, `frontend/src/security/shortcuts.ts`, `frontend/src/security/devtoolsDetector.ts`, `security/ServicoInspecao.java`, `admin/ServicoAdmin.desbloquearUsuario`.
 
 ![Bloqueio por inspeção](diagramas/fluxo-inspecao.png)
 
@@ -560,7 +560,7 @@ O menu de contexto (botão direito) é desativado na área logada, mas **não co
 
 ## 9. Verificação de integridade (cadeia HMAC)
 
-Código: `integrity/LedgerChain.java`, `integrity/AuditChain.java`, `integrity/ChainHashes.java`, `integrity/IntegrityService.java`, `integrity/IntegrityController.java`.
+Código: `integrity/CadeiaExtrato.java`, `integrity/CadeiaAuditoria.java`, `integrity/HashesCadeia.java`, `integrity/ServicoIntegridade.java`, `integrity/ControladorIntegridade.java`.
 
 **9.1 Ao gravar um lançamento (extrato ou auditoria)**
 
@@ -689,7 +689,7 @@ sequenceDiagram
     A->>D: já existe descarte com essa chave?
     A->>A: valida categoria, kg, data, coordenadas, foto e ecoponto
     A->>D: consultas das regras antifraude (histórico, hashes)
-    A->>A: FraudEngine soma o risco (0–100)
+    A->>A: MotorFraude soma o risco (0–100)
     A->>D: INSERT disposals (PENDING, risco, pontos estimados)
     alt risco ≥ 50
         A->>D: INSERT audit_log DISPOSAL_FLAGGED

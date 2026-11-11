@@ -1,0 +1,44 @@
+flowchart LR
+    morador(["👤 Morador<br/>(USER)"])
+    coletor(["👤 Coletor<br/>(COLLECTOR)"])
+    admin(["👤 Administrador<br/>(ADMIN)"])
+    lixeira(["📡 Lixeira inteligente<br/>(sistema externo)"])
+
+    subgraph sistema["Sistema Lixo Zero 2050"]
+        direction TB
+        uc1(["Cadastrar-se e entrar"])
+        uc2(["Registrar descarte"])
+        uc3(["Sugerir categoria pela foto (IA)"])
+        uc4(["Analisar risco de fraude"])
+        uc5(["Consultar pontos e extrato"])
+        uc6(["Resgatar recompensa"])
+        uc7(["Ver ranking, níveis e medalhas"])
+        uc8(["Gerenciar residência e lixeiras"])
+        uc9(["Solicitar coleta"])
+        uc10(["Ver e cumprir rota otimizada"])
+        uc11(["Registrar coleta nas paradas"])
+        uc12(["Moderar descartes (aprovar / recusar)"])
+        uc13(["Gerenciar catálogo de recompensas e desafios"])
+        uc14(["Verificar integridade e auditoria"])
+        uc15(["Enviar leitura de nível"])
+    end
+
+    morador --- uc1
+    morador --- uc2
+    morador --- uc5
+    morador --- uc6
+    morador --- uc7
+    morador --- uc8
+    morador --- uc9
+    coletor --- uc1
+    coletor --- uc10
+    coletor --- uc11
+    admin --- uc1
+    admin --- uc12
+    admin --- uc13
+    admin --- uc14
+    lixeira --- uc15
+
+    uc2 -. "«include»" .-> uc4
+    uc3 -. "«extend»" .-> uc2
+    uc15 -. "«extend»<br/>(nível acima do limite)" .-> uc9

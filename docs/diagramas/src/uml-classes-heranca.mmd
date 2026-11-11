@@ -1,0 +1,20 @@
+classDiagram
+    direction TB
+    class BaseEntity {
+        <<abstract>>
+        -UUID id
+        -Instant createdAt
+        -Instant updatedAt
+    }
+    BaseEntity <|-- User
+    BaseEntity <|-- Household
+    BaseEntity <|-- SmartBin
+    BaseEntity <|-- Category
+    BaseEntity <|-- Photo
+    BaseEntity <|-- Disposal
+    BaseEntity <|-- PointTransaction
+    BaseEntity <|-- Reward
+    BaseEntity <|-- Redemption
+    BaseEntity <|-- CollectionRequest
+    BaseEntity <|-- CollectionRoute
+    BaseEntity <|-- RouteStop

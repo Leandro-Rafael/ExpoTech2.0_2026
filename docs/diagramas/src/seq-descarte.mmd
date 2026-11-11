@@ -23,7 +23,7 @@ sequenceDiagram
     A->>D: já existe descarte com essa chave?
     A->>A: valida categoria, kg, data, coordenadas, foto e ecoponto
     A->>D: consultas das regras antifraude (histórico, hashes)
-    A->>A: FraudEngine soma o risco (0–100)
+    A->>A: MotorFraude soma o risco (0–100)
     A->>D: INSERT disposals (PENDING, risco, pontos estimados)
     alt risco ≥ 50
         A->>D: INSERT audit_log DISPOSAL_FLAGGED

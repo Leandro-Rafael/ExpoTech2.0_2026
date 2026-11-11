@@ -1,0 +1,135 @@
+classDiagram
+    direction TB
+
+    class User {
+        -String name
+        -String email
+        -String passwordHash
+        -PerfilUsuario role
+        -long points
+        -long totalEarned
+        -int failedLoginAttempts
+        +isLocked() boolean
+        +isSecurityLocked() boolean
+    }
+
+    class PerfilUsuario {
+        <<enumeration>>
+        USER
+        COLLECTOR
+        ADMIN
+    }
+
+    class Household {
+        -String name
+        -String neighborhood
+        -String city
+        -String inviteCode
+    }
+
+    class SmartBin {
+        -String name
+        -int capacityLiters
+        -int fillLevel
+        -int autoRequestThreshold
+        -boolean simulated
+    }
+
+    class Category {
+        -CodigoCategoria code
+        -String name
+        -int pointsPerKg
+        -double co2FactorKg
+        -double maxKgPerDisposal
+    }
+
+    class Photo {
+        -String sha256
+        -long dhash
+        -CodigoCategoria aiCode
+        -Double aiConfidence
+        -OrigemIa aiSource
+        +isAiVerified() boolean
+    }
+
+    class Disposal {
+        -double quantityKg
+        -int estimatedPoints
+        -int pointsAwarded
+        -StatusDescarte status
+        -int fraudScore
+        -String rejectionReason
+        +approve(points, reviewer, at)
+        +reject(reason, reviewer, at)
+        +setFraud(score, flags, flagged)
+    }
+
+    class StatusDescarte {
+        <<enumeration>>
+        PENDING
+        APPROVED
+        REJECTED
+    }
+
+    class PointTransaction {
+        -PointTransactionType type
+        -int amount
+        -long balanceAfter
+        -long seq
+        -String prevHash
+        -String hash
+    }
+
+    class Reward {
+        -String name
+        -int costPoints
+        -int stock
+        -boolean active
+        +decrementStock()
+    }
+
+    class Redemption {
+        -int cost
+        -String code
+    }
+
+    class CollectionRequest {
+        -String address
+        -double estimatedKg
+        -Double collectedKg
+        -StatusSolicitacaoColeta status
+        +isOpen() boolean
+        +markCollected(kg)
+    }
+
+    class CollectionRoute {
+        -String name
+        -LocalDate plannedDate
+        -double totalDistanceKm
+        -double naiveDistanceKm
+        -StatusRota status
+        +start(collector, at)
+    }
+
+    class RouteStop {
+        -int sequence
+        +complete(kg, at)
+    }
+
+    User --> PerfilUsuario : role
+    User "*" --> "0..1" Household : mora em
+    Household "1" --> "*" SmartBin : possui
+    Disposal "*" --> "1" User : feito por
+    Disposal "*" --> "1" Category : categoria
+    Disposal "*" --> "0..1" Photo : foto
+    Disposal --> StatusDescarte : status
+    PointTransaction "*" --> "1" User : extrato de
+    PointTransaction "*" --> "0..1" Disposal : origem
+    PointTransaction "*" --> "0..1" Redemption : origem
+    Redemption "*" --> "1" User : feito por
+    Redemption "*" --> "1" Reward : troca
+    CollectionRequest "*" --> "1" User : pedida por
+    CollectionRequest "*" --> "0..1" SmartBin : gerada por
+    CollectionRoute "*" --> "1" User : coletor
+    CollectionRoute "1" *-- "*" RouteStop : paradas
+    RouteStop "*" --> "1" CollectionRequest : atende

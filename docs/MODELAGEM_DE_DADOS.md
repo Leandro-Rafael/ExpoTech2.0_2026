@@ -38,7 +38,7 @@ O banco é **relacional (PostgreSQL)** e tem **23 tabelas** organizadas em três
 |---|---|---|
 | **Chave primária UUID** em todas as tabelas | `id uuid primary key`; gerada na aplicação por `@GeneratedValue(strategy = UUID)` em `common/BaseEntity.java` | Não revela quantos registros existem (um id sequencial `/disposals/42` deixa adivinhar `/disposals/43`), permite inserções em lote e gerar o id antes de gravar. |
 | **Superclasse `BaseEntity`** | Toda entidade herda `id`, `created_at`, `updated_at` (preenchidos em `@PrePersist` / `@PreUpdate`) | Por isso **toda tabela tem `created_at` e `updated_at` `timestamptz not null`**. |
-| **PostgreSQL** | Embarcado em desenvolvimento (`config/EmbeddedPostgresConfig.java`) ou externo via `DB_URL` (pronto para Supabase) | Banco relacional exigido pelo edital; suporta `CHECK`, índices parciais, `bytea`, triggers e advisory locks, que usamos. |
+| **PostgreSQL** | Embarcado em desenvolvimento (`config/ConfigPostgresEmbutido.java`) ou externo via `DB_URL` (pronto para Supabase) | Banco relacional exigido pelo edital; suporta `CHECK`, índices parciais, `bytea`, triggers e advisory locks, que usamos. |
 | **Esquema versionado com Flyway** | `spring.jpa.hibernate.ddl-auto: none` + migrações `V1`…`V6` | O Hibernate **nunca** altera o banco; cada mudança é um arquivo SQL revisável e reproduzível em qualquer máquina. |
 | **Datas em `timestamptz` (UTC)** | `hibernate.jdbc.time_zone: UTC`; fuso de exibição `America/Sao_Paulo` | Evita erros de fuso e horário de verão. |
 | **Quantidades em `numeric`** | `quantity_kg numeric(10,3)`, `co2_factor_kg numeric(8,3)`... | Precisão decimal exata (sem erros de ponto flutuante em pesos). Coordenadas usam `double precision`. |
@@ -46,7 +46,7 @@ O banco é **relacional (PostgreSQL)** e tem **23 tabelas** organizadas em três
 | **Enums como `varchar` + `CHECK`** | Ex.: `status in ('PENDING','APPROVED','REJECTED')`; no Java `@Enumerated(STRING)` | Legível em consultas e relatórios; o `CHECK` impede valores fora da lista. |
 | **Livro-razão de pontos *append-only*** | `point_transactions` só aceita `INSERT`; triggers recusam `UPDATE/DELETE/TRUNCATE` (`V6__append_only.sql`); entidade `@Immutable` | O extrato é a prova de cada ponto ganho ou gasto; ninguém "corrige" saldo apagando linha. |
 | **Cadeia de integridade HMAC-SHA256** | Colunas `seq`, `prev_hash`, `hash` em `point_transactions` (cadeia por usuário) e `audit_log` (cadeia global) | Como um "mini-blockchain": alterar qualquer linha direto no banco quebra a cadeia e é detectado por `GET /api/admin/integrity`. A chave HMAC fica **fora** do banco. |
-| **Auditoria** | `audit_log` sem FK no ator, gravada em transação própria (`audit/AuditService.java`) | Registra quem fez o quê e quando, mesmo que a operação principal falhe. |
+| **Auditoria** | `audit_log` sem FK no ator, gravada em transação própria (`audit/ServicoAuditoria.java`) | Registra quem fez o quê e quando, mesmo que a operação principal falhe. |
 | **Fotos no próprio banco (`bytea`)** | `photos.data` | Funciona sem serviço de arquivos externo (ex.: Supabase gratuito). As imagens são reencodadas (máx. 1600 px, sem EXIF/GPS). |
 | **Concorrência otimista** | Coluna `version` em `disposals` e `collection_requests` (`@Version`) | Dois administradores editando o mesmo registro: o segundo recebe conflito em vez de sobrescrever. Além disso, os serviços usam *locks* pessimistas (`SELECT ... FOR UPDATE`) em saldo, estoque, aprovação, rotas e lixeiras. |
 
@@ -105,7 +105,7 @@ erDiagram
     }
 ```
 
-> `goals` (metas anuais de reciclagem) não se relaciona com outras tabelas: os indicadores são **calculados** a partir de `disposals` e comparados com a meta (`impact/ImpactService.java`).
+> `goals` (metas anuais de reciclagem) não se relaciona com outras tabelas: os indicadores são **calculados** a partir de `disposals` e comparados com a meta (`impact/ServicoImpacto.java`).
 
 ### 2.1 Usuários, Residência e Segurança
 
@@ -379,7 +379,7 @@ Entidade: `user/User.java`.
 |---|---|---|---|
 | `id` | uuid | NN | **PK** |
 | `name` | varchar(100) | NN | Nome exibido |
-| `email` | varchar(254) | NN | **UK** `uq_users_email`; normalizado em minúsculas (`common/Text.normalizeEmail`) |
+| `email` | varchar(254) | NN | **UK** `uq_users_email`; normalizado em minúsculas (`common/Textos.normalizarEmail`) |
 | `password_hash` | varchar(255) | NN | Hash **Argon2id** (nunca a senha) |
 | `role` | varchar(20) | NN | `CHECK in ('USER','COLLECTOR','ADMIN')` — perfil de acesso |
 | `enabled` | boolean | NN | Default `true`; conta desativada pelo admin não entra |
@@ -440,7 +440,7 @@ Entidade: `auth/RefreshToken.java`.
 Índices: `ix_refresh_tokens_user`, `ix_refresh_tokens_family`, `ix_refresh_tokens_expires` (V3, limpeza diária às 03:30).
 
 #### `audit_log` — trilha de auditoria (append-only, encadeada)
-Entidade: `audit/AuditLog.java` (`@Immutable`). Ações em `audit/AuditAction.java`.
+Entidade: `audit/AuditLog.java` (`@Immutable`). Ações em `audit/AcaoAuditoria.java`.
 
 | Coluna | Tipo | Nulo | Descrição |
 |---|---|---|---|
@@ -465,10 +465,10 @@ Entidade: `category/Category.java`. Dados iniciais em `V2__reference_data.sql` (
 | Coluna | Tipo | Nulo | Descrição |
 |---|---|---|---|
 | `id` | uuid | NN | **PK** |
-| `code` | varchar(20) | NN | **UK**; `CHECK in ('PLASTICO','PAPEL','VIDRO','METAL','ORGANICO','ELETRONICO','REJEITO')` (enum `CategoryCode`) |
+| `code` | varchar(20) | NN | **UK**; `CHECK in ('PLASTICO','PAPEL','VIDRO','METAL','ORGANICO','ELETRONICO','REJEITO')` (enum `CodigoCategoria`) |
 | `name` | varchar(60) | NN | Nome exibido |
 | `description` | varchar(500) | NN | O que entra na categoria |
-| `guidance` | text | NN | Orientações de descarte, uma por linha (lista via `StringListConverter`) |
+| `guidance` | text | NN | Orientações de descarte, uma por linha (lista via `ConversorListaTexto`) |
 | `points_per_kg` | integer | NN | `CHECK between 0 and 1000` |
 | `co2_factor_kg` | numeric(8,3) | NN | kg de CO₂e evitados por kg; `CHECK >= 0` |
 | `recyclable` | boolean | NN | Entra no indicador de reciclagem |
@@ -554,7 +554,7 @@ Mapeada como `@ElementCollection` em `CollectionPoint`.
 | `category_code` | varchar(20) | NN | **PK** composta; código da categoria (sem FK — ver §5) |
 
 #### `point_transactions` — extrato de pontos (livro-razão, append-only, encadeado)
-Entidade: `points/PointTransaction.java` (`@Immutable`); inserção por `integrity/LedgerChain.java`.
+Entidade: `points/PointTransaction.java` (`@Immutable`); inserção por `integrity/CadeiaExtrato.java`.
 
 | Coluna | Tipo | Nulo | Descrição |
 |---|---|---|---|
@@ -637,7 +637,7 @@ Restrição: **`uq_challenge_completion (user_id, challenge_id)`**.
 |---|---|---|---|
 | `id` | uuid | NN | **PK** |
 | `user_id` | uuid | NN | **FK** → `users.id` `ON DELETE CASCADE` |
-| `badge_code` | varchar(40) | NN | Código da medalha (catálogo no código: `gamification/badge/BadgeCatalog.java`) |
+| `badge_code` | varchar(40) | NN | Código da medalha (catálogo no código: `gamification/badge/CatalogoMedalhas.java`) |
 | `awarded_at` | timestamptz | NN | Quando ganhou |
 
 Restrição: **`uq_user_badge (user_id, badge_code)`** — cada medalha uma vez.
@@ -671,7 +671,7 @@ Entidade: `household/SmartBin.java`.
 | `last_reading_at` | timestamptz | N | Última leitura (status *offline* após 6 h) |
 | `device_id` | uuid | NN | **UK** `uq_smart_bins_device` — enviado no header `X-Device-Id` |
 | `device_key_hash` | varchar(64) | NN | SHA-256 da chave do dispositivo (a chave é mostrada **uma vez**) |
-| `simulated` | boolean | NN | Atualizada pelo simulador IoT (`iot/IotSimulator.java`) |
+| `simulated` | boolean | NN | Atualizada pelo simulador IoT (`iot/SimuladorIot.java`) |
 
 Índices: `ix_smart_bins_household`, parcial `ix_smart_bins_simulated (id) WHERE simulated` (V3).
 
@@ -758,7 +758,7 @@ Restrições: **`uq_route_stop_sequence (route_id, sequence) DEFERRABLE INITIALL
 | `trg_point_tx_append_only` | trigger `BEFORE UPDATE OR DELETE ... FOR EACH ROW` | V6 | Protege o extrato |
 | `trg_point_tx_no_truncate` | trigger `BEFORE TRUNCATE ... FOR EACH STATEMENT` | V6 | Protege o extrato |
 | `trg_audit_append_only` / `trg_audit_no_truncate` | triggers | V6 | Protegem a auditoria |
-| Advisory lock `pg_advisory_xact_lock` | lock transacional | `integrity/AuditChain.java` | Serializa inserções na cadeia global da auditoria sem travar tabela |
+| Advisory lock `pg_advisory_xact_lock` | lock transacional | `integrity/CadeiaAuditoria.java` | Serializa inserções na cadeia global da auditoria sem travar tabela |
 
 ---
 
@@ -768,35 +768,35 @@ Estratégia: **defesa em camadas**. A validação aparece primeiro na interface 
 
 | # | Regra | Banco (constraint / índice / trigger) | Aplicação (serviço / entidade) |
 |---|---|---|---|
-| 1 | **Apenas descartes APROVADOS geram pontos** | `ck_disposals_points CHECK (status = 'APPROVED' OR points_awarded = 0)` | Descarte nasce `PENDING` (`DisposalService.create`); pontos só em `DisposalReviewService.approveInternal` |
+| 1 | **Apenas descartes APROVADOS geram pontos** | `ck_disposals_points CHECK (status = 'APPROVED' OR points_awarded = 0)` | Descarte nasce `PENDING` (`ServicoDescartes.criar`); pontos só em `ServicoRevisaoDescartes.aprovarInterno` |
 | 2 | **Cada descarte gera pontos uma única vez** | Índice único parcial `ux_point_tx_disposal` (EARN por `disposal_id`) | Lock pessimista na linha do descarte; aprovar de novo é idempotente; `Disposal.approve` só aceita `PENDING` |
-| 3 | Descarte recusado não pode ser aprovado (e vice-versa) | — | `DisposalReviewService.approve/reject` → 409 Conflict |
-| 4 | Admin não aprova o próprio descarte | — | `DisposalReviewService.approve` |
-| 5 | **Uma foto comprova um único descarte** | `uq_disposals_photo UNIQUE (photo_id)` | `DisposalService.create` (`existsByPhotoId`) + regras `PhotoReuseRule`/`SimilarPhotoRule` (SHA-256 e dHash) |
-| 6 | Foto de outra pessoa não pode ser usada | — | `DisposalService.create` filtra por dono → 404 |
-| 7 | Quantidade válida | `CHECK (quantity_kg > 0)`; `max_kg_per_disposal > 0` | Mínimo 0,01 kg e máximo da categoria (`DisposalService.create`) |
-| 8 | Data do descarte: até 7 dias atrás e não no futuro | — | `DisposalService.create` (tolerância de 5 min de relógio) |
-| 9 | Latitude e longitude juntas e em faixa válida | `ck_disposals_coords` + `CHECK between` | `DisposalService.create` |
-| 10 | Clique duplo não duplica o descarte | `uq_disposals_idempotency (user_id, idempotency_key)` | `DisposalService.findByIdempotencyKey` |
-| 11 | Risco antifraude ≥ 50 → revisão obrigatória | `CHECK fraud_score between 0 and 100`; índice parcial da fila | `fraud/FraudEngine.java` (8 regras somadas, limite `APP_FRAUD_THRESHOLD`) |
-| 12 | Bônus de +10 % só com IA **do servidor** confirmando a categoria final | colunas `ai_verified`, `client_ai_*` (V4) separam o palpite do navegador | `Disposal.aiBonusApplies()`, `PointsCalculator` (foto ≤ 24 h, confiança ≥ 0,6), reavaliado na aprovação |
-| 13 | **Saldo nunca negativo** | `CHECK (users.points >= 0)` e `CHECK (balance_after >= 0)` | `PointsService.debit` verifica o saldo com a linha do usuário travada |
-| 14 | **Estoque nunca negativo** | `CHECK (rewards.stock >= 0)` | `RewardService.redeem`: trava usuário → trava recompensa (ordem fixa evita *deadlock*) → confere → debita |
-| 15 | Voucher único | `uq_redemptions_code` | `RewardService.newVoucherCode` (SecureRandom, até 10 tentativas) |
-| 16 | Bônus de desafio uma vez por usuário | `ux_point_tx_challenge` + `uq_challenge_completion` | `GamificationService.onDisposalApproved` |
-| 17 | Medalha uma vez por usuário | `uq_user_badge` | `GamificationService.awardBadges` |
-| 18 | **Extrato e auditoria são append-only** | Triggers `lz_forbid_change()` (V6) | Entidades `@Immutable`; inserção só por `LedgerChain` / `AuditChain` |
-| 19 | **Integridade verificável** (ninguém altera pontos "por fora") | `seq` `NOT NULL` + `ux_point_tx_chain`, `ux_audit_chain` | HMAC-SHA256 em `integrity/`; `IntegrityService.verify` confere cadeia e saldos (`users.points` = soma = último `balance_after`) |
-| 20 | **Bloqueio por senha errada**: 5 erros → 15 min | colunas `failed_login_attempts`, `locked_until` | `auth/LoginAttemptService.java` (memória + banco) |
-| 21 | **Bloqueio por inspeção**: 3 avisos → 30 min, sessões revogadas | `CHECK security_warnings between 0 and 3` | `security/InspectionService.java`; desbloqueio pelo admin em `AdminService.unlockUser` |
-| 22 | Refresh token reutilizado revoga a família inteira | `uq_refresh_tokens_hash`; `family_id` indexado | `auth/RefreshTokenService.rotate` |
-| 23 | Uma solicitação aberta por lixeira | `ux_open_request_per_bin` (índice único parcial) | `SmartBinService.recordReading` (lixeira travada) |
-| 24 | Solicitação em no máximo uma rota | `ux_route_stops_request` | `RouteService.loadSchedulable` (só `REQUESTED`, com lock) |
+| 3 | Descarte recusado não pode ser aprovado (e vice-versa) | — | `ServicoRevisaoDescartes.aprovar/reject` → 409 Conflict |
+| 4 | Admin não aprova o próprio descarte | — | `ServicoRevisaoDescartes.aprovar` |
+| 5 | **Uma foto comprova um único descarte** | `uq_disposals_photo UNIQUE (photo_id)` | `ServicoDescartes.criar` (`existsByPhotoId`) + regras `RegraFotoReutilizada`/`RegraFotoSemelhante` (SHA-256 e dHash) |
+| 6 | Foto de outra pessoa não pode ser usada | — | `ServicoDescartes.criar` filtra por dono → 404 |
+| 7 | Quantidade válida | `CHECK (quantity_kg > 0)`; `max_kg_per_disposal > 0` | Mínimo 0,01 kg e máximo da categoria (`ServicoDescartes.criar`) |
+| 8 | Data do descarte: até 7 dias atrás e não no futuro | — | `ServicoDescartes.criar` (tolerância de 5 min de relógio) |
+| 9 | Latitude e longitude juntas e em faixa válida | `ck_disposals_coords` + `CHECK between` | `ServicoDescartes.criar` |
+| 10 | Clique duplo não duplica o descarte | `uq_disposals_idempotency (user_id, idempotency_key)` | `ServicoDescartes.buscarPorChaveIdempotencia` |
+| 11 | Risco antifraude ≥ 50 → revisão obrigatória | `CHECK fraud_score between 0 and 100`; índice parcial da fila | `fraud/MotorFraude.java` (8 regras somadas, limite `APP_FRAUD_THRESHOLD`) |
+| 12 | Bônus de +10 % só com IA **do servidor** confirmando a categoria final | colunas `ai_verified`, `client_ai_*` (V4) separam o palpite do navegador | `Disposal.aiBonusApplies()`, `CalculadoraPontos` (foto ≤ 24 h, confiança ≥ 0,6), reavaliado na aprovação |
+| 13 | **Saldo nunca negativo** | `CHECK (users.points >= 0)` e `CHECK (balance_after >= 0)` | `ServicoPontos.debitar` verifica o saldo com a linha do usuário travada |
+| 14 | **Estoque nunca negativo** | `CHECK (rewards.stock >= 0)` | `ServicoRecompensas.resgatar`: trava usuário → trava recompensa (ordem fixa evita *deadlock*) → confere → debita |
+| 15 | Voucher único | `uq_redemptions_code` | `ServicoRecompensas.novoCodigoVoucher` (SecureRandom, até 10 tentativas) |
+| 16 | Bônus de desafio uma vez por usuário | `ux_point_tx_challenge` + `uq_challenge_completion` | `ServicoGamificacao.aoAprovarDescarte` |
+| 17 | Medalha uma vez por usuário | `uq_user_badge` | `ServicoGamificacao.concederMedalhas` |
+| 18 | **Extrato e auditoria são append-only** | Triggers `lz_forbid_change()` (V6) | Entidades `@Immutable`; inserção só por `CadeiaExtrato` / `CadeiaAuditoria` |
+| 19 | **Integridade verificável** (ninguém altera pontos "por fora") | `seq` `NOT NULL` + `ux_point_tx_chain`, `ux_audit_chain` | HMAC-SHA256 em `integrity/`; `ServicoIntegridade.verificar` confere cadeia e saldos (`users.points` = soma = último `balance_after`) |
+| 20 | **Bloqueio por senha errada**: 5 erros → 15 min | colunas `failed_login_attempts`, `locked_until` | `auth/ServicoTentativasLogin.java` (memória + banco) |
+| 21 | **Bloqueio por inspeção**: 3 avisos → 30 min, sessões revogadas | `CHECK security_warnings between 0 and 3` | `security/ServicoInspecao.java`; desbloqueio pelo admin em `ServicoAdmin.desbloquearUsuario` |
+| 22 | Refresh token reutilizado revoga a família inteira | `uq_refresh_tokens_hash`; `family_id` indexado | `auth/ServicoTokensRenovacao.rotacionar` |
+| 23 | Uma solicitação aberta por lixeira | `ux_open_request_per_bin` (índice único parcial) | `ServicoLixeiras.registrarLeitura` (lixeira travada) |
+| 24 | Solicitação em no máximo uma rota | `ux_route_stops_request` | `ServicoRotas.carregarAgendaveis` (só `REQUESTED`, com lock) |
 | 25 | Ordem das paradas sem repetição | `uq_route_stop_sequence` (deferrable) | `CollectionRoute.removeStop` renumera e recalcula métricas |
-| 26 | Limite de 5 solicitações abertas por morador | — | `CollectionRequestService.create` |
-| 27 | Limites de 12 moradores e 12 lixeiras por residência | `uq_households_invite` | `HouseholdService.join`, `SmartBinService.create` (residência travada) |
-| 28 | E-mail único; senha forte com hash seguro | `uq_users_email` | `PasswordPolicy` (10+ caracteres, letra e número, fora de lista comum) + Argon2id (`SecurityConfig`) |
-| 29 | Cores de categoria válidas, faixas de pontos, metas entre 0 e 1 | `CHECK` em `categories`, `goals` | DTOs com Bean Validation (`CategoryDtos`, `ImpactDtos.GoalInput`) |
+| 26 | Limite de 5 solicitações abertas por morador | — | `ServicoSolicitacoesColeta.criar` |
+| 27 | Limites de 12 moradores e 12 lixeiras por residência | `uq_households_invite` | `ServicoResidencia.entrar`, `ServicoLixeiras.criar` (residência travada) |
+| 28 | E-mail único; senha forte com hash seguro | `uq_users_email` | `PoliticaSenha` (10+ caracteres, letra e número, fora de lista comum) + Argon2id (`ConfigSeguranca`) |
+| 29 | Cores de categoria válidas, faixas de pontos, metas entre 0 e 1 | `CHECK` em `categories`, `goals` | DTOs com Bean Validation (`DtosCategoria`, `DtosImpacto.GoalInput`) |
 
 ---
 
@@ -816,19 +816,19 @@ Dados de referência ficam em uma tabela só e são referenciados por FK: o nome
 
 | Coluna | Deriva de | Por que existe | Como garantimos a consistência |
 |---|---|---|---|
-| `users.points` e `users.total_earned` | Soma de `point_transactions.amount` (total / só positivos) | Ler o saldo é constante (O(1)); é consultado em toda tela e no resgate | Atualizados na **mesma transação** do lançamento, com lock pessimista; `CHECK >= 0`; **`IntegrityService.verifyBalances()`** confere `points = soma = último balance_after` e `total_earned = soma dos ganhos` |
+| `users.points` e `users.total_earned` | Soma de `point_transactions.amount` (total / só positivos) | Ler o saldo é constante (O(1)); é consultado em toda tela e no resgate | Atualizados na **mesma transação** do lançamento, com lock pessimista; `CHECK >= 0`; **`ServicoIntegridade.verificarSaldos()`** confere `points = soma = último balance_after` e `total_earned = soma dos ganhos` |
 | `point_transactions.balance_after` | Soma acumulada | Extrato legível e base da cadeia HMAC | Entra no hash; a verificação confere `balance_after = anterior + amount` |
 | `smart_bins.fill_level`, `battery_level`, `last_reading_at` | Última linha de `bin_readings` | Mostrar o painel sem varrer o histórico | Gravados juntos com a leitura (`SmartBin.applyReading` + `BinReading`) na mesma transação |
 | `routes.total_distance_km`, `naive_distance_km`, `estimated_minutes`, `load_kg` | Paradas + algoritmo | Resultado de um cálculo caro (otimizador) | Recalculados em `CollectionRoute.removeStop` quando uma parada é cancelada |
 | `disposals.points_awarded`, `estimated_points` | Categoria × kg (+ bônus) | Registro histórico: se o admin mudar `points_per_kg` depois, o descarte antigo não muda | `ck_disposals_points`; o crédito real está no extrato |
 | `redemptions.cost` | `rewards.cost_points` | **Fato histórico** (preço pago no dia), não redundância | — |
 | `disposals.ai_*` | `photos.ai_*` | "Fotografia" da sugestão verificada no momento do registro | Copiado só pelo servidor (`Disposal.recordServerAi`) |
-| `collection_requests.collected_kg` e `route_stops.collected_kg` | Mesmo valor informado pelo coletor | A parada guarda o que o coletor digitou; a solicitação guarda o peso final (estimado, se o coletor não informou) | Gravados juntos em `RouteService.completeStop` |
+| `collection_requests.collected_kg` e `route_stops.collected_kg` | Mesmo valor informado pelo coletor | A parada guarda o que o coletor digitou; a solicitação guarda o peso final (estimado, se o coletor não informou) | Gravados juntos em `ServicoRotas.concluirParada` |
 
 ### Chaves "naturais" sem FK (decisão consciente)
 
-- `collection_point_categories.category_code`, `collection_request_categories.category_code` e `challenges.category_code` guardam o **código** da categoria (ex.: `PLASTICO`), que é `UNIQUE` em `categories`, mas **não há FK**. Os códigos são um conjunto fixo (enum `CategoryCode` no Java + `CHECK` em `categories.code`), e o JPA converte o valor para o enum ao ler — um código inválido não chega a ser gravado pela aplicação.
-- `user_badges.badge_code` referencia o catálogo de medalhas **definido em código** (`BadgeCatalog`), não uma tabela.
+- `collection_point_categories.category_code`, `collection_request_categories.category_code` e `challenges.category_code` guardam o **código** da categoria (ex.: `PLASTICO`), que é `UNIQUE` em `categories`, mas **não há FK**. Os códigos são um conjunto fixo (enum `CodigoCategoria` no Java + `CHECK` em `categories.code`), e o JPA converte o valor para o enum ao ler — um código inválido não chega a ser gravado pela aplicação.
+- `user_badges.badge_code` referencia o catálogo de medalhas **definido em código** (`CatalogoMedalhas`), não uma tabela.
 - `audit_log.actor_id` não tem FK de propósito (a auditoria precisa sobreviver à exclusão do usuário).
 
 ---

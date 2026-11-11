@@ -1,0 +1,90 @@
+classDiagram
+    direction LR
+
+    class ControladorDescartes {
+        <<RestController>>
+    }
+    class ServicoDescartes {
+        +criar(...)
+        +listarMeus(...)
+        +buscar(...)
+    }
+    class ServicoRevisaoDescartes {
+        +aprovar(...)
+        +recusar(...)
+        +fila(...)
+    }
+    class CalculadoraPontos {
+        +calcular(pontosPorKg, kg, bonusIa)$ int
+    }
+    class MotorFraude {
+        -List~RegraFraude~ regras
+        +avaliar(contexto) FraudAssessment
+    }
+    class RegraFraude {
+        <<interface>>
+        +codigo() String
+        +avaliar(ContextoFraude) Optional~SinalFraude~
+    }
+    class RegraFotoReutilizada
+    class RegraFotoSemelhante
+    class RegraFotoAusente
+    class RegraDivergenciaIa
+    class RegraLimiteDiario
+    class RegraQuantidadeAtipica
+    class RegraSaltoLocalizacao
+    class RegraVelocidade
+
+    class ClassificadorResiduos {
+        <<interface>>
+        +estaDisponivel() boolean
+        +classificar(byte[] jpeg) Optional~Classification~
+    }
+    class ClassificadorVisaoClaude
+    class ClassificadorIndisponivel
+
+    class ServicoPontos {
+        +creditar(...)
+        +debitar(...)
+        +historico(...)
+    }
+    class CadeiaExtrato {
+        +anexar(...)
+    }
+    class ServicoRecompensas {
+        +listarAtivas()
+        +resgatar(usuarioId, recompensaId)
+    }
+    class ServicoAuditoria {
+        +registrar(acao, entidade, id, detalhes)
+    }
+    class CadeiaAuditoria
+    class ServicoGamificacao {
+        +aoAprovarDescarte(...)
+        +concederMedalhas(...)
+    }
+
+    ControladorDescartes --> ServicoDescartes
+    ServicoDescartes --> MotorFraude
+    ServicoDescartes --> ServicoRevisaoDescartes : aprovação automática
+    ServicoDescartes ..> CalculadoraPontos : usa
+    ServicoRevisaoDescartes --> ServicoPontos
+    ServicoRevisaoDescartes --> ServicoGamificacao
+    MotorFraude "1" o-- "*" RegraFraude : regras
+
+    RegraFraude <|.. RegraFotoReutilizada
+    RegraFraude <|.. RegraFotoSemelhante
+    RegraFraude <|.. RegraFotoAusente
+    RegraFraude <|.. RegraDivergenciaIa
+    RegraFraude <|.. RegraLimiteDiario
+    RegraFraude <|.. RegraQuantidadeAtipica
+    RegraFraude <|.. RegraSaltoLocalizacao
+    RegraFraude <|.. RegraVelocidade
+
+    ClassificadorResiduos <|.. ClassificadorVisaoClaude
+    ClassificadorResiduos <|.. ClassificadorIndisponivel
+
+    ServicoPontos --> CadeiaExtrato
+    ServicoRecompensas --> ServicoPontos
+    ServicoRecompensas --> ServicoAuditoria
+    ServicoAuditoria --> CadeiaAuditoria
